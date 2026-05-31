@@ -126,10 +126,13 @@ Create `package.json`:
     "client"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace server & npm run dev --workspace client",
+    "dev": "concurrently \"npm run dev --workspace server\" \"npm run dev --workspace client\"",
     "build": "npm run build --workspace server && npm run build --workspace client",
     "test": "npm run test --workspace server && npm run test --workspace client",
     "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   },
   "engines": {
     "node": ">=20.11.0"
@@ -190,7 +193,7 @@ Create `server/package.json`:
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -205,6 +208,8 @@ Create `server/package.json`:
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
+    "@types/sql.js": "^1.4.11",
+    "@types/supertest": "^6.0.2",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
@@ -239,7 +244,7 @@ Create `client/package.json`:
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "tsc -p tsconfig.json && vite build",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -585,12 +590,15 @@ export function applySchema(db: AppDatabase) {
 Create `server/src/db/client.ts`:
 
 ```ts
+import initSqlJs, { type Database as SqlJsDatabase, type SqlJsStatic } from "sql.js";
 import { applySchema } from "./schema.js";
 
+export type AppStatementParams = [] | [Record<string, unknown>] | [unknown, ...unknown[]];
+
 export interface AppStatement {
-  run(params?: Record<string, unknown> | unknown[]): void;
-  get<T>(params?: unknown[]): T | undefined;
-  all<T>(params?: unknown[]): T[];
+  run(...params: AppStatementParams): void;
+  get<T>(...params: AppStatementParams): T | undefined;
+  all<T>(...params: AppStatementParams): T[];
 }
 
 export interface AppDatabase {
@@ -599,35 +607,57 @@ export interface AppDatabase {
   close(): void;
 }
 
-export async function createDatabase(_path: string): Promise<AppDatabase> {
-  const initSqlJs = (await import("sql.js")).default;
-  const SQL = await initSqlJs();
-  const db = new SQL.Database();
+let sqlRuntime: SqlJsStatic | null = null;
+
+export async function initializeSqlRuntime() {
+  sqlRuntime = await initSqlJs();
+}
+
+export function createDatabase(_path: string): AppDatabase {
+  if (!sqlRuntime) {
+    throw new Error("SQL runtime not initialized. Call initializeSqlRuntime() before createDatabase().");
+  }
+
+  const db = new sqlRuntime.Database();
   db.run("pragma foreign_keys = ON");
   const appDb = createAppDatabase(db);
   applySchema(appDb);
   return appDb;
 }
 
+function normalizeParams(params: unknown[]): unknown[] | Record<string, unknown> {
+  if (params.length === 1 && isPlainObject(params[0])) {
+    return Object.fromEntries(
+      Object.entries(params[0] as Record<string, unknown>).map(([key, value]) => [key.startsWith("@") ? key : `@${key}`, value])
+    );
+  }
+
+  return params;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function rowsToObjects<T>(columns: string[], values: unknown[][]): T[] {
   return values.map((row) => Object.fromEntries(columns.map((column, index) => [column, row[index]])) as T);
 }
 
-function createAppDatabase(db: import("sql.js").Database): AppDatabase {
+function createAppDatabase(db: SqlJsDatabase): AppDatabase {
   return {
     exec(sql) {
       db.run(sql);
     },
     prepare(sql) {
       return {
-        run(params = []) {
-          db.run(sql, params);
+        run(...params: unknown[]) {
+          db.run(sql, normalizeParams(params));
         },
-        get<T>(params = []) {
-          return this.all<T>(params)[0];
+        get<T>(...params: unknown[]) {
+          return this.all<T>(...params)[0];
         },
-        all<T>(params = []) {
-          const result = db.exec(sql, params);
+        all<T>(...params: unknown[]) {
+          const result = db.exec(sql, normalizeParams(params));
           if (result.length === 0) return [];
           return rowsToObjects<T>(result[0].columns, result[0].values as unknown[][]);
         }
@@ -643,7 +673,12 @@ function createAppDatabase(db: import("sql.js").Database): AppDatabase {
 Create `server/src/test/testDb.ts`:
 
 ```ts
-import { createDatabase } from "../db/client.js";
+import { beforeAll } from "vitest";
+import { createDatabase, initializeSqlRuntime } from "../db/client.js";
+
+beforeAll(async () => {
+  await initializeSqlRuntime();
+});
 
 export function createTestDatabase() {
   return createDatabase(":memory:");
@@ -979,6 +1014,8 @@ git commit -m "feat: add provider and model repositories"
 
 **Files:**
 - Modify: `server/src/app.ts`
+- Modify: `server/src/index.ts`
+- Modify: `server/src/app.test.ts`
 - Create: `server/src/routes/providers.ts`
 - Create: `server/src/routes/models.ts`
 - Create: `server/src/routes/providers.test.ts`
@@ -1150,26 +1187,25 @@ export function createModelsRouter(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 6: Update app dependency injection**
+- [ ] **Step 6: Update app dependency injection and runtime database setup**
 
-Modify `server/src/app.ts` to this complete file:
+Modify `server/src/app.ts` to this complete file. From this task onward, `createApp` requires an `AppDatabase`; tests pass an in-memory database, and runtime creates the database only after initializing the sql.js runtime.
 
 ```ts
-import type { AppDatabase } from "../db/client.js";
+import type { AppDatabase } from "./db/client.js";
 import cors from "cors";
 import express from "express";
-import { createDatabase } from "./db/client.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createModelsRouter } from "./routes/models.js";
 import { createProvidersRouter } from "./routes/providers.js";
 
 export interface AppDependencies {
-  db?: AppDatabase;
+  db: AppDatabase;
 }
 
-export function createApp(dependencies: AppDependencies = {}) {
+export function createApp(dependencies: AppDependencies) {
   const app = express();
-  const db = dependencies.db ?? createDatabase(process.env.DATABASE_PATH ?? "./api-tools.db");
+  const { db } = dependencies;
 
   app.use(cors({ origin: "http://127.0.0.1:5173" }));
   app.use(express.json({ limit: "2mb" }));
@@ -1179,6 +1215,49 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   return app;
 }
+```
+
+Modify `server/src/index.ts` to this complete file:
+
+```ts
+import dotenv from "dotenv";
+import { createApp } from "./app.js";
+import { createDatabase, initializeSqlRuntime } from "./db/client.js";
+
+dotenv.config();
+
+const port = Number(process.env.PORT ?? 8787);
+
+await initializeSqlRuntime();
+const db = createDatabase(process.env.DATABASE_PATH ?? "./api-tools.db");
+const app = createApp({ db });
+
+app.listen(port, () => {
+  console.log(`API Tools server listening on http://127.0.0.1:${port}`);
+});
+```
+
+Modify `server/src/app.test.ts` to this complete file so the health test still passes after `createApp` requires a database:
+
+```ts
+import request from "supertest";
+import { describe, expect, it } from "vitest";
+import { createApp } from "./app.js";
+import { createTestDatabase } from "./test/testDb.js";
+
+describe("app", () => {
+  it("returns health status", async () => {
+    const db = createTestDatabase();
+    const app = createApp({ db });
+
+    const response = await request(app).get("/api/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ok: true, service: "api-tools" });
+
+    db.close();
+  });
+});
 ```
 
 - [ ] **Step 7: Run route tests to verify they pass**
@@ -1194,7 +1273,7 @@ Expected: PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add server/src/app.ts server/src/routes/providers.ts server/src/routes/models.ts server/src/routes/providers.test.ts server/src/routes/models.test.ts
+git add server/src/app.ts server/src/index.ts server/src/routes/providers.ts server/src/routes/models.ts server/src/routes/providers.test.ts server/src/routes/models.test.ts server/src/app.test.ts
 git commit -m "feat: add provider and model routes"
 ```
 
@@ -1610,23 +1689,22 @@ Expected: FAIL because `createApp` does not accept `env` and `/api/models/:id/te
 Modify `server/src/app.ts` to this complete file:
 
 ```ts
-import type { AppDatabase } from "../db/client.js";
+import type { AppDatabase } from "./db/client.js";
 import cors from "cors";
 import express from "express";
-import { createDatabase } from "./db/client.js";
 import { ProviderError } from "./errors/providerError.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createModelsRouter } from "./routes/models.js";
 import { createProvidersRouter } from "./routes/providers.js";
 
 export interface AppDependencies {
-  db?: AppDatabase;
+  db: AppDatabase;
   env?: NodeJS.ProcessEnv;
 }
 
-export function createApp(dependencies: AppDependencies = {}) {
+export function createApp(dependencies: AppDependencies) {
   const app = express();
-  const db = dependencies.db ?? createDatabase(process.env.DATABASE_PATH ?? "./api-tools.db");
+  const { db } = dependencies;
   const env = dependencies.env ?? process.env;
 
   app.use(cors({ origin: "http://127.0.0.1:5173" }));
@@ -1646,6 +1724,26 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   return app;
 }
+```
+
+Keep `server/src/index.ts` as the runtime owner of database creation:
+
+```ts
+import dotenv from "dotenv";
+import { createApp } from "./app.js";
+import { createDatabase, initializeSqlRuntime } from "./db/client.js";
+
+dotenv.config();
+
+const port = Number(process.env.PORT ?? 8787);
+
+await initializeSqlRuntime();
+const db = createDatabase(process.env.DATABASE_PATH ?? "./api-tools.db");
+const app = createApp({ db });
+
+app.listen(port, () => {
+  console.log(`API Tools server listening on http://127.0.0.1:${port}`);
+});
 ```
 
 - [ ] **Step 4: Add model test route**
@@ -2053,6 +2151,7 @@ git commit -m "feat: add basic chat workflow runner"
 
 **Files:**
 - Modify: `server/src/app.ts`
+- Modify: `server/src/index.ts`
 - Create: `server/src/routes/workflows.ts`
 - Create: `server/src/routes/usage.ts`
 - Create: `server/src/usage/usageService.ts`
@@ -2292,12 +2391,11 @@ export function createUsageRouter(db: AppDatabase) {
 Modify `server/src/app.ts` to this complete file:
 
 ```ts
-import type { AppDatabase } from "../db/client.js";
+import type { AppDatabase } from "./db/client.js";
 import cors from "cors";
 import express from "express";
 import { createOpenAICompatibleAdapter } from "./adapters/openaiCompatible.js";
 import type { ModelAdapter } from "./adapters/types.js";
-import { createDatabase } from "./db/client.js";
 import { ProviderError } from "./errors/providerError.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createModelsRouter } from "./routes/models.js";
@@ -2306,14 +2404,14 @@ import { createUsageRouter } from "./routes/usage.js";
 import { createWorkflowsRouter } from "./routes/workflows.js";
 
 export interface AppDependencies {
-  db?: AppDatabase;
+  db: AppDatabase;
   env?: NodeJS.ProcessEnv;
   adapter?: ModelAdapter;
 }
 
-export function createApp(dependencies: AppDependencies = {}) {
+export function createApp(dependencies: AppDependencies) {
   const app = express();
-  const db = dependencies.db ?? createDatabase(process.env.DATABASE_PATH ?? "./api-tools.db");
+  const { db } = dependencies;
   const env = dependencies.env ?? process.env;
   const adapter = dependencies.adapter ?? createOpenAICompatibleAdapter();
 
@@ -2336,6 +2434,26 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   return app;
 }
+```
+
+Keep `server/src/index.ts` as the runtime owner of database creation:
+
+```ts
+import dotenv from "dotenv";
+import { createApp } from "./app.js";
+import { createDatabase, initializeSqlRuntime } from "./db/client.js";
+
+dotenv.config();
+
+const port = Number(process.env.PORT ?? 8787);
+
+await initializeSqlRuntime();
+const db = createDatabase(process.env.DATABASE_PATH ?? "./api-tools.db");
+const app = createApp({ db });
+
+app.listen(port, () => {
+  console.log(`API Tools server listening on http://127.0.0.1:${port}`);
+});
 ```
 
 - [ ] **Step 7: Run route tests to verify they pass**
@@ -2361,7 +2479,7 @@ Expected: PASS.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add server/src/app.ts server/src/routes/workflows.ts server/src/routes/usage.ts server/src/usage/usageService.ts server/src/routes/workflows.test.ts server/src/routes/usage.test.ts
+git add server/src/app.ts server/src/index.ts server/src/routes/workflows.ts server/src/routes/usage.ts server/src/usage/usageService.ts server/src/routes/workflows.test.ts server/src/routes/usage.test.ts
 git commit -m "feat: add basic chat workflow route"
 ```
 
