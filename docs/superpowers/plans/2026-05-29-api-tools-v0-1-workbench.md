@@ -6,7 +6,7 @@
 
 **Architecture:** Use a Vite React frontend and an Express backend in one TypeScript workspace. The backend owns API keys, SQLite persistence, provider adapters, workflow execution, and usage records; the frontend calls only local `/api/*` endpoints. The implementation deliberately keeps image2, advanced usage dashboards, and modular workflow editing out of this first plan so this phase can ship independently.
 
-**Tech Stack:** Node.js, TypeScript, npm workspaces, Vite, React, Express, better-sqlite3, Vitest, React Testing Library, Supertest, Zod.
+**Tech Stack:** Node.js, TypeScript, npm workspaces, Vite, React, Express, sql.js, Vitest, React Testing Library, Supertest, Zod.
 
 ---
 
@@ -194,15 +194,14 @@ Create `server/package.json`:
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "nanoid": "^5.0.9",
+    "sql.js": "^1.12.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
