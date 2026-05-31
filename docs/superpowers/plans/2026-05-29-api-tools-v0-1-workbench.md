@@ -501,9 +501,9 @@ Expected: FAIL because `createTestDatabase` does not exist.
 Create `server/src/db/schema.ts`:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "./client.js";
 
-export function applySchema(db: Database.Database) {
+export function applySchema(db: AppDatabase) {
   db.exec(`
     create table if not exists providers (
       id text primary key,
@@ -585,14 +585,58 @@ export function applySchema(db: Database.Database) {
 Create `server/src/db/client.ts`:
 
 ```ts
-import Database from "better-sqlite3";
 import { applySchema } from "./schema.js";
 
-export function createDatabase(path: string) {
-  const db = new Database(path);
-  db.pragma("foreign_keys = ON");
-  applySchema(db);
-  return db;
+export interface AppStatement {
+  run(params?: Record<string, unknown> | unknown[]): void;
+  get<T>(params?: unknown[]): T | undefined;
+  all<T>(params?: unknown[]): T[];
+}
+
+export interface AppDatabase {
+  exec(sql: string): void;
+  prepare(sql: string): AppStatement;
+  close(): void;
+}
+
+export async function createDatabase(_path: string): Promise<AppDatabase> {
+  const initSqlJs = (await import("sql.js")).default;
+  const SQL = await initSqlJs();
+  const db = new SQL.Database();
+  db.run("pragma foreign_keys = ON");
+  const appDb = createAppDatabase(db);
+  applySchema(appDb);
+  return appDb;
+}
+
+function rowsToObjects<T>(columns: string[], values: unknown[][]): T[] {
+  return values.map((row) => Object.fromEntries(columns.map((column, index) => [column, row[index]])) as T);
+}
+
+function createAppDatabase(db: import("sql.js").Database): AppDatabase {
+  return {
+    exec(sql) {
+      db.run(sql);
+    },
+    prepare(sql) {
+      return {
+        run(params = []) {
+          db.run(sql, params);
+        },
+        get<T>(params = []) {
+          return this.all<T>(params)[0];
+        },
+        all<T>(params = []) {
+          const result = db.exec(sql, params);
+          if (result.length === 0) return [];
+          return rowsToObjects<T>(result[0].columns, result[0].values as unknown[][]);
+        }
+      };
+    },
+    close() {
+      db.close();
+    }
+  };
 }
 ```
 
@@ -731,7 +775,7 @@ Expected: FAIL because repositories do not exist.
 Create `server/src/providers/providerRepository.ts`:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import { nanoid } from "nanoid";
 
 export type ProviderType = "openai-compatible" | "openai-official";
@@ -779,7 +823,7 @@ function mapProvider(row: ProviderRow): ProviderRecord {
   };
 }
 
-export function createProviderRepository(db: Database.Database) {
+export function createProviderRepository(db: AppDatabase) {
   return {
     create(input: CreateProviderInput): ProviderRecord {
       const now = new Date().toISOString();
@@ -820,7 +864,7 @@ export function createProviderRepository(db: Database.Database) {
 Create `server/src/providers/modelRepository.ts`:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import { nanoid } from "nanoid";
 
 export type ModelCapability = "chat" | "image" | "multimodal";
@@ -876,7 +920,7 @@ function mapModel(row: ModelRow): ModelRecord {
   };
 }
 
-export function createModelRepository(db: Database.Database) {
+export function createModelRepository(db: AppDatabase) {
   return {
     create(input: CreateModelInput): ModelRecord {
       const now = new Date().toISOString();
@@ -1037,7 +1081,7 @@ Expected: FAIL because `createApp` does not accept `db` and routes are not regis
 Create `server/src/routes/providers.ts`:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import { Router } from "express";
 import { z } from "zod";
 import { createProviderRepository } from "../providers/providerRepository.js";
@@ -1050,7 +1094,7 @@ const createProviderSchema = z.object({
   enabled: z.boolean()
 });
 
-export function createProvidersRouter(db: Database.Database) {
+export function createProvidersRouter(db: AppDatabase) {
   const router = Router();
   const providers = createProviderRepository(db);
 
@@ -1073,7 +1117,7 @@ export function createProvidersRouter(db: Database.Database) {
 Create `server/src/routes/models.ts`:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import { Router } from "express";
 import { z } from "zod";
 import { createModelRepository } from "../providers/modelRepository.js";
@@ -1088,7 +1132,7 @@ const createModelSchema = z.object({
   pricing: z.record(z.unknown()).default({})
 });
 
-export function createModelsRouter(db: Database.Database) {
+export function createModelsRouter(db: AppDatabase) {
   const router = Router();
   const models = createModelRepository(db);
 
@@ -1111,7 +1155,7 @@ export function createModelsRouter(db: Database.Database) {
 Modify `server/src/app.ts` to this complete file:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import cors from "cors";
 import express from "express";
 import { createDatabase } from "./db/client.js";
@@ -1120,7 +1164,7 @@ import { createModelsRouter } from "./routes/models.js";
 import { createProvidersRouter } from "./routes/providers.js";
 
 export interface AppDependencies {
-  db?: Database.Database;
+  db?: AppDatabase;
 }
 
 export function createApp(dependencies: AppDependencies = {}) {
@@ -1566,7 +1610,7 @@ Expected: FAIL because `createApp` does not accept `env` and `/api/models/:id/te
 Modify `server/src/app.ts` to this complete file:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import cors from "cors";
 import express from "express";
 import { createDatabase } from "./db/client.js";
@@ -1576,7 +1620,7 @@ import { createModelsRouter } from "./routes/models.js";
 import { createProvidersRouter } from "./routes/providers.js";
 
 export interface AppDependencies {
-  db?: Database.Database;
+  db?: AppDatabase;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -1609,7 +1653,7 @@ export function createApp(dependencies: AppDependencies = {}) {
 Modify `server/src/routes/models.ts` to this complete file:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import { Router } from "express";
 import { z } from "zod";
 import { createOpenAICompatibleAdapter } from "../adapters/openaiCompatible.js";
@@ -1632,7 +1676,7 @@ interface ModelsRouterDependencies {
   env: NodeJS.ProcessEnv;
 }
 
-export function createModelsRouter(db: Database.Database, dependencies: ModelsRouterDependencies) {
+export function createModelsRouter(db: AppDatabase, dependencies: ModelsRouterDependencies) {
   const router = Router();
   const models = createModelRepository(db);
   const providers = createProviderRepository(db);
@@ -1824,7 +1868,7 @@ export interface RunRecord {
 Create `server/src/workflows/runner.ts`:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import { nanoid } from "nanoid";
 import type { ModelAdapter } from "../adapters/types.js";
 import { getRequiredApiKey } from "../config/env.js";
@@ -1897,7 +1941,7 @@ function mapMessage(row: Record<string, unknown>): MessageRecord {
   };
 }
 
-export function createWorkflowRunner(db: Database.Database, dependencies: WorkflowRunnerDependencies) {
+export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunnerDependencies) {
   const providers = createProviderRepository(db);
   const models = createModelRepository(db);
 
@@ -2135,7 +2179,7 @@ Expected: FAIL because workflow and usage routes are not implemented.
 Create `server/src/usage/usageService.ts`:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 
 export interface UsageSummary {
   requestCount: number;
@@ -2145,7 +2189,7 @@ export interface UsageSummary {
   errorCount: number;
 }
 
-export function createUsageService(db: Database.Database) {
+export function createUsageService(db: AppDatabase) {
   return {
     getSummary(): UsageSummary {
       const row = db.prepare(`
@@ -2181,7 +2225,7 @@ export function createUsageService(db: Database.Database) {
 Create `server/src/routes/workflows.ts`:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import { Router } from "express";
 import { z } from "zod";
 import type { ModelAdapter } from "../adapters/types.js";
@@ -2198,7 +2242,7 @@ interface WorkflowsRouterDependencies {
   env: NodeJS.ProcessEnv;
 }
 
-export function createWorkflowsRouter(db: Database.Database, dependencies: WorkflowsRouterDependencies) {
+export function createWorkflowsRouter(db: AppDatabase, dependencies: WorkflowsRouterDependencies) {
   const router = Router();
   const runner = createWorkflowRunner(db, dependencies);
 
@@ -2227,11 +2271,11 @@ export function createWorkflowsRouter(db: Database.Database, dependencies: Workf
 Create `server/src/routes/usage.ts`:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import { Router } from "express";
 import { createUsageService } from "../usage/usageService.js";
 
-export function createUsageRouter(db: Database.Database) {
+export function createUsageRouter(db: AppDatabase) {
   const router = Router();
   const usage = createUsageService(db);
 
@@ -2248,7 +2292,7 @@ export function createUsageRouter(db: Database.Database) {
 Modify `server/src/app.ts` to this complete file:
 
 ```ts
-import type Database from "better-sqlite3";
+import type { AppDatabase } from "../db/client.js";
 import cors from "cors";
 import express from "express";
 import { createOpenAICompatibleAdapter } from "./adapters/openaiCompatible.js";
@@ -2262,7 +2306,7 @@ import { createUsageRouter } from "./routes/usage.js";
 import { createWorkflowsRouter } from "./routes/workflows.js";
 
 export interface AppDependencies {
-  db?: Database.Database;
+  db?: AppDatabase;
   env?: NodeJS.ProcessEnv;
   adapter?: ModelAdapter;
 }
