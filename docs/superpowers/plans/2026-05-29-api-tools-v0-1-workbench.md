@@ -710,7 +710,7 @@ git commit -m "feat: add sqlite schema"
 - Create: `server/src/providers/providerRepository.test.ts`
 - Create: `server/src/providers/modelRepository.test.ts`
 
-- [ ] **Step 1: Write failing provider repository test**
+- [x] **Step 1: Write failing provider repository test**
 
 Create `server/src/providers/providerRepository.test.ts`:
 
@@ -746,7 +746,7 @@ describe("providerRepository", () => {
 });
 ```
 
-- [ ] **Step 2: Write failing model repository test**
+- [x] **Step 2: Write failing model repository test**
 
 Create `server/src/providers/modelRepository.test.ts`:
 
@@ -795,7 +795,7 @@ describe("modelRepository", () => {
 });
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run:
 
@@ -805,7 +805,7 @@ npm run test --workspace server -- src/providers
 
 Expected: FAIL because repositories do not exist.
 
-- [ ] **Step 4: Implement provider repository**
+- [x] **Step 4: Implement provider repository**
 
 Create `server/src/providers/providerRepository.ts`:
 
@@ -894,7 +894,7 @@ export function createProviderRepository(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 5: Implement model repository**
+- [x] **Step 5: Implement model repository**
 
 Create `server/src/providers/modelRepository.ts`:
 
@@ -993,7 +993,7 @@ export function createModelRepository(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run:
 
@@ -1003,7 +1003,7 @@ npm run test --workspace server -- src/providers
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/providers/providerRepository.ts server/src/providers/modelRepository.ts server/src/providers/providerRepository.test.ts server/src/providers/modelRepository.test.ts
