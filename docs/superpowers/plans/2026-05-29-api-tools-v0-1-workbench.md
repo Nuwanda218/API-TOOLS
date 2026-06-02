@@ -1021,7 +1021,7 @@ git commit -m "feat: add provider and model repositories"
 - Create: `server/src/routes/providers.test.ts`
 - Create: `server/src/routes/models.test.ts`
 
-- [ ] **Step 1: Write failing provider route test**
+- [x] **Step 1: Write failing provider route test**
 
 Create `server/src/routes/providers.test.ts`:
 
@@ -1057,7 +1057,7 @@ describe("provider routes", () => {
 });
 ```
 
-- [ ] **Step 2: Write failing model route test**
+- [x] **Step 2: Write failing model route test**
 
 Create `server/src/routes/models.test.ts`:
 
@@ -1103,7 +1103,7 @@ describe("model routes", () => {
 });
 ```
 
-- [ ] **Step 3: Run route tests to verify they fail**
+- [x] **Step 3: Run route tests to verify they fail**
 
 Run:
 
@@ -1113,7 +1113,7 @@ npm run test --workspace server -- src/routes/providers.test.ts src/routes/model
 
 Expected: FAIL because `createApp` does not accept `db` and routes are not registered.
 
-- [ ] **Step 4: Implement provider route**
+- [x] **Step 4: Implement provider route**
 
 Create `server/src/routes/providers.ts`:
 
@@ -1149,7 +1149,7 @@ export function createProvidersRouter(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 5: Implement model route**
+- [x] **Step 5: Implement model route**
 
 Create `server/src/routes/models.ts`:
 
@@ -1187,7 +1187,7 @@ export function createModelsRouter(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 6: Update app dependency injection and runtime database setup**
+- [x] **Step 6: Update app dependency injection and runtime database setup**
 
 Modify `server/src/app.ts` to this complete file. From this task onward, `createApp` requires an `AppDatabase`; tests pass an in-memory database, and runtime creates the database only after initializing the sql.js runtime.
 
@@ -1260,7 +1260,7 @@ describe("app", () => {
 });
 ```
 
-- [ ] **Step 7: Run route tests to verify they pass**
+- [x] **Step 7: Run route tests to verify they pass**
 
 Run:
 
@@ -1270,7 +1270,7 @@ npm run test --workspace server -- src/routes/providers.test.ts src/routes/model
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add server/src/app.ts server/src/index.ts server/src/routes/providers.ts server/src/routes/models.ts server/src/routes/providers.test.ts server/src/routes/models.test.ts server/src/app.test.ts
