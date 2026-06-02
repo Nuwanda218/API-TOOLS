@@ -1288,7 +1288,7 @@ git commit -m "feat: add provider and model routes"
 - Create: `server/src/adapters/openaiCompatible.test.ts`
 - Create: `server/src/routes/modelTest.test.ts`
 
-- [ ] **Step 1: Write failing adapter tests**
+- [x] **Step 1: Write failing adapter tests**
 
 Create `server/src/adapters/openaiCompatible.test.ts`:
 
@@ -1384,7 +1384,7 @@ describe("openaiCompatibleAdapter", () => {
 });
 ```
 
-- [ ] **Step 2: Run adapter tests to verify they fail**
+- [x] **Step 2: Run adapter tests to verify they fail**
 
 Run:
 
@@ -1394,7 +1394,7 @@ npm run test --workspace server -- src/adapters/openaiCompatible.test.ts
 
 Expected: FAIL because adapter files do not exist.
 
-- [ ] **Step 3: Implement adapter types and provider error**
+- [x] **Step 3: Implement adapter types and provider error**
 
 Create `server/src/errors/providerError.ts`:
 
@@ -1494,7 +1494,7 @@ export function getRequiredApiKey(apiKeyEnv: string, env: NodeJS.ProcessEnv = pr
 }
 ```
 
-- [ ] **Step 4: Implement OpenAI-compatible adapter**
+- [x] **Step 4: Implement OpenAI-compatible adapter**
 
 Create `server/src/adapters/openaiCompatible.ts`:
 
@@ -1605,7 +1605,7 @@ export function createOpenAICompatibleAdapter(dependencies: AdapterDependencies 
 }
 ```
 
-- [ ] **Step 5: Run adapter tests to verify they pass**
+- [x] **Step 5: Run adapter tests to verify they pass**
 
 Run:
 
@@ -1615,7 +1615,7 @@ npm run test --workspace server -- src/adapters/openaiCompatible.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/src/config/env.ts server/src/errors/providerError.ts server/src/adapters/types.ts server/src/adapters/openaiCompatible.ts server/src/adapters/openaiCompatible.test.ts
