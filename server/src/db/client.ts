@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import initSqlJs, { type Database as SqlJsDatabase, type SqlJsStatic, type SqlValue } from "sql.js";
 import { applySchema } from "./schema.js";
 
@@ -25,14 +27,16 @@ export async function initializeSqlRuntime() {
   sqlRuntime = await initSqlJs();
 }
 
-export function createDatabase(_path: string): AppDatabase {
+export function createDatabase(path: string): AppDatabase {
   if (!sqlRuntime) {
     throw new Error("SQL runtime not initialized. Call initializeSqlRuntime() before createDatabase().");
   }
 
-  const db = new sqlRuntime.Database();
+  const db = path === ":memory:" || !existsSync(path)
+    ? new sqlRuntime.Database()
+    : new sqlRuntime.Database(readFileSync(path));
   db.run("pragma foreign_keys = ON");
-  const appDb = createAppDatabase(db);
+  const appDb = createAppDatabase(db, path === ":memory:" ? undefined : path);
   applySchema(appDb);
   return appDb;
 }
@@ -55,7 +59,7 @@ function rowsToObjects<T>(columns: string[], values: SqlValue[][]): T[] {
   return values.map((row) => Object.fromEntries(columns.map((column, index) => [column, row[index]])) as T);
 }
 
-function createAppDatabase(db: SqlJsDatabase): AppDatabase {
+function createAppDatabase(db: SqlJsDatabase, filePath?: string): AppDatabase {
   return {
     exec(sql) {
       db.run(sql);
@@ -78,6 +82,10 @@ function createAppDatabase(db: SqlJsDatabase): AppDatabase {
       };
     },
     close() {
+      if (filePath) {
+        mkdirSync(dirname(filePath), { recursive: true });
+        writeFileSync(filePath, db.export());
+      }
       db.close();
     }
   };
