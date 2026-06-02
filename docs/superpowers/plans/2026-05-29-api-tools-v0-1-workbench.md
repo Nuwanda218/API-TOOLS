@@ -1628,7 +1628,7 @@ git commit -m "feat: add openai compatible adapter"
 - Modify: `server/src/routes/models.ts`
 - Create: `server/src/routes/modelTest.test.ts`
 
-- [ ] **Step 1: Write failing route test for missing API key**
+- [x] **Step 1: Write failing route test for missing API key**
 
 Create `server/src/routes/modelTest.test.ts`:
 
@@ -1674,7 +1674,7 @@ describe("model test route", () => {
 });
 ```
 
-- [ ] **Step 2: Run route test to verify it fails**
+- [x] **Step 2: Run route test to verify it fails**
 
 Run:
 
@@ -1684,7 +1684,7 @@ npm run test --workspace server -- src/routes/modelTest.test.ts
 
 Expected: FAIL because `createApp` does not accept `env` and `/api/models/:id/test` is not implemented.
 
-- [ ] **Step 3: Update app dependencies**
+- [x] **Step 3: Update app dependencies**
 
 Modify `server/src/app.ts` to this complete file:
 
@@ -1746,7 +1746,7 @@ app.listen(port, () => {
 });
 ```
 
-- [ ] **Step 4: Add model test route**
+- [x] **Step 4: Add model test route**
 
 Modify `server/src/routes/models.ts` to this complete file:
 
@@ -1816,7 +1816,7 @@ export function createModelsRouter(db: AppDatabase, dependencies: ModelsRouterDe
 }
 ```
 
-- [ ] **Step 5: Run route test to verify it passes**
+- [x] **Step 5: Run route test to verify it passes**
 
 Run:
 
@@ -1826,7 +1826,7 @@ npm run test --workspace server -- src/routes/modelTest.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Run all backend tests**
+- [x] **Step 6: Run all backend tests**
 
 Run:
 
@@ -1836,7 +1836,7 @@ npm run test --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/app.ts server/src/routes/models.ts server/src/routes/modelTest.test.ts
