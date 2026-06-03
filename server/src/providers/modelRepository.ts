@@ -123,6 +123,15 @@ export class ModelRepository {
       .map(mapModelRow);
   }
 
+  findByProviderAndModelId(providerId: string, modelId: string): Model | undefined {
+    const row = this.db.prepare(`
+      select * from models
+      where provider_id = @providerId and model_id = @modelId
+    `).get<ModelRow>({ providerId, modelId });
+
+    return row ? mapModelRow(row) : undefined;
+  }
+
   update(id: string, input: UpdateModelInput): Model | undefined {
     const current = this.getById(id);
     if (!current) return undefined;

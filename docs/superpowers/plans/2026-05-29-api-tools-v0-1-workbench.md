@@ -1956,6 +1956,303 @@ git add docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md server/src
 git commit -m "feat: add remote model discovery"
 ```
 
+## Task 7.6: Import remote models into local model registry
+
+**Goal:** Let one provider create many local model records from remote model ids discovered by `GET /api/providers/:id/remote-models`. This turns remote discovery into usable local model configuration for model tests and later chat workflows.
+
+**Files:**
+- Modify: `server/src/providers/modelRepository.ts`
+- Modify: `server/src/providers/modelRepository.test.ts`
+- Modify: `server/src/routes/providers.ts`
+- Create: `server/src/routes/providerImportModels.test.ts`
+
+- [x] **Step 1: Write failing repository test for provider/model lookup**
+
+Extend `server/src/providers/modelRepository.test.ts` with a test for:
+
+```ts
+models.findByProviderAndModelId(providerId, modelId)
+```
+
+Expected behavior:
+
+- Returns the existing local model when provider id and model id match.
+- Returns `undefined` for a different provider.
+- This method is used by the import route to skip duplicate model ids for the same provider.
+
+- [x] **Step 2: Write failing route test for importing multiple remote models**
+
+Create `server/src/routes/providerImportModels.test.ts`.
+
+Expected behavior:
+
+- Create one provider.
+- POST to `/api/providers/:id/import-models` with two model definitions.
+- Response status is `201`.
+- Response body contains `created` with two local model records and `skipped` as an empty array.
+- `GET /api/models?providerId=<providerId>` returns both records.
+
+Example request:
+
+```json
+{
+  "models": [
+    {
+      "modelId": "gpt-5.2-chat-latest",
+      "displayName": "GPT-5.2 Chat Latest",
+      "capability": "chat"
+    },
+    {
+      "modelId": "gpt-5.4-mini",
+      "displayName": "GPT-5.4 Mini",
+      "capability": "chat"
+    }
+  ]
+}
+```
+
+- [x] **Step 3: Write failing route test for duplicate imports**
+
+Extend `server/src/routes/providerImportModels.test.ts`.
+
+Expected behavior:
+
+- Import a model once.
+- Import the same `modelId` for the same provider again.
+- Response has `created: []`.
+- Response has `skipped: [{ modelId, reason: "already_exists" }]`.
+- Database still has exactly one local model for that provider/model id.
+
+- [x] **Step 4: Write failing route tests for invalid input and missing provider**
+
+Extend `server/src/routes/providerImportModels.test.ts`.
+
+Expected behavior:
+
+- Missing provider returns status `404` and `{ code: "provider_not_found" }`.
+- Empty `models` array returns status `400`.
+- Invalid capability returns status `400`.
+
+- [x] **Step 5: Run tests to verify they fail**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/providers/modelRepository.test.ts src/routes/providerImportModels.test.ts
+```
+
+Expected: FAIL because `findByProviderAndModelId` and `/api/providers/:id/import-models` do not exist yet.
+
+- [x] **Step 6: Implement repository lookup**
+
+Update `server/src/providers/modelRepository.ts`:
+
+```ts
+findByProviderAndModelId(providerId: string, modelId: string): Model | undefined {
+  const row = this.db.prepare(`
+    select * from models
+    where provider_id = @providerId and model_id = @modelId
+  `).get<ModelRow>({ providerId, modelId });
+
+  return row ? mapModelRow(row) : undefined;
+}
+```
+
+- [x] **Step 7: Implement provider import-models route**
+
+Update `server/src/routes/providers.ts`:
+
+- Import `createModelRepository`.
+- Add a Zod schema:
+
+```ts
+const importModelsSchema = z.object({
+  models: z.array(z.object({
+    modelId: z.string().min(1),
+    displayName: z.string().min(1),
+    capability: z.enum(["chat", "image", "multimodal"]).default("chat"),
+    enabled: z.boolean().default(true),
+    defaultParams: z.record(z.unknown()).default({}),
+    pricing: z.record(z.unknown()).default({})
+  })).min(1)
+});
+```
+
+- Add:
+
+```text
+POST /api/providers/:id/import-models
+```
+
+Behavior:
+
+- Look up provider.
+- If missing, throw `ProviderError("provider_not_found", "Provider not found", { statusCode: 404 })`.
+- For each requested model:
+  - If `findByProviderAndModelId(provider.id, model.modelId)` exists, add `{ modelId, reason: "already_exists" }` to `skipped`.
+  - Otherwise create a local model with that provider id and add it to `created`.
+- Return status `201` with `{ created, skipped }`.
+
+- [x] **Step 8: Run targeted tests**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/providers/modelRepository.test.ts src/routes/providerImportModels.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 9: Run all backend tests and typecheck**
+
+Run:
+
+```bash
+npm run test --workspace server
+npm run typecheck --workspace server
+```
+
+Expected: PASS.
+
+- [x] **Step 10: Commit**
+
+```bash
+git add docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md server/src/providers/modelRepository.ts server/src/providers/modelRepository.test.ts server/src/routes/providers.ts server/src/routes/providerImportModels.test.ts
+git commit -m "feat: import remote models"
+```
+
+## Task 7.7: Persist sql.js database on graceful shutdown
+
+**Goal:** Provider/model data created through HTTP APIs must survive normal backend restarts. Current sql.js writes database files on `db.close()`, so the runtime must call `db.close()` when the server exits normally.
+
+**Files:**
+- Modify: `server/src/index.ts`
+- Modify: `server/src/db/client.ts`
+- Create: `server/src/serverLifecycle.test.ts`
+
+- [ ] **Step 1: Write failing lifecycle test for database close on shutdown**
+
+Create `server/src/serverLifecycle.test.ts`.
+
+Expected behavior:
+
+- Build a server lifecycle helper that can be tested without binding a real network port.
+- Provide a fake `AppDatabase` with a spy `close()`.
+- Trigger the lifecycle shutdown handler.
+- Assert `db.close()` is called exactly once.
+- Assert calling shutdown twice still calls `db.close()` once.
+
+- [ ] **Step 2: Write failing persistence smoke test**
+
+Extend `server/src/serverLifecycle.test.ts`.
+
+Expected behavior:
+
+- Create a temporary database file path.
+- Open database, insert provider through repository, call `db.close()`.
+- Reopen the same path, assert provider still exists.
+- This locks in the existing sql.js persistence contract before wiring runtime shutdown.
+
+- [ ] **Step 3: Run lifecycle tests to verify they fail**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/serverLifecycle.test.ts
+```
+
+Expected: FAIL because lifecycle helpers do not exist yet.
+
+- [ ] **Step 4: Add explicit database flush helper if needed**
+
+Review `server/src/db/client.ts`.
+
+Current behavior:
+
+- File-backed `AppDatabase.close()` writes `db.export()` to disk.
+
+If tests reveal this is enough, keep `client.ts` unchanged. If a clearer public helper is needed, add:
+
+```ts
+export function closeDatabase(db: AppDatabase) {
+  db.close();
+}
+```
+
+Do not change schema or repository behavior in this task.
+
+- [ ] **Step 5: Refactor runtime into testable lifecycle functions**
+
+Update `server/src/index.ts` to separate:
+
+- env loading
+- SQL runtime initialization
+- database creation
+- Express app creation
+- server listen
+- graceful shutdown
+
+The runtime should:
+
+- Call `loadLocalEnv()` before reading env vars.
+- Call `initializeSqlRuntime()`.
+- Create the file-backed database.
+- Create the app with `{ db }`.
+- Keep a reference to the HTTP server returned by `app.listen`.
+- On `SIGINT` and `SIGTERM`, close the HTTP server and call `db.close()` once.
+- Set `process.exitCode = 0` for graceful signal shutdown.
+
+- [ ] **Step 6: Run lifecycle tests**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/serverLifecycle.test.ts
+```
+
+Expected: PASS.
+
+- [ ] **Step 7: Run all backend tests and typecheck**
+
+Run:
+
+```bash
+npm run test --workspace server
+npm run typecheck --workspace server
+```
+
+Expected: PASS.
+
+- [ ] **Step 8: Manual verification**
+
+Manually verify persistence:
+
+```powershell
+cd "F:\website\API Tools\.claude\worktrees\api-tools-v0-1-workbench"
+npm run dev --workspace server
+```
+
+In another shell:
+
+```powershell
+$provider = Invoke-RestMethod -Method Post http://127.0.0.1:8787/api/providers -ContentType "application/json" -Body '{"name":"Persistence Probe","type":"openai-compatible","baseUrl":"https://example.test/v1","apiKeyEnv":"CUSTOM_OPENAI_COMPATIBLE_KEY","enabled":true}'
+```
+
+Stop server with `Ctrl+C`, restart it, then verify:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8787/api/providers
+```
+
+Expected: `Persistence Probe` still exists.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md server/src/index.ts server/src/db/client.ts server/src/serverLifecycle.test.ts
+git commit -m "fix: persist database on shutdown"
+```
+
 ## Task 8: Basic chat workflow runner
 
 **Files:**

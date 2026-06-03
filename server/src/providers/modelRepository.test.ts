@@ -138,4 +138,39 @@ describe("ModelRepository", () => {
 
     db.close();
   });
+
+  it("finds models by provider id and model id", () => {
+    const db = createTestDatabase();
+    const providers = createProviderRepository(db);
+    const models = createModelRepository(db);
+
+    const firstProvider = providers.create({
+      id: "provider-first",
+      name: "First",
+      type: "openai-compatible",
+      baseUrl: "https://first.example/v1",
+      apiKeyEnv: "FIRST_KEY",
+      enabled: true
+    });
+    const secondProvider = providers.create({
+      id: "provider-second",
+      name: "Second",
+      type: "openai-compatible",
+      baseUrl: "https://second.example/v1",
+      apiKeyEnv: "SECOND_KEY",
+      enabled: true
+    });
+    const created = models.create({
+      providerId: firstProvider.id,
+      displayName: "Shared model",
+      modelId: "shared-model",
+      capability: "chat",
+      enabled: true
+    });
+
+    expect(models.findByProviderAndModelId(firstProvider.id, "shared-model")).toEqual(created);
+    expect(models.findByProviderAndModelId(secondProvider.id, "shared-model")).toBeUndefined();
+
+    db.close();
+  });
 });
