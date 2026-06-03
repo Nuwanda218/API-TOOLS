@@ -2130,7 +2130,7 @@ git commit -m "feat: import remote models"
 - Modify: `server/src/db/client.ts`
 - Create: `server/src/serverLifecycle.test.ts`
 
-- [ ] **Step 1: Write failing lifecycle test for database close on shutdown**
+- [x] **Step 1: Write failing lifecycle test for database close on shutdown**
 
 Create `server/src/serverLifecycle.test.ts`.
 
@@ -2142,7 +2142,7 @@ Expected behavior:
 - Assert `db.close()` is called exactly once.
 - Assert calling shutdown twice still calls `db.close()` once.
 
-- [ ] **Step 2: Write failing persistence smoke test**
+- [x] **Step 2: Write failing persistence smoke test**
 
 Extend `server/src/serverLifecycle.test.ts`.
 
@@ -2153,7 +2153,7 @@ Expected behavior:
 - Reopen the same path, assert provider still exists.
 - This locks in the existing sql.js persistence contract before wiring runtime shutdown.
 
-- [ ] **Step 3: Run lifecycle tests to verify they fail**
+- [x] **Step 3: Run lifecycle tests to verify they fail**
 
 Run:
 
@@ -2163,7 +2163,7 @@ npm run test --workspace server -- src/serverLifecycle.test.ts
 
 Expected: FAIL because lifecycle helpers do not exist yet.
 
-- [ ] **Step 4: Add explicit database flush helper if needed**
+- [x] **Step 4: Add explicit database flush helper if needed**
 
 Review `server/src/db/client.ts`.
 
@@ -2181,7 +2181,7 @@ export function closeDatabase(db: AppDatabase) {
 
 Do not change schema or repository behavior in this task.
 
-- [ ] **Step 5: Refactor runtime into testable lifecycle functions**
+- [x] **Step 5: Refactor runtime into testable lifecycle functions**
 
 Update `server/src/index.ts` to separate:
 
@@ -2202,7 +2202,7 @@ The runtime should:
 - On `SIGINT` and `SIGTERM`, close the HTTP server and call `db.close()` once.
 - Set `process.exitCode = 0` for graceful signal shutdown.
 
-- [ ] **Step 6: Run lifecycle tests**
+- [x] **Step 6: Run lifecycle tests**
 
 Run:
 
@@ -2212,7 +2212,7 @@ npm run test --workspace server -- src/serverLifecycle.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 7: Run all backend tests and typecheck**
+- [x] **Step 7: Run all backend tests and typecheck**
 
 Run:
 
@@ -2246,7 +2246,7 @@ Invoke-RestMethod http://127.0.0.1:8787/api/providers
 
 Expected: `Persistence Probe` still exists.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md server/src/index.ts server/src/db/client.ts server/src/serverLifecycle.test.ts
