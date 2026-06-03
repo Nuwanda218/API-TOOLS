@@ -1,5 +1,6 @@
 export type ProviderErrorCode =
   | "missing_api_key"
+  | "provider_not_found"
   | "invalid_api_key"
   | "invalid_base_url"
   | "model_not_found"

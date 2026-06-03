@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
+import { createOpenAICompatibleAdapter } from "../adapters/openaiCompatible.js";
+import type { ModelAdapter } from "../adapters/types.js";
+import { getRequiredApiKey } from "../config/env.js";
 import type { AppDatabase } from "../db/client.js";
+import { ProviderError } from "../errors/providerError.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
 
 const createProviderSchema = z.object({
@@ -13,9 +17,15 @@ const createProviderSchema = z.object({
 
 const updateProviderSchema = createProviderSchema.partial();
 
-export function createProvidersRouter(db: AppDatabase) {
+interface ProvidersRouterDependencies {
+  env: NodeJS.ProcessEnv;
+  adapter?: Pick<ModelAdapter, "listModels">;
+}
+
+export function createProvidersRouter(db: AppDatabase, dependencies: ProvidersRouterDependencies) {
   const router = Router();
   const providers = createProviderRepository(db);
+  const adapter = dependencies.adapter ?? createOpenAICompatibleAdapter();
 
   router.get("/", (_req, res) => {
     res.json(providers.list());
@@ -25,6 +35,26 @@ export function createProvidersRouter(db: AppDatabase) {
     const input = createProviderSchema.parse(req.body);
     const created = providers.create(input);
     res.status(201).json(created);
+  });
+
+  router.get("/:id/remote-models", async (req, res, next) => {
+    try {
+      const provider = providers.getById(req.params.id);
+      if (!provider) {
+        throw new ProviderError("provider_not_found", "Provider not found", { statusCode: 404 });
+      }
+
+      const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
+      const models = await adapter.listModels({ provider, apiKey });
+
+      res.json({
+        ok: true,
+        providerId: provider.id,
+        models
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.patch("/:id", (req, res) => {

@@ -135,4 +135,55 @@ describe("openaiCompatibleAdapter", () => {
       providerMessage: "ECONNRESET"
     });
   });
+
+  it("lists remote models", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [
+          { id: "gpt-4.1-mini", owned_by: "openai" },
+          { id: "gpt-4.1-nano" }
+        ]
+      })
+    });
+    const adapter = createOpenAICompatibleAdapter({ fetch: fetchMock });
+
+    const result = await adapter.listModels({
+      provider,
+      apiKey: "secret"
+    });
+
+    expect(result).toEqual([
+      { id: "gpt-4.1-mini", ownedBy: "openai" },
+      { id: "gpt-4.1-nano" }
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.test/v1/models",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          authorization: "Bearer secret"
+        })
+      })
+    );
+  });
+
+  it("standardizes remote model listing provider errors", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { message: "invalid key" } })
+    });
+    const adapter = createOpenAICompatibleAdapter({ fetch: fetchMock });
+
+    await expect(adapter.listModels({
+      provider,
+      apiKey: "secret"
+    })).rejects.toMatchObject({
+      code: "invalid_api_key",
+      statusCode: 401,
+      providerMessage: "invalid key"
+    });
+  });
 });

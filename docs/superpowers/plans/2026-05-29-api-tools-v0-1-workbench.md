@@ -1843,6 +1843,119 @@ git add server/src/app.ts server/src/routes/models.ts server/src/routes/modelTes
 git commit -m "feat: add model test route"
 ```
 
+## Task 7.5: Remote model discovery
+
+**Files:**
+- Modify: `server/src/adapters/types.ts`
+- Modify: `server/src/adapters/openaiCompatible.ts`
+- Modify: `server/src/adapters/openaiCompatible.test.ts`
+- Modify: `server/src/app.ts`
+- Modify: `server/src/routes/providers.ts`
+- Create: `server/src/routes/providerRemoteModels.test.ts`
+
+- [x] **Step 1: Write failing adapter test for remote model listing**
+
+Extend `server/src/adapters/openaiCompatible.test.ts` with coverage for `adapter.listModels({ provider, apiKey })`.
+
+Expected behavior:
+
+- Calls `GET {baseUrl}/models`.
+- Sends `Authorization: Bearer <apiKey>`.
+- Returns normalized model objects with `id` and optional `ownedBy`.
+- Standardizes provider errors the same way chat completions does.
+
+- [x] **Step 2: Write failing provider route test**
+
+Create `server/src/routes/providerRemoteModels.test.ts`.
+
+Expected behavior:
+
+- `GET /api/providers/:id/remote-models` returns `{ ok: true, providerId, models }` for a valid provider/key.
+- Missing env var returns `missing_api_key` without exposing other secrets.
+- Missing provider returns `model_not_found` status `404`.
+
+- [x] **Step 3: Run tests to verify they fail**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/adapters/openaiCompatible.test.ts src/routes/providerRemoteModels.test.ts
+```
+
+Expected: FAIL because `listModels` and `/api/providers/:id/remote-models` do not exist yet.
+
+- [x] **Step 4: Implement adapter listModels**
+
+Update `server/src/adapters/types.ts` with:
+
+```ts
+export interface RemoteModel {
+  id: string;
+  ownedBy?: string;
+}
+
+export interface AdapterProviderInput {
+  provider: Provider;
+  apiKey: string;
+}
+```
+
+Extend `ModelAdapter` with:
+
+```ts
+listModels(input: AdapterProviderInput): Promise<RemoteModel[]>;
+```
+
+Update `server/src/adapters/openaiCompatible.ts` to call `GET {baseUrl}/models`, parse OpenAI-compatible `data` arrays, and reuse the existing provider error mapping.
+
+- [x] **Step 5: Implement provider remote-models route**
+
+Update `server/src/app.ts` so `createProvidersRouter(db, { env })` receives env dependencies.
+
+Update `server/src/routes/providers.ts` to add:
+
+```text
+GET /api/providers/:id/remote-models
+```
+
+The route looks up the provider, reads its key using `getRequiredApiKey`, calls `createOpenAICompatibleAdapter().listModels`, and returns:
+
+```json
+{
+  "ok": true,
+  "providerId": "provider-id",
+  "models": []
+}
+```
+
+- [x] **Step 6: Run route and adapter tests**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/adapters/openaiCompatible.test.ts src/routes/providerRemoteModels.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 7: Run all backend tests and typecheck**
+
+Run:
+
+```bash
+npm run test --workspace server
+npm run typecheck --workspace server
+```
+
+Expected: PASS.
+
+- [x] **Step 8: Commit**
+
+```bash
+git add docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md server/src/adapters/types.ts server/src/adapters/openaiCompatible.ts server/src/adapters/openaiCompatible.test.ts server/src/app.ts server/src/routes/providers.ts server/src/routes/providerRemoteModels.test.ts
+git commit -m "feat: add remote model discovery"
+```
+
 ## Task 8: Basic chat workflow runner
 
 **Files:**

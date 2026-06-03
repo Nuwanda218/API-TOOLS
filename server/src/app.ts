@@ -7,10 +7,12 @@ import { ProviderError } from "./errors/providerError.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createModelsRouter } from "./routes/models.js";
 import { createProvidersRouter } from "./routes/providers.js";
+import type { ModelAdapter } from "./adapters/types.js";
 
 export interface AppDependencies {
   db: AppDatabase;
   env?: NodeJS.ProcessEnv;
+  providerAdapter?: Pick<ModelAdapter, "listModels">;
 }
 
 export function createApp(dependencies: AppDependencies) {
@@ -21,7 +23,10 @@ export function createApp(dependencies: AppDependencies) {
   app.use(cors({ origin: "http://127.0.0.1:5173" }));
   app.use(express.json({ limit: "2mb" }));
   app.use("/api/health", createHealthRouter());
-  app.use("/api/providers", createProvidersRouter(db));
+  app.use("/api/providers", createProvidersRouter(db, {
+    env,
+    adapter: dependencies.providerAdapter
+  }));
   app.use("/api/models", createModelsRouter(db, { env }));
   app.use(errorHandler);
 

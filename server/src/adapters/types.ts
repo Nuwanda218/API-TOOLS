@@ -7,9 +7,19 @@ export interface AdapterModelInput {
   apiKey: string;
 }
 
+export interface AdapterProviderInput {
+  provider: Provider;
+  apiKey: string;
+}
+
 export interface AdapterUsage {
   inputTokens?: number;
   outputTokens?: number;
+}
+
+export interface RemoteModel {
+  id: string;
+  ownedBy?: string;
 }
 
 export interface ModelTestResult {
@@ -30,6 +40,7 @@ export interface ChatRunResult {
 }
 
 export interface ModelAdapter {
+  listModels(input: AdapterProviderInput): Promise<RemoteModel[]>;
   testModel(input: AdapterModelInput): Promise<ModelTestResult>;
   runChat(input: ChatRunInput): Promise<ChatRunResult>;
 }
