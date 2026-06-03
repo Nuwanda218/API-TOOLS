@@ -6,4 +6,5 @@ dist/
 *.db-wal
 .superpowers/
 .vscode/
+.claude/settings.local.json
 coverage/

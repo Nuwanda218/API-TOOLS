@@ -710,7 +710,7 @@ git commit -m "feat: add sqlite schema"
 - Create: `server/src/providers/providerRepository.test.ts`
 - Create: `server/src/providers/modelRepository.test.ts`
 
-- [ ] **Step 1: Write failing provider repository test**
+- [x] **Step 1: Write failing provider repository test**
 
 Create `server/src/providers/providerRepository.test.ts`:
 
@@ -746,7 +746,7 @@ describe("providerRepository", () => {
 });
 ```
 
-- [ ] **Step 2: Write failing model repository test**
+- [x] **Step 2: Write failing model repository test**
 
 Create `server/src/providers/modelRepository.test.ts`:
 
@@ -795,7 +795,7 @@ describe("modelRepository", () => {
 });
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run:
 
@@ -805,7 +805,7 @@ npm run test --workspace server -- src/providers
 
 Expected: FAIL because repositories do not exist.
 
-- [ ] **Step 4: Implement provider repository**
+- [x] **Step 4: Implement provider repository**
 
 Create `server/src/providers/providerRepository.ts`:
 
@@ -894,7 +894,7 @@ export function createProviderRepository(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 5: Implement model repository**
+- [x] **Step 5: Implement model repository**
 
 Create `server/src/providers/modelRepository.ts`:
 
@@ -993,7 +993,7 @@ export function createModelRepository(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run:
 
@@ -1003,7 +1003,7 @@ npm run test --workspace server -- src/providers
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/providers/providerRepository.ts server/src/providers/modelRepository.ts server/src/providers/providerRepository.test.ts server/src/providers/modelRepository.test.ts
@@ -1021,7 +1021,7 @@ git commit -m "feat: add provider and model repositories"
 - Create: `server/src/routes/providers.test.ts`
 - Create: `server/src/routes/models.test.ts`
 
-- [ ] **Step 1: Write failing provider route test**
+- [x] **Step 1: Write failing provider route test**
 
 Create `server/src/routes/providers.test.ts`:
 
@@ -1057,7 +1057,7 @@ describe("provider routes", () => {
 });
 ```
 
-- [ ] **Step 2: Write failing model route test**
+- [x] **Step 2: Write failing model route test**
 
 Create `server/src/routes/models.test.ts`:
 
@@ -1103,7 +1103,7 @@ describe("model routes", () => {
 });
 ```
 
-- [ ] **Step 3: Run route tests to verify they fail**
+- [x] **Step 3: Run route tests to verify they fail**
 
 Run:
 
@@ -1113,7 +1113,7 @@ npm run test --workspace server -- src/routes/providers.test.ts src/routes/model
 
 Expected: FAIL because `createApp` does not accept `db` and routes are not registered.
 
-- [ ] **Step 4: Implement provider route**
+- [x] **Step 4: Implement provider route**
 
 Create `server/src/routes/providers.ts`:
 
@@ -1149,7 +1149,7 @@ export function createProvidersRouter(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 5: Implement model route**
+- [x] **Step 5: Implement model route**
 
 Create `server/src/routes/models.ts`:
 
@@ -1187,7 +1187,7 @@ export function createModelsRouter(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 6: Update app dependency injection and runtime database setup**
+- [x] **Step 6: Update app dependency injection and runtime database setup**
 
 Modify `server/src/app.ts` to this complete file. From this task onward, `createApp` requires an `AppDatabase`; tests pass an in-memory database, and runtime creates the database only after initializing the sql.js runtime.
 
@@ -1260,7 +1260,7 @@ describe("app", () => {
 });
 ```
 
-- [ ] **Step 7: Run route tests to verify they pass**
+- [x] **Step 7: Run route tests to verify they pass**
 
 Run:
 
@@ -1270,7 +1270,7 @@ npm run test --workspace server -- src/routes/providers.test.ts src/routes/model
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add server/src/app.ts server/src/index.ts server/src/routes/providers.ts server/src/routes/models.ts server/src/routes/providers.test.ts server/src/routes/models.test.ts server/src/app.test.ts
@@ -1288,7 +1288,7 @@ git commit -m "feat: add provider and model routes"
 - Create: `server/src/adapters/openaiCompatible.test.ts`
 - Create: `server/src/routes/modelTest.test.ts`
 
-- [ ] **Step 1: Write failing adapter tests**
+- [x] **Step 1: Write failing adapter tests**
 
 Create `server/src/adapters/openaiCompatible.test.ts`:
 
@@ -1384,7 +1384,7 @@ describe("openaiCompatibleAdapter", () => {
 });
 ```
 
-- [ ] **Step 2: Run adapter tests to verify they fail**
+- [x] **Step 2: Run adapter tests to verify they fail**
 
 Run:
 
@@ -1394,7 +1394,7 @@ npm run test --workspace server -- src/adapters/openaiCompatible.test.ts
 
 Expected: FAIL because adapter files do not exist.
 
-- [ ] **Step 3: Implement adapter types and provider error**
+- [x] **Step 3: Implement adapter types and provider error**
 
 Create `server/src/errors/providerError.ts`:
 
@@ -1494,7 +1494,7 @@ export function getRequiredApiKey(apiKeyEnv: string, env: NodeJS.ProcessEnv = pr
 }
 ```
 
-- [ ] **Step 4: Implement OpenAI-compatible adapter**
+- [x] **Step 4: Implement OpenAI-compatible adapter**
 
 Create `server/src/adapters/openaiCompatible.ts`:
 
@@ -1605,7 +1605,7 @@ export function createOpenAICompatibleAdapter(dependencies: AdapterDependencies 
 }
 ```
 
-- [ ] **Step 5: Run adapter tests to verify they pass**
+- [x] **Step 5: Run adapter tests to verify they pass**
 
 Run:
 
@@ -1615,7 +1615,7 @@ npm run test --workspace server -- src/adapters/openaiCompatible.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/src/config/env.ts server/src/errors/providerError.ts server/src/adapters/types.ts server/src/adapters/openaiCompatible.ts server/src/adapters/openaiCompatible.test.ts
@@ -1628,7 +1628,7 @@ git commit -m "feat: add openai compatible adapter"
 - Modify: `server/src/routes/models.ts`
 - Create: `server/src/routes/modelTest.test.ts`
 
-- [ ] **Step 1: Write failing route test for missing API key**
+- [x] **Step 1: Write failing route test for missing API key**
 
 Create `server/src/routes/modelTest.test.ts`:
 
@@ -1674,7 +1674,7 @@ describe("model test route", () => {
 });
 ```
 
-- [ ] **Step 2: Run route test to verify it fails**
+- [x] **Step 2: Run route test to verify it fails**
 
 Run:
 
@@ -1684,7 +1684,7 @@ npm run test --workspace server -- src/routes/modelTest.test.ts
 
 Expected: FAIL because `createApp` does not accept `env` and `/api/models/:id/test` is not implemented.
 
-- [ ] **Step 3: Update app dependencies**
+- [x] **Step 3: Update app dependencies**
 
 Modify `server/src/app.ts` to this complete file:
 
@@ -1746,7 +1746,7 @@ app.listen(port, () => {
 });
 ```
 
-- [ ] **Step 4: Add model test route**
+- [x] **Step 4: Add model test route**
 
 Modify `server/src/routes/models.ts` to this complete file:
 
@@ -1816,7 +1816,7 @@ export function createModelsRouter(db: AppDatabase, dependencies: ModelsRouterDe
 }
 ```
 
-- [ ] **Step 5: Run route test to verify it passes**
+- [x] **Step 5: Run route test to verify it passes**
 
 Run:
 
@@ -1826,7 +1826,7 @@ npm run test --workspace server -- src/routes/modelTest.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Run all backend tests**
+- [x] **Step 6: Run all backend tests**
 
 Run:
 
@@ -1836,11 +1836,421 @@ npm run test --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/app.ts server/src/routes/models.ts server/src/routes/modelTest.test.ts
 git commit -m "feat: add model test route"
+```
+
+## Task 7.5: Remote model discovery
+
+**Files:**
+- Modify: `server/src/adapters/types.ts`
+- Modify: `server/src/adapters/openaiCompatible.ts`
+- Modify: `server/src/adapters/openaiCompatible.test.ts`
+- Modify: `server/src/app.ts`
+- Modify: `server/src/routes/providers.ts`
+- Create: `server/src/routes/providerRemoteModels.test.ts`
+
+- [x] **Step 1: Write failing adapter test for remote model listing**
+
+Extend `server/src/adapters/openaiCompatible.test.ts` with coverage for `adapter.listModels({ provider, apiKey })`.
+
+Expected behavior:
+
+- Calls `GET {baseUrl}/models`.
+- Sends `Authorization: Bearer <apiKey>`.
+- Returns normalized model objects with `id` and optional `ownedBy`.
+- Standardizes provider errors the same way chat completions does.
+
+- [x] **Step 2: Write failing provider route test**
+
+Create `server/src/routes/providerRemoteModels.test.ts`.
+
+Expected behavior:
+
+- `GET /api/providers/:id/remote-models` returns `{ ok: true, providerId, models }` for a valid provider/key.
+- Missing env var returns `missing_api_key` without exposing other secrets.
+- Missing provider returns `model_not_found` status `404`.
+
+- [x] **Step 3: Run tests to verify they fail**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/adapters/openaiCompatible.test.ts src/routes/providerRemoteModels.test.ts
+```
+
+Expected: FAIL because `listModels` and `/api/providers/:id/remote-models` do not exist yet.
+
+- [x] **Step 4: Implement adapter listModels**
+
+Update `server/src/adapters/types.ts` with:
+
+```ts
+export interface RemoteModel {
+  id: string;
+  ownedBy?: string;
+}
+
+export interface AdapterProviderInput {
+  provider: Provider;
+  apiKey: string;
+}
+```
+
+Extend `ModelAdapter` with:
+
+```ts
+listModels(input: AdapterProviderInput): Promise<RemoteModel[]>;
+```
+
+Update `server/src/adapters/openaiCompatible.ts` to call `GET {baseUrl}/models`, parse OpenAI-compatible `data` arrays, and reuse the existing provider error mapping.
+
+- [x] **Step 5: Implement provider remote-models route**
+
+Update `server/src/app.ts` so `createProvidersRouter(db, { env })` receives env dependencies.
+
+Update `server/src/routes/providers.ts` to add:
+
+```text
+GET /api/providers/:id/remote-models
+```
+
+The route looks up the provider, reads its key using `getRequiredApiKey`, calls `createOpenAICompatibleAdapter().listModels`, and returns:
+
+```json
+{
+  "ok": true,
+  "providerId": "provider-id",
+  "models": []
+}
+```
+
+- [x] **Step 6: Run route and adapter tests**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/adapters/openaiCompatible.test.ts src/routes/providerRemoteModels.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 7: Run all backend tests and typecheck**
+
+Run:
+
+```bash
+npm run test --workspace server
+npm run typecheck --workspace server
+```
+
+Expected: PASS.
+
+- [x] **Step 8: Commit**
+
+```bash
+git add docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md server/src/adapters/types.ts server/src/adapters/openaiCompatible.ts server/src/adapters/openaiCompatible.test.ts server/src/app.ts server/src/routes/providers.ts server/src/routes/providerRemoteModels.test.ts
+git commit -m "feat: add remote model discovery"
+```
+
+## Task 7.6: Import remote models into local model registry
+
+**Goal:** Let one provider create many local model records from remote model ids discovered by `GET /api/providers/:id/remote-models`. This turns remote discovery into usable local model configuration for model tests and later chat workflows.
+
+**Files:**
+- Modify: `server/src/providers/modelRepository.ts`
+- Modify: `server/src/providers/modelRepository.test.ts`
+- Modify: `server/src/routes/providers.ts`
+- Create: `server/src/routes/providerImportModels.test.ts`
+
+- [x] **Step 1: Write failing repository test for provider/model lookup**
+
+Extend `server/src/providers/modelRepository.test.ts` with a test for:
+
+```ts
+models.findByProviderAndModelId(providerId, modelId)
+```
+
+Expected behavior:
+
+- Returns the existing local model when provider id and model id match.
+- Returns `undefined` for a different provider.
+- This method is used by the import route to skip duplicate model ids for the same provider.
+
+- [x] **Step 2: Write failing route test for importing multiple remote models**
+
+Create `server/src/routes/providerImportModels.test.ts`.
+
+Expected behavior:
+
+- Create one provider.
+- POST to `/api/providers/:id/import-models` with two model definitions.
+- Response status is `201`.
+- Response body contains `created` with two local model records and `skipped` as an empty array.
+- `GET /api/models?providerId=<providerId>` returns both records.
+
+Example request:
+
+```json
+{
+  "models": [
+    {
+      "modelId": "gpt-5.2-chat-latest",
+      "displayName": "GPT-5.2 Chat Latest",
+      "capability": "chat"
+    },
+    {
+      "modelId": "gpt-5.4-mini",
+      "displayName": "GPT-5.4 Mini",
+      "capability": "chat"
+    }
+  ]
+}
+```
+
+- [x] **Step 3: Write failing route test for duplicate imports**
+
+Extend `server/src/routes/providerImportModels.test.ts`.
+
+Expected behavior:
+
+- Import a model once.
+- Import the same `modelId` for the same provider again.
+- Response has `created: []`.
+- Response has `skipped: [{ modelId, reason: "already_exists" }]`.
+- Database still has exactly one local model for that provider/model id.
+
+- [x] **Step 4: Write failing route tests for invalid input and missing provider**
+
+Extend `server/src/routes/providerImportModels.test.ts`.
+
+Expected behavior:
+
+- Missing provider returns status `404` and `{ code: "provider_not_found" }`.
+- Empty `models` array returns status `400`.
+- Invalid capability returns status `400`.
+
+- [x] **Step 5: Run tests to verify they fail**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/providers/modelRepository.test.ts src/routes/providerImportModels.test.ts
+```
+
+Expected: FAIL because `findByProviderAndModelId` and `/api/providers/:id/import-models` do not exist yet.
+
+- [x] **Step 6: Implement repository lookup**
+
+Update `server/src/providers/modelRepository.ts`:
+
+```ts
+findByProviderAndModelId(providerId: string, modelId: string): Model | undefined {
+  const row = this.db.prepare(`
+    select * from models
+    where provider_id = @providerId and model_id = @modelId
+  `).get<ModelRow>({ providerId, modelId });
+
+  return row ? mapModelRow(row) : undefined;
+}
+```
+
+- [x] **Step 7: Implement provider import-models route**
+
+Update `server/src/routes/providers.ts`:
+
+- Import `createModelRepository`.
+- Add a Zod schema:
+
+```ts
+const importModelsSchema = z.object({
+  models: z.array(z.object({
+    modelId: z.string().min(1),
+    displayName: z.string().min(1),
+    capability: z.enum(["chat", "image", "multimodal"]).default("chat"),
+    enabled: z.boolean().default(true),
+    defaultParams: z.record(z.unknown()).default({}),
+    pricing: z.record(z.unknown()).default({})
+  })).min(1)
+});
+```
+
+- Add:
+
+```text
+POST /api/providers/:id/import-models
+```
+
+Behavior:
+
+- Look up provider.
+- If missing, throw `ProviderError("provider_not_found", "Provider not found", { statusCode: 404 })`.
+- For each requested model:
+  - If `findByProviderAndModelId(provider.id, model.modelId)` exists, add `{ modelId, reason: "already_exists" }` to `skipped`.
+  - Otherwise create a local model with that provider id and add it to `created`.
+- Return status `201` with `{ created, skipped }`.
+
+- [x] **Step 8: Run targeted tests**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/providers/modelRepository.test.ts src/routes/providerImportModels.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 9: Run all backend tests and typecheck**
+
+Run:
+
+```bash
+npm run test --workspace server
+npm run typecheck --workspace server
+```
+
+Expected: PASS.
+
+- [x] **Step 10: Commit**
+
+```bash
+git add docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md server/src/providers/modelRepository.ts server/src/providers/modelRepository.test.ts server/src/routes/providers.ts server/src/routes/providerImportModels.test.ts
+git commit -m "feat: import remote models"
+```
+
+## Task 7.7: Persist sql.js database on graceful shutdown
+
+**Goal:** Provider/model data created through HTTP APIs must survive normal backend restarts. Current sql.js writes database files on `db.close()`, so the runtime must call `db.close()` when the server exits normally.
+
+**Files:**
+- Modify: `server/src/index.ts`
+- Modify: `server/src/db/client.ts`
+- Create: `server/src/serverLifecycle.test.ts`
+
+- [x] **Step 1: Write failing lifecycle test for database close on shutdown**
+
+Create `server/src/serverLifecycle.test.ts`.
+
+Expected behavior:
+
+- Build a server lifecycle helper that can be tested without binding a real network port.
+- Provide a fake `AppDatabase` with a spy `close()`.
+- Trigger the lifecycle shutdown handler.
+- Assert `db.close()` is called exactly once.
+- Assert calling shutdown twice still calls `db.close()` once.
+
+- [x] **Step 2: Write failing persistence smoke test**
+
+Extend `server/src/serverLifecycle.test.ts`.
+
+Expected behavior:
+
+- Create a temporary database file path.
+- Open database, insert provider through repository, call `db.close()`.
+- Reopen the same path, assert provider still exists.
+- This locks in the existing sql.js persistence contract before wiring runtime shutdown.
+
+- [x] **Step 3: Run lifecycle tests to verify they fail**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/serverLifecycle.test.ts
+```
+
+Expected: FAIL because lifecycle helpers do not exist yet.
+
+- [x] **Step 4: Add explicit database flush helper if needed**
+
+Review `server/src/db/client.ts`.
+
+Current behavior:
+
+- File-backed `AppDatabase.close()` writes `db.export()` to disk.
+
+If tests reveal this is enough, keep `client.ts` unchanged. If a clearer public helper is needed, add:
+
+```ts
+export function closeDatabase(db: AppDatabase) {
+  db.close();
+}
+```
+
+Do not change schema or repository behavior in this task.
+
+- [x] **Step 5: Refactor runtime into testable lifecycle functions**
+
+Update `server/src/index.ts` to separate:
+
+- env loading
+- SQL runtime initialization
+- database creation
+- Express app creation
+- server listen
+- graceful shutdown
+
+The runtime should:
+
+- Call `loadLocalEnv()` before reading env vars.
+- Call `initializeSqlRuntime()`.
+- Create the file-backed database.
+- Create the app with `{ db }`.
+- Keep a reference to the HTTP server returned by `app.listen`.
+- On `SIGINT` and `SIGTERM`, close the HTTP server and call `db.close()` once.
+- Set `process.exitCode = 0` for graceful signal shutdown.
+
+- [x] **Step 6: Run lifecycle tests**
+
+Run:
+
+```bash
+npm run test --workspace server -- src/serverLifecycle.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 7: Run all backend tests and typecheck**
+
+Run:
+
+```bash
+npm run test --workspace server
+npm run typecheck --workspace server
+```
+
+Expected: PASS.
+
+- [ ] **Step 8: Manual verification**
+
+Manually verify persistence:
+
+```powershell
+cd "F:\website\API Tools\.claude\worktrees\api-tools-v0-1-workbench"
+npm run dev --workspace server
+```
+
+In another shell:
+
+```powershell
+$provider = Invoke-RestMethod -Method Post http://127.0.0.1:8787/api/providers -ContentType "application/json" -Body '{"name":"Persistence Probe","type":"openai-compatible","baseUrl":"https://example.test/v1","apiKeyEnv":"CUSTOM_OPENAI_COMPATIBLE_KEY","enabled":true}'
+```
+
+Stop server with `Ctrl+C`, restart it, then verify:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8787/api/providers
+```
+
+Expected: `Persistence Probe` still exists.
+
+- [x] **Step 9: Commit**
+
+```bash
+git add docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md server/src/index.ts server/src/db/client.ts server/src/serverLifecycle.test.ts
+git commit -m "fix: persist database on shutdown"
 ```
 
 ## Task 8: Basic chat workflow runner
