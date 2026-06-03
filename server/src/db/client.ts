@@ -60,9 +60,16 @@ function rowsToObjects<T>(columns: string[], values: SqlValue[][]): T[] {
 }
 
 function createAppDatabase(db: SqlJsDatabase, filePath?: string): AppDatabase {
+  function persist() {
+    if (!filePath) return;
+    mkdirSync(dirname(filePath), { recursive: true });
+    writeFileSync(filePath, db.export());
+  }
+
   return {
     exec(sql) {
       db.run(sql);
+      persist();
     },
     prepare(sql) {
       function all<T>(...params: AppStatementParams) {
@@ -74,6 +81,7 @@ function createAppDatabase(db: SqlJsDatabase, filePath?: string): AppDatabase {
       return {
         run(...params: AppStatementParams) {
           db.run(sql, normalizeParams(params));
+          persist();
         },
         get<T>(...params: AppStatementParams) {
           return all<T>(...params)[0];
@@ -82,10 +90,7 @@ function createAppDatabase(db: SqlJsDatabase, filePath?: string): AppDatabase {
       };
     },
     close() {
-      if (filePath) {
-        mkdirSync(dirname(filePath), { recursive: true });
-        writeFileSync(filePath, db.export());
-      }
+      persist();
       db.close();
     }
   };

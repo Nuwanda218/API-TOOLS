@@ -64,4 +64,29 @@ describe("server lifecycle", () => {
 
     secondDb.close();
   });
+
+  it("flushes file-backed sql.js database writes before shutdown", async () => {
+    tempDirectory = await mkdtemp(join(tmpdir(), "api-tools-db-"));
+    const databasePath = join(tempDirectory, "api-tools.db");
+
+    const firstDb = createDatabase(databasePath);
+    createProviderRepository(firstDb).create({
+      id: "provider-flushed",
+      name: "Flushed",
+      type: "openai-compatible",
+      baseUrl: "https://example.test/v1",
+      apiKeyEnv: "CUSTOM_OPENAI_COMPATIBLE_KEY",
+      enabled: true
+    });
+
+    const secondDb = createDatabase(databasePath);
+
+    expect(createProviderRepository(secondDb).getById("provider-flushed")).toMatchObject({
+      id: "provider-flushed",
+      name: "Flushed"
+    });
+
+    firstDb.close();
+    secondDb.close();
+  });
 });
