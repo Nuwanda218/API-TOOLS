@@ -1,10 +1,10 @@
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import dotenv from "dotenv";
 import { createApp } from "./app.js";
+import { loadLocalEnv } from "./config/env.js";
 import { createDatabase, initializeSqlRuntime, type AppDatabase } from "./db/client.js";
 
-dotenv.config();
+loadLocalEnv();
 
 interface ShutdownDependencies {
   server: {
