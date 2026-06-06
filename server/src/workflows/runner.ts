@@ -1,0 +1,307 @@
+import { nanoid } from "nanoid";
+import type { ModelAdapter } from "../adapters/types.js";
+import { getRequiredApiKey } from "../config/env.js";
+import type { AppDatabase } from "../db/client.js";
+import { ProviderError } from "../errors/providerError.js";
+import { createModelRepository, type Model } from "../providers/modelRepository.js";
+import { createProviderRepository, type Provider } from "../providers/providerRepository.js";
+import type {
+  RunRecord,
+  RunWorkflowInput,
+  RunWorkflowResult,
+  SessionRecord,
+  WorkflowStepDefinition
+} from "./types.js";
+
+interface WorkflowRunnerDependencies {
+  adapter: ModelAdapter;
+  env: NodeJS.ProcessEnv;
+}
+
+interface LlmChatStepResult {
+  provider: Provider;
+  model: Model;
+  content: string;
+  latencyMs: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  costEstimate: number;
+}
+
+export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunnerDependencies) {
+  const providers = createProviderRepository(db);
+  const models = createModelRepository(db);
+
+  async function runLlmChatStep(step: WorkflowStepDefinition, message: string): Promise<LlmChatStepResult> {
+    if (!step.modelId) {
+      throw new ProviderError("invalid_workflow_step", "llm.chat step requires modelId", { statusCode: 400 });
+    }
+
+    const model = models.getById(step.modelId);
+    if (!model) {
+      throw new ProviderError("model_not_found", "Model not found", { statusCode: 404 });
+    }
+
+    const provider = providers.getById(model.providerId);
+    if (!provider) {
+      throw new ProviderError("provider_not_found", "Provider not found", { statusCode: 404 });
+    }
+
+    if (model.capability !== "chat" && model.capability !== "multimodal") {
+      throw new ProviderError("unsupported_capability", "Model cannot run llm.chat workflow steps", { statusCode: 400 });
+    }
+
+    const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
+    const chatResult = await dependencies.adapter.runChat({
+      provider,
+      model,
+      apiKey,
+      messages: [{ role: "user", content: message }]
+    });
+
+    return {
+      provider,
+      model,
+      content: chatResult.content,
+      latencyMs: chatResult.latencyMs,
+      inputTokens: chatResult.usage.inputTokens,
+      outputTokens: chatResult.usage.outputTokens,
+      costEstimate: estimateCost(chatResult.usage.inputTokens, chatResult.usage.outputTokens, model.pricing)
+    };
+  }
+
+  return {
+    async runWorkflow(input: RunWorkflowInput): Promise<RunWorkflowResult> {
+      if (input.steps.length === 0) {
+        throw new ProviderError("invalid_workflow_step", "Workflow must include at least one step", { statusCode: 400 });
+      }
+
+      const startedAt = nowIso();
+      const sessionId = input.sessionId ?? nanoid();
+      const message = resolveInputMessage(input.input);
+
+      if (!input.sessionId) {
+        db.prepare(`
+          insert into sessions (id, title, workflow_type, created_at, updated_at)
+          values (@id, @title, @workflowType, @createdAt, @updatedAt)
+        `).run({
+          id: sessionId,
+          title: message.slice(0, 60) || "New workflow",
+          workflowType: input.workflowType,
+          createdAt: startedAt,
+          updatedAt: startedAt
+        });
+      }
+
+      db.prepare(`
+        insert into messages (id, session_id, role, content, created_at)
+        values (@id, @sessionId, 'user', @content, @createdAt)
+      `).run({
+        id: nanoid(),
+        sessionId,
+        content: message,
+        createdAt: startedAt
+      });
+
+      const runId = nanoid();
+      db.prepare(`
+        insert into runs (id, session_id, workflow_type, status, started_at)
+        values (@id, @sessionId, @workflowType, 'running', @startedAt)
+      `).run({
+        id: runId,
+        sessionId,
+        workflowType: input.workflowType,
+        startedAt
+      });
+
+      const outputs: Record<string, Record<string, unknown>> = {};
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      let totalCostEstimate = 0;
+      let finalModelId: string | undefined;
+      let finalContent = "";
+
+      for (const [stepIndex, step] of input.steps.entries()) {
+        if (step.type !== "llm.chat") {
+          throw new ProviderError("unsupported_workflow_step", `Unsupported workflow step type: ${step.type}`, { statusCode: 400 });
+        }
+
+        const stepMessage = resolveStepMessage(step, input.input);
+        const stepResult = await runLlmChatStep(step, stepMessage);
+        const stepId = nanoid();
+        const stepEndedAt = nextIso(startedAt, stepIndex + 1);
+
+        totalInputTokens += stepResult.inputTokens ?? 0;
+        totalOutputTokens += stepResult.outputTokens ?? 0;
+        totalCostEstimate += stepResult.costEstimate;
+        finalModelId = stepResult.model.id;
+        finalContent = stepResult.content;
+        outputs[step.id] = { content: stepResult.content };
+
+        db.prepare(`
+          insert into run_steps (
+            id,
+            run_id,
+            step_index,
+            step_type,
+            provider_id,
+            model_id,
+            status,
+            input_preview,
+            output_preview,
+            latency_ms,
+            input_tokens,
+            output_tokens,
+            cost_estimate,
+            created_at,
+            updated_at
+          )
+          values (
+            @id,
+            @runId,
+            @stepIndex,
+            @stepType,
+            @providerId,
+            @modelId,
+            'succeeded',
+            @inputPreview,
+            @outputPreview,
+            @latencyMs,
+            @inputTokens,
+            @outputTokens,
+            @costEstimate,
+            @createdAt,
+            @updatedAt
+          )
+        `).run({
+          id: stepId,
+          runId,
+          stepIndex,
+          stepType: step.type,
+          providerId: stepResult.provider.id,
+          modelId: stepResult.model.id,
+          inputPreview: stepMessage.slice(0, 200),
+          outputPreview: stepResult.content.slice(0, 200),
+          latencyMs: stepResult.latencyMs,
+          inputTokens: stepResult.inputTokens ?? null,
+          outputTokens: stepResult.outputTokens ?? null,
+          costEstimate: stepResult.costEstimate,
+          createdAt: startedAt,
+          updatedAt: stepEndedAt
+        });
+      }
+
+      const endedAt = nextIso(startedAt, input.steps.length + 1);
+      db.prepare(`
+        update runs
+        set status = 'succeeded',
+            ended_at = @endedAt,
+            total_input_tokens = @totalInputTokens,
+            total_output_tokens = @totalOutputTokens,
+            total_cost_estimate = @totalCostEstimate
+        where id = @id
+      `).run({
+        id: runId,
+        endedAt,
+        totalInputTokens,
+        totalOutputTokens,
+        totalCostEstimate
+      });
+
+      db.prepare(`
+        insert into messages (id, session_id, role, content, model_id, run_id, created_at)
+        values (@id, @sessionId, 'assistant', @content, @modelId, @runId, @createdAt)
+      `).run({
+        id: nanoid(),
+        sessionId,
+        content: finalContent,
+        modelId: finalModelId ?? null,
+        runId,
+        createdAt: endedAt
+      });
+
+      db.prepare("update sessions set updated_at = @updatedAt where id = @id").run({
+        id: sessionId,
+        updatedAt: endedAt
+      });
+
+      return {
+        session: mapSession(db.prepare("select * from sessions where id = @id").get<SessionRow>({ id: sessionId }) as SessionRow),
+        run: mapRun(db.prepare("select * from runs where id = @id").get<RunRow>({ id: runId }) as RunRow),
+        outputs
+      };
+    }
+  };
+}
+
+interface SessionRow {
+  id: string;
+  title: string;
+  workflow_type: SessionRecord["workflowType"];
+  created_at: string;
+  updated_at: string;
+}
+
+interface RunRow {
+  id: string;
+  session_id: string;
+  workflow_type: RunRecord["workflowType"];
+  status: RunRecord["status"];
+  started_at: string;
+  ended_at: string | null;
+  total_input_tokens: number | null;
+  total_output_tokens: number | null;
+  total_cost_estimate: number | null;
+}
+
+function mapSession(row: SessionRow): SessionRecord {
+  return {
+    id: row.id,
+    title: row.title,
+    workflowType: row.workflow_type,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapRun(row: RunRow): RunRecord {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    workflowType: row.workflow_type,
+    status: row.status,
+    startedAt: row.started_at,
+    endedAt: row.ended_at ?? undefined,
+    totalInputTokens: row.total_input_tokens ?? undefined,
+    totalOutputTokens: row.total_output_tokens ?? undefined,
+    totalCostEstimate: row.total_cost_estimate ?? undefined
+  };
+}
+
+function resolveInputMessage(input: Record<string, unknown>) {
+  const message = input.message;
+  return typeof message === "string" ? message : "";
+}
+
+function resolveStepMessage(step: WorkflowStepDefinition, workflowInput: Record<string, unknown>) {
+  const message = step.input.message;
+  if (message === "{{input.message}}") {
+    return resolveInputMessage(workflowInput);
+  }
+
+  return typeof message === "string" ? message : resolveInputMessage(workflowInput);
+}
+
+function estimateCost(inputTokens: number | undefined, outputTokens: number | undefined, pricing: Model["pricing"]) {
+  const inputPrice = pricing.inputTokenPrice ?? 0;
+  const outputPrice = pricing.outputTokenPrice ?? 0;
+  return ((inputTokens ?? 0) / 1_000_000) * inputPrice + ((outputTokens ?? 0) / 1_000_000) * outputPrice;
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function nextIso(base: string, milliseconds: number) {
+  return new Date(Date.parse(base) + milliseconds).toISOString();
+}

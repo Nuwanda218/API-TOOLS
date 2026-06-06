@@ -1,0 +1,53 @@
+import request from "supertest";
+import { describe, expect, it } from "vitest";
+import type { ModelAdapter } from "../adapters/types.js";
+import { createApp } from "../app.js";
+import { createTestDatabase } from "../test/testDb.js";
+
+describe("workflow routes", () => {
+  it("runs an llm.chat workflow", async () => {
+    const db = createTestDatabase();
+    const adapter: ModelAdapter = {
+      listModels: async () => [],
+      testModel: async () => ({ ok: true, latencyMs: 1, message: "ok", usage: {} }),
+      runChat: async () => ({ content: "Model reply", latencyMs: 8, usage: { inputTokens: 6, outputTokens: 3 } })
+    };
+    const app = createApp({ db, env: { CUSTOM_KEY: "secret" }, workflowAdapter: adapter });
+
+    const providerResponse = await request(app).post("/api/providers").send({
+      name: "Custom",
+      type: "openai-compatible",
+      baseUrl: "https://example.test/v1",
+      apiKeyEnv: "CUSTOM_KEY",
+      enabled: true
+    });
+    const modelResponse = await request(app).post("/api/models").send({
+      providerId: providerResponse.body.id,
+      displayName: "Fast Chat",
+      modelId: "fast-chat",
+      capability: "chat",
+      enabled: true,
+      defaultParams: {},
+      pricing: {}
+    });
+
+    const response = await request(app).post("/api/workflows/run").send({
+      workflowType: "api-workflow",
+      input: { message: "Hello" },
+      steps: [
+        {
+          id: "main-response",
+          type: "llm.chat",
+          modelId: modelResponse.body.id,
+          input: { message: "{{input.message}}" }
+        }
+      ]
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.outputs["main-response"].content).toBe("Model reply");
+    expect(response.body.run.status).toBe("succeeded");
+
+    db.close();
+  });
+});

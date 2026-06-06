@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the first working local API Tools prototype with project scaffolding, SQLite-backed provider/model management, OpenAI-compatible model testing, and a basic chat workbench.
+**Goal:** Build the first working local API Tools prototype with project scaffolding, SQLite-backed provider/model management, OpenAI-compatible model testing, and a framework-oriented workflow workbench whose first executable step type is `llm.chat`.
 
-**Architecture:** Use a Vite React frontend and an Express backend in one TypeScript workspace. The backend owns API keys, SQLite persistence, provider adapters, workflow execution, and usage records; the frontend calls only local `/api/*` endpoints. The implementation deliberately keeps image2, advanced usage dashboards, and modular workflow editing out of this first plan so this phase can ship independently.
+**Architecture:** Use a Vite React frontend and an Express backend in one TypeScript workspace. The backend owns API keys, SQLite persistence, provider adapters, workflow execution, and usage records; the frontend calls only local `/api/*` endpoints. The implementation deliberately keeps image2, advanced usage dashboards, visual workflow editing, arbitrary HTTP API steps, and conditional branching out of this first plan so this phase can ship independently while still establishing the framework boundary.
 
 **Tech Stack:** Node.js, TypeScript, npm workspaces, Vite, React, Express, sql.js, Vitest, React Testing Library, Supertest, Zod.
 
@@ -20,14 +20,16 @@ This plan implements the first testable slice from `docs/superpowers/specs/2026-
 - `.env`-based API key lookup.
 - Provider/model CRUD.
 - OpenAI-compatible adapter and model test endpoint.
-- Basic chat workflow with run/run_step persistence.
+- Generic workflow execution with a first `llm.chat` step and run/run_step persistence.
 - Frontend top navigation, API接入 page, 模型管理 page, 工作台 page, and minimal 用量检测 summary.
 
 Deferred to later plans:
 
 - GPT image2 adapter and UI.
 - Rich usage analytics page.
-- Workflow template editor.
+- Visual workflow template editor.
+- Arbitrary HTTP/API step execution.
+- Conditional branching, loops, retries, and multi-step dependency wiring.
 - Model comparison workflow.
 - Generate/review multi-model workflows.
 - Desktop packaging or private deployment.
@@ -2223,7 +2225,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 8: Manual verification**
+- [x] **Step 8: Manual verification**
 
 Manually verify persistence:
 
@@ -2253,14 +2255,16 @@ git add docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md server/src
 git commit -m "fix: persist database on shutdown"
 ```
 
-## Task 8: Basic chat workflow runner
+## Task 8: Workflow runner core with llm.chat step
 
 **Files:**
+- Modify: `server/src/db/schema.ts`
+- Modify: `server/src/db/schema.test.ts`
 - Create: `server/src/workflows/types.ts`
 - Create: `server/src/workflows/runner.ts`
 - Create: `server/src/workflows/runner.test.ts`
 
-- [ ] **Step 1: Write failing runner test**
+- [x] **Step 1: Write failing generic workflow runner test**
 
 Create `server/src/workflows/runner.test.ts`:
 
@@ -2273,7 +2277,7 @@ import { createTestDatabase } from "../test/testDb.js";
 import { createWorkflowRunner } from "./runner.js";
 
 describe("workflowRunner", () => {
-  it("runs basic chat and records messages, run, and step", async () => {
+  it("runs an llm.chat workflow step and records messages, run, and step", async () => {
     const db = createTestDatabase();
     const providers = createProviderRepository(db);
     const models = createModelRepository(db);
@@ -2306,26 +2310,35 @@ describe("workflowRunner", () => {
       env: { CUSTOM_KEY: "secret" }
     });
 
-    const result = await runner.runBasicChat({
-      modelId: model.id,
-      message: "Hello",
-      sessionId: undefined
+    const result = await runner.runWorkflow({
+      workflowType: "api-workflow",
+      sessionId: undefined,
+      input: { message: "Hello" },
+      steps: [
+        {
+          id: "main-response",
+          type: "llm.chat",
+          modelId: model.id,
+          input: { message: "{{input.message}}" }
+        }
+      ]
     });
 
-    expect(result.assistantMessage.content).toBe("Hello from model");
+    expect(result.outputs["main-response"].content).toBe("Hello from model");
     expect(result.run.status).toBe("succeeded");
     expect(result.run.totalInputTokens).toBe(10);
     expect(result.run.totalOutputTokens).toBe(4);
 
     const runSteps = db.prepare("select * from run_steps").all();
     expect(runSteps).toHaveLength(1);
+    expect(runSteps[0].step_type).toBe("llm.chat");
 
     db.close();
   });
 });
 ```
 
-- [ ] **Step 2: Run runner test to verify it fails**
+- [x] **Step 2: Run runner test to verify it fails**
 
 Run:
 
@@ -2333,17 +2346,41 @@ Run:
 npm run test --workspace server -- src/workflows/runner.test.ts
 ```
 
-Expected: FAIL because workflow runner does not exist.
+Expected: FAIL because generic workflow runner does not exist.
 
-- [ ] **Step 3: Implement workflow types**
+- [x] **Step 3: Update schema constraints and implement framework-oriented workflow types**
+
+Modify `server/src/db/schema.ts` and `server/src/db/schema.test.ts` so:
+
+- `sessions.workflow_type` and `runs.workflow_type` allow `api-workflow` and `model-test`.
+- `run_steps.step_type` allows `llm.chat` and `model-test`.
+- Existing model test behavior still works.
+- V0.1 does not implement schema migrations. If an existing local database was created with the old CHECK constraints, delete the local test database file and recreate/import provider/model data.
 
 Create `server/src/workflows/types.ts`:
 
 ```ts
+export type WorkflowType = "api-workflow" | "model-test";
+export type WorkflowStepType = "llm.chat";
+
+export interface WorkflowStepDefinition {
+  id: string;
+  type: WorkflowStepType;
+  modelId?: string;
+  input: Record<string, unknown>;
+}
+
+export interface RunWorkflowInput {
+  sessionId?: string;
+  workflowType: WorkflowType;
+  input: Record<string, unknown>;
+  steps: WorkflowStepDefinition[];
+}
+
 export interface SessionRecord {
   id: string;
   title: string;
-  workflowType: "chat" | "image-minimal" | "model-test";
+  workflowType: WorkflowType;
   createdAt: string;
   updatedAt: string;
 }
@@ -2361,7 +2398,7 @@ export interface MessageRecord {
 export interface RunRecord {
   id: string;
   sessionId: string;
-  workflowType: "chat" | "image-minimal" | "model-test";
+  workflowType: WorkflowType;
   status: "running" | "succeeded" | "failed";
   startedAt: string;
   endedAt?: string;
@@ -2369,9 +2406,15 @@ export interface RunRecord {
   totalOutputTokens?: number;
   totalCostEstimate?: number;
 }
+
+export interface RunWorkflowResult {
+  session: SessionRecord;
+  run: RunRecord;
+  outputs: Record<string, Record<string, unknown>>;
+}
 ```
 
-- [ ] **Step 4: Implement basic chat runner**
+- [x] **Step 4: Implement runner core and the first llm.chat step executor**
 
 Create `server/src/workflows/runner.ts`:
 
@@ -2383,24 +2426,18 @@ import { getRequiredApiKey } from "../config/env.js";
 import { ProviderError } from "../errors/providerError.js";
 import { createModelRepository } from "../providers/modelRepository.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
-import type { MessageRecord, RunRecord, SessionRecord } from "./types.js";
+import type {
+  MessageRecord,
+  RunRecord,
+  RunWorkflowInput,
+  RunWorkflowResult,
+  SessionRecord,
+  WorkflowStepDefinition
+} from "./types.js";
 
 interface WorkflowRunnerDependencies {
   adapter: ModelAdapter;
   env: NodeJS.ProcessEnv;
-}
-
-interface RunBasicChatInput {
-  sessionId?: string;
-  modelId: string;
-  message: string;
-}
-
-interface RunBasicChatResult {
-  session: SessionRecord;
-  userMessage: MessageRecord;
-  assistantMessage: MessageRecord;
-  run: RunRecord;
 }
 
 function nowIso() {
@@ -2453,94 +2490,122 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
   const providers = createProviderRepository(db);
   const models = createModelRepository(db);
 
+  async function runLlmChatStep(step: WorkflowStepDefinition, message: string) {
+    if (!step.modelId) {
+      throw new ProviderError("invalid_workflow_step", "llm.chat step requires modelId", { statusCode: 400 });
+    }
+    const model = models.getById(step.modelId);
+    if (!model) {
+      throw new ProviderError("model_not_found", "Model not found", { statusCode: 404 });
+    }
+    const provider = providers.getById(model.providerId);
+    if (!provider) {
+      throw new ProviderError("provider_error", "Provider not found", { statusCode: 404 });
+    }
+    const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
+    const chatResult = await dependencies.adapter.runChat({
+      provider,
+      model,
+      apiKey,
+      messages: [{ role: "user", content: message }]
+    });
+    return { provider, model, chatResult };
+  }
+
   return {
-    async runBasicChat(input: RunBasicChatInput): Promise<RunBasicChatResult> {
-      const model = models.getById(input.modelId);
-      if (!model) {
-        throw new ProviderError("model_not_found", "Model not found", { statusCode: 404 });
-      }
-      const provider = providers.getById(model.providerId);
-      if (!provider) {
-        throw new ProviderError("provider_error", "Provider not found", { statusCode: 404 });
-      }
-      const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
+    async runWorkflow(input: RunWorkflowInput): Promise<RunWorkflowResult> {
       const timestamp = nowIso();
 
       const sessionId = input.sessionId ?? nanoid();
       if (!input.sessionId) {
         db.prepare(`
           insert into sessions (id, title, workflow_type, created_at, updated_at)
-          values (?, ?, 'chat', ?, ?)
-        `).run(sessionId, input.message.slice(0, 60) || "New chat", timestamp, timestamp);
+          values (?, ?, ?, ?, ?)
+        `).run(sessionId, String(input.input.message ?? "New workflow").slice(0, 60), input.workflowType, timestamp, timestamp);
       }
 
       const userMessageId = nanoid();
+      const message = String(input.input.message ?? "");
       db.prepare(`
         insert into messages (id, session_id, role, content, created_at)
         values (?, ?, 'user', ?, ?)
-      `).run(userMessageId, sessionId, input.message, timestamp);
+      `).run(userMessageId, sessionId, message, timestamp);
 
       const runId = nanoid();
       db.prepare(`
         insert into runs (id, session_id, workflow_type, status, started_at)
-        values (?, ?, 'chat', 'running', ?)
-      `).run(runId, sessionId, timestamp);
+        values (?, ?, ?, 'running', ?)
+      `).run(runId, sessionId, input.workflowType, timestamp);
 
-      const stepId = nanoid();
-      db.prepare(`
-        insert into run_steps (id, run_id, step_index, step_type, provider_id, model_id, status, input_preview, created_at, updated_at)
-        values (?, ?, 0, 'chat-completion', ?, ?, 'running', ?, ?, ?)
-      `).run(stepId, runId, provider.id, model.id, input.message.slice(0, 200), timestamp, timestamp);
+      const outputs: Record<string, Record<string, unknown>> = {};
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      let totalCostEstimate = 0;
 
-      const chatResult = await dependencies.adapter.runChat({
-        provider,
-        model,
-        apiKey,
-        messages: [{ role: "user", content: input.message }]
-      });
+      for (const [stepIndex, step] of input.steps.entries()) {
+        if (step.type !== "llm.chat") {
+          throw new ProviderError("unsupported_workflow_step", `Unsupported workflow step type: ${step.type}`, { statusCode: 400 });
+        }
+
+        const stepId = nanoid();
+        db.prepare(`
+          insert into run_steps (id, run_id, step_index, step_type, status, input_preview, created_at, updated_at)
+          values (?, ?, ?, ?, 'running', ?, ?, ?)
+        `).run(stepId, runId, stepIndex, step.type, message.slice(0, 200), timestamp, timestamp);
+
+        const { provider, model, chatResult } = await runLlmChatStep(step, message);
+        const stepEndedAt = nowIso();
+        const costEstimate = estimateCost(chatResult.usage.inputTokens, chatResult.usage.outputTokens, model.pricing);
+        totalInputTokens += chatResult.usage.inputTokens ?? 0;
+        totalOutputTokens += chatResult.usage.outputTokens ?? 0;
+        totalCostEstimate += costEstimate;
+        outputs[step.id] = { content: chatResult.content };
+
+        db.prepare(`
+          update run_steps
+          set provider_id = ?, model_id = ?, status = 'succeeded', output_preview = ?, latency_ms = ?, input_tokens = ?, output_tokens = ?, cost_estimate = ?, updated_at = ?
+          where id = ?
+        `).run(
+          provider.id,
+          model.id,
+          chatResult.content.slice(0, 200),
+          chatResult.latencyMs,
+          chatResult.usage.inputTokens ?? null,
+          chatResult.usage.outputTokens ?? null,
+          costEstimate,
+          stepEndedAt,
+          stepId
+        );
+      }
+
       const endedAt = nowIso();
-      const costEstimate = estimateCost(chatResult.usage.inputTokens, chatResult.usage.outputTokens, model.pricing);
-
-      db.prepare(`
-        update run_steps
-        set status = 'succeeded', output_preview = ?, latency_ms = ?, input_tokens = ?, output_tokens = ?, cost_estimate = ?, updated_at = ?
-        where id = ?
-      `).run(
-        chatResult.content.slice(0, 200),
-        chatResult.latencyMs,
-        chatResult.usage.inputTokens ?? null,
-        chatResult.usage.outputTokens ?? null,
-        costEstimate,
-        endedAt,
-        stepId
-      );
 
       db.prepare(`
         update runs
         set status = 'succeeded', ended_at = ?, total_input_tokens = ?, total_output_tokens = ?, total_cost_estimate = ?
         where id = ?
-      `).run(endedAt, chatResult.usage.inputTokens ?? null, chatResult.usage.outputTokens ?? null, costEstimate, runId);
+      `).run(endedAt, totalInputTokens, totalOutputTokens, totalCostEstimate, runId);
 
       const assistantMessageId = nanoid();
+      const finalOutput = Object.values(outputs).at(-1);
       db.prepare(`
         insert into messages (id, session_id, role, content, model_id, run_id, created_at)
         values (?, ?, 'assistant', ?, ?, ?, ?)
-      `).run(assistantMessageId, sessionId, chatResult.content, model.id, runId, endedAt);
+      `).run(assistantMessageId, sessionId, String(finalOutput?.content ?? ""), null, runId, endedAt);
 
       db.prepare("update sessions set updated_at = ? where id = ?").run(endedAt, sessionId);
 
       return {
         session: mapSession(db.prepare("select * from sessions where id = ?").get(sessionId) as Record<string, unknown>),
-        userMessage: mapMessage(db.prepare("select * from messages where id = ?").get(userMessageId) as Record<string, unknown>),
-        assistantMessage: mapMessage(db.prepare("select * from messages where id = ?").get(assistantMessageId) as Record<string, unknown>),
-        run: mapRun(db.prepare("select * from runs where id = ?").get(runId) as Record<string, unknown>)
+        run: mapRun(db.prepare("select * from runs where id = ?").get(runId) as Record<string, unknown>),
+        outputs
       };
     }
   };
 }
 ```
 
-- [ ] **Step 5: Run runner test to verify it passes**
+- [x] **Step 5: Run runner test to verify it passes**
 
 Run:
 
@@ -2550,14 +2615,14 @@ npm run test --workspace server -- src/workflows/runner.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
-git add server/src/workflows/types.ts server/src/workflows/runner.ts server/src/workflows/runner.test.ts
-git commit -m "feat: add basic chat workflow runner"
+git add server/src/db/schema.ts server/src/db/schema.test.ts server/src/workflows/types.ts server/src/workflows/runner.ts server/src/workflows/runner.test.ts
+git commit -m "feat: add workflow runner core"
 ```
 
-## Task 9: Basic chat workflow route and usage summary
+## Task 9: Workflow execution route and usage summary
 
 **Files:**
 - Modify: `server/src/app.ts`
@@ -2568,7 +2633,7 @@ git commit -m "feat: add basic chat workflow runner"
 - Create: `server/src/routes/workflows.test.ts`
 - Create: `server/src/routes/usage.test.ts`
 
-- [ ] **Step 1: Write failing workflow route test**
+- [x] **Step 1: Write failing generic workflow execution route test**
 
 Create `server/src/routes/workflows.test.ts`:
 
@@ -2580,7 +2645,7 @@ import { createApp } from "../app.js";
 import { createTestDatabase } from "../test/testDb.js";
 
 describe("workflow routes", () => {
-  it("runs basic chat", async () => {
+  it("runs an llm.chat workflow", async () => {
     const db = createTestDatabase();
     const adapter: ModelAdapter = {
       testModel: async () => ({ ok: true, latencyMs: 1, message: "ok", usage: {} }),
@@ -2605,13 +2670,21 @@ describe("workflow routes", () => {
       pricing: {}
     });
 
-    const response = await request(app).post("/api/workflows/basic-chat/run").send({
-      modelId: modelResponse.body.id,
-      message: "Hello"
+    const response = await request(app).post("/api/workflows/run").send({
+      workflowType: "api-workflow",
+      input: { message: "Hello" },
+      steps: [
+        {
+          id: "main-response",
+          type: "llm.chat",
+          modelId: modelResponse.body.id,
+          input: { message: "{{input.message}}" }
+        }
+      ]
     });
 
     expect(response.status).toBe(200);
-    expect(response.body.assistantMessage.content).toBe("Model reply");
+    expect(response.body.outputs["main-response"].content).toBe("Model reply");
     expect(response.body.run.status).toBe("succeeded");
 
     db.close();
@@ -2619,7 +2692,7 @@ describe("workflow routes", () => {
 });
 ```
 
-- [ ] **Step 2: Write failing usage summary test**
+- [x] **Step 2: Write failing usage summary test**
 
 Create `server/src/routes/usage.test.ts`:
 
@@ -2655,7 +2728,11 @@ describe("usage routes", () => {
       defaultParams: {},
       pricing: {}
     });
-    await request(app).post("/api/workflows/basic-chat/run").send({ modelId: modelResponse.body.id, message: "Hello" });
+    await request(app).post("/api/workflows/run").send({
+      workflowType: "api-workflow",
+      input: { message: "Hello" },
+      steps: [{ id: "main-response", type: "llm.chat", modelId: modelResponse.body.id, input: { message: "{{input.message}}" } }]
+    });
 
     const response = await request(app).get("/api/usage/summary");
 
@@ -2673,7 +2750,7 @@ describe("usage routes", () => {
 });
 ```
 
-- [ ] **Step 3: Run route tests to verify they fail**
+- [x] **Step 3: Run route tests to verify they fail**
 
 Run:
 
@@ -2681,9 +2758,9 @@ Run:
 npm run test --workspace server -- src/routes/workflows.test.ts src/routes/usage.test.ts
 ```
 
-Expected: FAIL because workflow and usage routes are not implemented.
+Expected: FAIL because generic workflow execution and usage routes are not implemented.
 
-- [ ] **Step 4: Implement usage service**
+- [x] **Step 4: Implement usage service**
 
 Create `server/src/usage/usageService.ts`:
 
@@ -2729,7 +2806,7 @@ export function createUsageService(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 5: Implement workflow and usage routes**
+- [x] **Step 5: Implement workflow and usage routes**
 
 Create `server/src/routes/workflows.ts`:
 
@@ -2740,10 +2817,18 @@ import { z } from "zod";
 import type { ModelAdapter } from "../adapters/types.js";
 import { createWorkflowRunner } from "../workflows/runner.js";
 
-const runBasicChatSchema = z.object({
+const workflowStepSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("llm.chat"),
+  modelId: z.string().min(1).optional(),
+  input: z.record(z.unknown()).default({})
+});
+
+const runWorkflowSchema = z.object({
   sessionId: z.string().optional(),
-  modelId: z.string().min(1),
-  message: z.string().min(1)
+  workflowType: z.literal("api-workflow").default("api-workflow"),
+  input: z.record(z.unknown()).default({}),
+  steps: z.array(workflowStepSchema).min(1)
 });
 
 interface WorkflowsRouterDependencies {
@@ -2757,16 +2842,14 @@ export function createWorkflowsRouter(db: AppDatabase, dependencies: WorkflowsRo
 
   router.get("/", (_req, res) => {
     res.json([
-      { id: "basic-chat", name: "基础聊天", modules: [{ id: "main-response", role: "chat" }] },
-      { id: "image-minimal", name: "Image2 最小入口", modules: [{ id: "image-generation", role: "image-generation" }] },
-      { id: "model-test", name: "模型测试", modules: [{ id: "model-test", role: "model-test" }] }
+      { id: "single-llm-chat", name: "单步 LLM Chat", steps: [{ id: "main-response", type: "llm.chat" }] }
     ]);
   });
 
-  router.post("/basic-chat/run", async (req, res, next) => {
+  router.post("/run", async (req, res, next) => {
     try {
-      const input = runBasicChatSchema.parse(req.body);
-      const result = await runner.runBasicChat(input);
+      const input = runWorkflowSchema.parse(req.body);
+      const result = await runner.runWorkflow(input);
       res.json(result);
     } catch (error) {
       next(error);
@@ -2796,7 +2879,7 @@ export function createUsageRouter(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 6: Register routes in app**
+- [x] **Step 6: Register routes in app**
 
 Modify `server/src/app.ts` to this complete file:
 
@@ -2866,7 +2949,7 @@ app.listen(port, () => {
 });
 ```
 
-- [ ] **Step 7: Run route tests to verify they pass**
+- [x] **Step 7: Run route tests to verify they pass**
 
 Run:
 
@@ -2876,7 +2959,7 @@ npm run test --workspace server -- src/routes/workflows.test.ts src/routes/usage
 
 Expected: PASS.
 
-- [ ] **Step 8: Run all backend tests**
+- [x] **Step 8: Run all backend tests**
 
 Run:
 
@@ -2886,11 +2969,11 @@ npm run test --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add server/src/app.ts server/src/index.ts server/src/routes/workflows.ts server/src/routes/usage.ts server/src/usage/usageService.ts server/src/routes/workflows.test.ts server/src/routes/usage.test.ts
-git commit -m "feat: add basic chat workflow route"
+git commit -m "feat: add workflow execution route"
 ```
 
 ## Task 10: Frontend app shell and top navigation
@@ -3041,7 +3124,7 @@ export function App() {
   return (
     <div className="app-shell">
       <TopNav currentPage={currentPage} onPageChange={setCurrentPage} />
-      {currentPage === "workbench" && <PlaceholderPage title="工作台" description="创建会话、运行基础聊天并查看运行详情。" />}
+      {currentPage === "workbench" && <PlaceholderPage title="工作台" description="创建会话、运行 workflow 并查看运行详情。" />}
       {currentPage === "providers" && <PlaceholderPage title="API接入" description="管理 provider、base URL 和 API Key 环境变量名。" />}
       {currentPage === "models" && <PlaceholderPage title="模型管理" description="管理模型 ID、能力、默认参数和价格。" />}
       {currentPage === "usage" && <PlaceholderPage title="用量检测" description="查看请求数、token、成本估算和错误数。" />}
@@ -3236,12 +3319,34 @@ export interface UsageSummary {
   estimatedCost: number;
   errorCount: number;
 }
+
+export type WorkflowStepType = "llm.chat";
+
+export interface WorkflowStepDefinition {
+  id: string;
+  type: WorkflowStepType;
+  modelId?: string;
+  input: Record<string, unknown>;
+}
+
+export interface RunWorkflowRequest {
+  sessionId?: string;
+  workflowType: "api-workflow";
+  input: Record<string, unknown>;
+  steps: WorkflowStepDefinition[];
+}
+
+export interface RunWorkflowResponse {
+  session: { id: string; title: string; workflowType: string };
+  run: { id: string; status: "running" | "succeeded" | "failed" };
+  outputs: Record<string, Record<string, unknown>>;
+}
 ```
 
 Create `client/src/api/client.ts`:
 
 ```ts
-import type { ModelRecord, ProviderRecord, UsageSummary } from "./types";
+import type { ModelRecord, ProviderRecord, RunWorkflowRequest, RunWorkflowResponse, UsageSummary } from "./types";
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -3284,8 +3389,8 @@ export const apiClient = {
   getUsageSummary() {
     return requestJson<UsageSummary>("/api/usage/summary");
   },
-  runBasicChat(input: { sessionId?: string; modelId: string; message: string }) {
-    return requestJson<{ assistantMessage: { content: string }; run: { status: string } }>("/api/workflows/basic-chat/run", {
+  runWorkflow(input: RunWorkflowRequest) {
+    return requestJson<RunWorkflowResponse>("/api/workflows/run", {
       method: "POST",
       body: JSON.stringify(input)
     });
@@ -3527,7 +3632,7 @@ export function App() {
   return (
     <div className="app-shell">
       <TopNav currentPage={currentPage} onPageChange={setCurrentPage} />
-      {currentPage === "workbench" && <PlaceholderPage title="工作台" description="创建会话、运行基础聊天并查看运行详情。" />}
+      {currentPage === "workbench" && <PlaceholderPage title="工作台" description="创建会话、运行 workflow 并查看运行详情。" />}
       {currentPage === "providers" && <ProvidersPage api={apiClient} />}
       {currentPage === "models" && <ModelsPage api={apiClient} />}
       {currentPage === "usage" && <UsagePage api={apiClient} />}
@@ -3657,7 +3762,7 @@ git add client/src/api/types.ts client/src/api/client.ts client/src/pages/Provid
 git commit -m "feat: add api management pages"
 ```
 
-## Task 12: Frontend workbench page
+## Task 12: Frontend workflow workbench page
 
 **Files:**
 - Create: `client/src/pages/WorkbenchPage.tsx`
@@ -3675,7 +3780,7 @@ import { describe, expect, it, vi } from "vitest";
 import { WorkbenchPage } from "./WorkbenchPage";
 
 describe("WorkbenchPage", () => {
-  it("sends a basic chat message", async () => {
+  it("runs a single llm.chat workflow", async () => {
     const api = {
       listModels: vi.fn().mockResolvedValue([
         {
@@ -3689,9 +3794,9 @@ describe("WorkbenchPage", () => {
           pricing: {}
         }
       ]),
-      runBasicChat: vi.fn().mockResolvedValue({
-        assistantMessage: { content: "Hello from model" },
-        run: { status: "succeeded" }
+      runWorkflow: vi.fn().mockResolvedValue({
+        outputs: { "main-response": { content: "Hello from model" } },
+        run: { id: "run-1", status: "succeeded" }
       })
     };
 
@@ -3701,7 +3806,18 @@ describe("WorkbenchPage", () => {
     await userEvent.type(screen.getByLabelText("消息"), "Hello");
     await userEvent.click(screen.getByRole("button", { name: "发送" }));
 
-    await waitFor(() => expect(api.runBasicChat).toHaveBeenCalledWith({ modelId: "model-1", message: "Hello" }));
+    await waitFor(() => expect(api.runWorkflow).toHaveBeenCalledWith({
+      workflowType: "api-workflow",
+      input: { message: "Hello" },
+      steps: [
+        {
+          id: "main-response",
+          type: "llm.chat",
+          modelId: "model-1",
+          input: { message: "{{input.message}}" }
+        }
+      ]
+    }));
     expect(await screen.findByText("Hello from model")).toBeInTheDocument();
     expect(screen.getByText("succeeded")).toBeInTheDocument();
   });
@@ -3728,7 +3844,7 @@ import type { ApiClient } from "../api/client";
 import type { ModelRecord } from "../api/types";
 
 interface WorkbenchPageProps {
-  api: Pick<ApiClient, "listModels" | "runBasicChat">;
+  api: Pick<ApiClient, "listModels" | "runWorkflow">;
 }
 
 interface ChatMessage {
@@ -3761,8 +3877,19 @@ export function WorkbenchPage({ api }: WorkbenchPageProps) {
     setRunStatus("running");
 
     try {
-      const result = await api.runBasicChat({ modelId: selectedModelId, message: userMessage });
-      setMessages((current) => [...current, { role: "assistant", content: result.assistantMessage.content }]);
+      const result = await api.runWorkflow({
+        workflowType: "api-workflow",
+        input: { message: userMessage },
+        steps: [
+          {
+            id: "main-response",
+            type: "llm.chat",
+            modelId: selectedModelId,
+            input: { message: "{{input.message}}" }
+          }
+        ]
+      });
+      setMessages((current) => [...current, { role: "assistant", content: String(result.outputs["main-response"]?.content ?? "") }]);
       setRunStatus(result.run.status);
     } catch (error) {
       setRunStatus(error instanceof Error ? error.message : "failed");
@@ -3773,11 +3900,11 @@ export function WorkbenchPage({ api }: WorkbenchPageProps) {
     <main className="workbench-page">
       <aside className="workbench-sidebar">
         <h2>会话列表</h2>
-        <button type="button">+ 新建基础聊天</button>
-        <button type="button" disabled>Image2 最小入口</button>
-        <button type="button" disabled>模型测试</button>
+        <button type="button">+ 单步 LLM Chat</button>
+        <button type="button" disabled>HTTP Request 占位</button>
+        <button type="button" disabled>多步骤编排占位</button>
       </aside>
-      <section className="chat-panel">
+      <section className="workflow-panel">
         <h1>工作台</h1>
         <label>
           当前模型
@@ -3795,7 +3922,7 @@ export function WorkbenchPage({ api }: WorkbenchPageProps) {
             </div>
           ))}
         </div>
-        <form className="chat-input" onSubmit={handleSubmit}>
+        <form className="workflow-input" onSubmit={handleSubmit}>
           <label>
             消息
             <textarea value={message} onChange={(event) => setMessage(event.target.value)} />
@@ -3807,7 +3934,7 @@ export function WorkbenchPage({ api }: WorkbenchPageProps) {
         <h2>运行详情</h2>
         <dl>
           <dt>Workflow</dt>
-          <dd>基础聊天</dd>
+          <dd>单步 LLM Chat</dd>
           <dt>Run 状态</dt>
           <dd>{runStatus}</dd>
         </dl>
@@ -3871,7 +3998,7 @@ Append to `client/src/styles.css`:
 }
 
 .workbench-sidebar,
-.chat-panel,
+.workflow-panel,
 .run-panel {
   background: white;
   border: 1px solid #e5e7eb;
@@ -3886,7 +4013,7 @@ Append to `client/src/styles.css`:
 }
 
 .workbench-sidebar button,
-.chat-input button {
+.workflow-input button {
   background: #111827;
   border: 0;
   border-radius: 8px;
@@ -3896,26 +4023,26 @@ Append to `client/src/styles.css`:
 }
 
 .workbench-sidebar button:disabled,
-.chat-input button:disabled {
+.workflow-input button:disabled {
   background: #9ca3af;
   cursor: not-allowed;
 }
 
-.chat-panel {
+.workflow-panel {
   display: grid;
   gap: 16px;
   grid-template-rows: auto auto 1fr auto;
 }
 
-.chat-panel label,
-.chat-input label {
+.workflow-panel label,
+.workflow-input label {
   display: grid;
   gap: 6px;
   font-weight: 600;
 }
 
-.chat-panel select,
-.chat-input textarea {
+.workflow-panel select,
+.workflow-input textarea {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   padding: 9px 10px;
@@ -3943,12 +4070,12 @@ Append to `client/src/styles.css`:
   background: #ecfdf5;
 }
 
-.chat-input {
+.workflow-input {
   display: grid;
   gap: 10px;
 }
 
-.chat-input textarea {
+.workflow-input textarea {
   min-height: 90px;
   resize: vertical;
 }
@@ -3992,7 +4119,7 @@ Expected: PASS.
 
 ```bash
 git add client/src/pages/WorkbenchPage.tsx client/src/pages/WorkbenchPage.test.tsx client/src/App.tsx client/src/styles.css
-git commit -m "feat: add basic chat workbench"
+git commit -m "feat: add workflow workbench"
 ```
 
 ## Task 13: Workflow templates and settings placeholders
@@ -4013,13 +4140,13 @@ import { describe, expect, it } from "vitest";
 import { WorkflowTemplatesPage } from "./WorkflowTemplatesPage";
 
 describe("WorkflowTemplatesPage", () => {
-  it("shows built-in workflow modules", () => {
+  it("shows built-in workflow step templates", () => {
     render(<WorkflowTemplatesPage />);
 
     expect(screen.getByRole("heading", { name: "工作流模板" })).toBeInTheDocument();
-    expect(screen.getByText("基础聊天")).toBeInTheDocument();
-    expect(screen.getByText("chat module")).toBeInTheDocument();
-    expect(screen.getByText("Image2 最小入口")).toBeInTheDocument();
+    expect(screen.getByText("单步 LLM Chat")).toBeInTheDocument();
+    expect(screen.getByText("llm.chat step")).toBeInTheDocument();
+    expect(screen.getByText("HTTP Request 占位")).toBeInTheDocument();
   });
 });
 ```
@@ -4041,19 +4168,19 @@ Create `client/src/pages/WorkflowTemplatesPage.tsx`:
 ```tsx
 const workflows = [
   {
-    name: "基础聊天",
-    description: "用户输入经过一个 chat module，返回 assistant message。",
-    modules: ["chat module"]
+    name: "单步 LLM Chat",
+    description: "用户输入经过一个 llm.chat step，返回模型输出。",
+    modules: ["llm.chat step"]
   },
   {
-    name: "Image2 最小入口",
-    description: "用户输入 prompt，经过 image generation module，返回图片结果。",
-    modules: ["image generation module"]
+    name: "HTTP Request 占位",
+    description: "后续用于把任意 REST API 封装成 http.request step。",
+    modules: ["http.request step"]
   },
   {
-    name: "模型测试",
-    description: "发送最小测试请求，返回诊断结果。",
-    modules: ["model test module"]
+    name: "多步骤 API 编排占位",
+    description: "后续用于串联 API 请求、数据转换、LLM 分析和 webhook 输出。",
+    modules: ["http.request step", "json.transform step", "llm.chat step"]
   }
 ];
 
@@ -4090,6 +4217,7 @@ export function SettingsPage() {
         <h2>本地个人模式</h2>
         <p>API Key 从后端 `.env` 读取；前端只显示环境变量名，不显示完整密钥。</p>
         <p>SQLite 数据库路径由 `DATABASE_PATH` 控制。</p>
+        <p>Workflow 默认执行策略先保持顺序执行；后续再加入重试、条件分支和并发。</p>
       </div>
     </main>
   );
@@ -4230,11 +4358,11 @@ Open `http://127.0.0.1:5173` and verify:
 
 1. Top navigation includes 工作台, API接入, 模型管理, 用量检测, 工作流模板, 设置.
 2. API接入 can create a provider.
-3. 模型管理 can create a chat model.
+3. 模型管理 can create or import a model usable by `llm.chat`.
 4. 模型管理 can test the model and show success or a standardized error.
-5. 工作台 can select a model, send a message, and display the assistant reply.
-6. 运行详情 shows the basic chat workflow status.
-7. 用量检测 shows request count and tokens after a chat run.
+5. 工作台 can select a model, run a single-step `llm.chat` workflow, and display the model output.
+6. 运行详情 shows the generic workflow run status.
+7. 用量检测 shows request count and tokens after a workflow run.
 8. Frontend never displays a full API key.
 
 - [ ] **Step 6: Inspect git status**
@@ -4260,6 +4388,6 @@ Expected: no commit is created if no fixes were needed.
 
 ## Plan self-review
 
-- Spec coverage: this plan covers scaffold, API接入, 模型管理, OpenAI-compatible chat, model testing, basic workbench, run/run_step records, and minimal usage summary. It intentionally defers image2, advanced usage analytics, and full modular workflow editing to later plans.
+- Spec coverage: this plan covers scaffold, API接入, 模型管理, OpenAI-compatible chat, model testing, generic workflow execution with a first `llm.chat` step, run/run_step records, a workflow workbench, and minimal usage summary. It intentionally defers image2, arbitrary HTTP/API step execution, advanced usage analytics, and full visual workflow editing to later plans.
 - Placeholder scan: no TBD/TODO/fill-in placeholders remain. Deferred scope is explicitly named as later plans.
-- Type consistency: provider/model/session/run/run_step names match the design spec and remain consistent across repositories, routes, runner, and frontend API types.
+- Type consistency: provider/model/session/run/run_step names match the design spec and remain consistent across repositories, routes, runner, workflow step types, and frontend API types.

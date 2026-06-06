@@ -7,12 +7,15 @@ import { ProviderError } from "./errors/providerError.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createModelsRouter } from "./routes/models.js";
 import { createProvidersRouter } from "./routes/providers.js";
+import { createUsageRouter } from "./routes/usage.js";
+import { createWorkflowsRouter } from "./routes/workflows.js";
 import type { ModelAdapter } from "./adapters/types.js";
 
 export interface AppDependencies {
   db: AppDatabase;
   env?: NodeJS.ProcessEnv;
   providerAdapter?: Pick<ModelAdapter, "listModels">;
+  workflowAdapter?: ModelAdapter;
 }
 
 export function createApp(dependencies: AppDependencies) {
@@ -28,6 +31,11 @@ export function createApp(dependencies: AppDependencies) {
     adapter: dependencies.providerAdapter
   }));
   app.use("/api/models", createModelsRouter(db, { env }));
+  app.use("/api/workflows", createWorkflowsRouter(db, {
+    env,
+    adapter: dependencies.workflowAdapter
+  }));
+  app.use("/api/usage", createUsageRouter(db));
   app.use(errorHandler);
 
   return app;

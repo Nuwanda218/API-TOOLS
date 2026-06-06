@@ -29,7 +29,7 @@ export function applySchema(db: AppDatabase) {
     create table if not exists sessions (
       id text primary key,
       title text not null,
-      workflow_type text not null check (workflow_type in ('chat', 'image-minimal', 'model-test')),
+      workflow_type text not null check (workflow_type in ('api-workflow', 'chat', 'image-minimal', 'model-test')),
       created_at text not null,
       updated_at text not null
     );
@@ -47,7 +47,7 @@ export function applySchema(db: AppDatabase) {
     create table if not exists runs (
       id text primary key,
       session_id text not null references sessions(id) on delete cascade,
-      workflow_type text not null check (workflow_type in ('chat', 'image-minimal', 'model-test')),
+      workflow_type text not null check (workflow_type in ('api-workflow', 'chat', 'image-minimal', 'model-test')),
       status text not null check (status in ('running', 'succeeded', 'failed')),
       started_at text not null,
       ended_at text,
@@ -60,7 +60,7 @@ export function applySchema(db: AppDatabase) {
       id text primary key,
       run_id text not null references runs(id) on delete cascade,
       step_index integer not null,
-      step_type text not null check (step_type in ('chat-completion', 'image-generation', 'model-test', 'prompt-optimizer', 'reviewer', 'summarizer')),
+      step_type text not null check (step_type in ('llm.chat', 'chat-completion', 'image-generation', 'model-test', 'prompt-optimizer', 'reviewer', 'summarizer')),
       provider_id text not null references providers(id),
       model_id text not null references models(id),
       status text not null check (status in ('running', 'succeeded', 'failed')),
