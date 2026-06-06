@@ -4,36 +4,37 @@ import cors from "cors";
 import express from "express";
 import { ZodError } from "zod";
 import { ProviderError } from "./errors/providerError.js";
+import { createAdapterRegistry } from "./adapters/registry.js";
+import type { AdapterRegistry } from "./adapters/types.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createModelsRouter } from "./routes/models.js";
 import { createProvidersRouter } from "./routes/providers.js";
 import { createUsageRouter } from "./routes/usage.js";
 import { createWorkflowsRouter } from "./routes/workflows.js";
-import type { ModelAdapter } from "./adapters/types.js";
 
 export interface AppDependencies {
   db: AppDatabase;
   env?: NodeJS.ProcessEnv;
-  providerAdapter?: Pick<ModelAdapter, "listModels">;
-  workflowAdapter?: ModelAdapter;
+  adapterRegistry?: AdapterRegistry;
 }
 
 export function createApp(dependencies: AppDependencies) {
   const app = express();
   const { db } = dependencies;
   const env = dependencies.env ?? process.env;
+  const adapterRegistry = dependencies.adapterRegistry ?? createAdapterRegistry();
 
   app.use(cors({ origin: "http://127.0.0.1:5173" }));
   app.use(express.json({ limit: "2mb" }));
   app.use("/api/health", createHealthRouter());
   app.use("/api/providers", createProvidersRouter(db, {
     env,
-    adapter: dependencies.providerAdapter
+    adapterRegistry
   }));
-  app.use("/api/models", createModelsRouter(db, { env }));
+  app.use("/api/models", createModelsRouter(db, { env, adapterRegistry }));
   app.use("/api/workflows", createWorkflowsRouter(db, {
     env,
-    adapter: dependencies.workflowAdapter
+    adapterRegistry
   }));
   app.use("/api/usage", createUsageRouter(db));
   app.use(errorHandler);

@@ -70,6 +70,22 @@ describe("schema", () => {
     expect(provider).toEqual({ id: "provider-persisted", name: "Persisted Provider" });
   });
 
+  it("stores provider API format for adapter selection", () => {
+    const database = createTestDatabase();
+    databases.push(database);
+
+    database.prepare(`
+      insert into providers (id, name, type, api_format, base_url, api_key_env, enabled, created_at, updated_at)
+      values ('provider-responses', 'Responses', 'openai-compatible', 'openai-responses', 'https://example.test/v1', 'RESPONSES_KEY', 1, '2026-06-06T00:00:00.000Z', '2026-06-06T00:00:00.000Z')
+    `).run();
+
+    const row = database
+      .prepare("select api_format from providers where id = ?")
+      .get<{ api_format: string }>("provider-responses");
+
+    expect(row).toEqual({ api_format: "openai-responses" });
+  });
+
   it("allows framework workflow and llm.chat step records", () => {
     const database = createTestDatabase();
     databases.push(database);

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { createOpenAICompatibleAdapter } from "../adapters/openaiCompatible.js";
-import type { ModelAdapter } from "../adapters/types.js";
+import { createAdapterRegistry } from "../adapters/registry.js";
+import type { AdapterRegistry } from "../adapters/types.js";
 import { getRequiredApiKey } from "../config/env.js";
 import type { AppDatabase } from "../db/client.js";
 import { ProviderError } from "../errors/providerError.js";
@@ -11,6 +11,7 @@ import { createProviderRepository } from "../providers/providerRepository.js";
 const createProviderSchema = z.object({
   name: z.string().min(1),
   type: z.enum(["openai-compatible", "openai-official"]),
+  apiFormat: z.enum(["openai-chat-completions", "openai-responses"]).default("openai-chat-completions"),
   baseUrl: z.string().url(),
   apiKeyEnv: z.string().min(1),
   enabled: z.boolean().default(true)
@@ -31,14 +32,14 @@ const importModelsSchema = z.object({
 
 interface ProvidersRouterDependencies {
   env: NodeJS.ProcessEnv;
-  adapter?: Pick<ModelAdapter, "listModels">;
+  adapterRegistry?: Pick<AdapterRegistry, "getModelAdapter">;
 }
 
 export function createProvidersRouter(db: AppDatabase, dependencies: ProvidersRouterDependencies) {
   const router = Router();
   const providers = createProviderRepository(db);
   const models = createModelRepository(db);
-  const adapter = dependencies.adapter ?? createOpenAICompatibleAdapter();
+  const adapterRegistry = dependencies.adapterRegistry ?? createAdapterRegistry();
 
   router.get("/", (_req, res) => {
     res.json(providers.list());
@@ -58,6 +59,7 @@ export function createProvidersRouter(db: AppDatabase, dependencies: ProvidersRo
       }
 
       const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
+      const adapter = adapterRegistry.getModelAdapter(provider);
       const models = await adapter.listModels({ provider, apiKey });
 
       res.json({

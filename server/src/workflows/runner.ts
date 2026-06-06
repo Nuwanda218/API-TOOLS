@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import type { ModelAdapter } from "../adapters/types.js";
+import type { AdapterRegistry } from "../adapters/types.js";
 import { getRequiredApiKey } from "../config/env.js";
 import type { AppDatabase } from "../db/client.js";
 import { ProviderError } from "../errors/providerError.js";
@@ -14,7 +14,7 @@ import type {
 } from "./types.js";
 
 interface WorkflowRunnerDependencies {
-  adapter: ModelAdapter;
+  adapterRegistry: AdapterRegistry;
   env: NodeJS.ProcessEnv;
 }
 
@@ -52,7 +52,8 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
     }
 
     const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
-    const chatResult = await dependencies.adapter.runChat({
+    const adapter = dependencies.adapterRegistry.getModelAdapter(provider);
+    const chatResult = await adapter.runChat({
       provider,
       model,
       apiKey,

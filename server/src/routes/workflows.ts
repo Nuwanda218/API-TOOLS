@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { createOpenAICompatibleAdapter } from "../adapters/openaiCompatible.js";
-import type { ModelAdapter } from "../adapters/types.js";
+import { createAdapterRegistry } from "../adapters/registry.js";
+import type { AdapterRegistry } from "../adapters/types.js";
 import type { AppDatabase } from "../db/client.js";
 import { createWorkflowRunner } from "../workflows/runner.js";
 
@@ -20,14 +20,14 @@ const runWorkflowSchema = z.object({
 });
 
 interface WorkflowsRouterDependencies {
-  adapter?: ModelAdapter;
+  adapterRegistry?: AdapterRegistry;
   env: NodeJS.ProcessEnv;
 }
 
 export function createWorkflowsRouter(db: AppDatabase, dependencies: WorkflowsRouterDependencies) {
   const router = Router();
   const runner = createWorkflowRunner(db, {
-    adapter: dependencies.adapter ?? createOpenAICompatibleAdapter(),
+    adapterRegistry: dependencies.adapterRegistry ?? createAdapterRegistry(),
     env: dependencies.env
   });
 

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import type { ModelAdapter } from "../adapters/types.js";
+import { describe, expect, it, vi } from "vitest";
+import type { AdapterRegistry, ModelAdapter } from "../adapters/types.js";
 import { createModelRepository } from "../providers/modelRepository.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
 import { createTestDatabase } from "../test/testDb.js";
@@ -35,8 +35,11 @@ describe("workflowRunner", () => {
         usage: { inputTokens: 10, outputTokens: 4 }
       })
     };
+    const adapterRegistry: AdapterRegistry = {
+      getModelAdapter: vi.fn(() => adapter)
+    };
     const runner = createWorkflowRunner(db, {
-      adapter,
+      adapterRegistry,
       env: { CUSTOM_KEY: "secret" }
     });
 
@@ -59,6 +62,9 @@ describe("workflowRunner", () => {
     expect(result.run.totalInputTokens).toBe(10);
     expect(result.run.totalOutputTokens).toBe(4);
     expect(result.run.totalCostEstimate).toBeCloseTo(0.0000018);
+    expect(adapterRegistry.getModelAdapter).toHaveBeenCalledWith(
+      expect.objectContaining({ id: provider.id, apiFormat: "openai-chat-completions" })
+    );
 
     const messages = db.prepare("select role, content from messages order by created_at asc").all<{
       role: string;

@@ -1,9 +1,69 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { AdapterRegistry, ModelAdapter } from "../adapters/types.js";
 import { createApp } from "../app.js";
 import { createTestDatabase } from "../test/testDb.js";
 
 describe("model test route", () => {
+  it("tests a model using the adapter selected by provider API format", async () => {
+    const db = createTestDatabase();
+    const adapter: ModelAdapter = {
+      listModels: vi.fn(),
+      testModel: vi.fn().mockResolvedValue({
+        ok: true,
+        latencyMs: 5,
+        message: "ok",
+        usage: { inputTokens: 2, outputTokens: 1 }
+      }),
+      runChat: vi.fn()
+    };
+    const adapterRegistry: AdapterRegistry = {
+      getModelAdapter: vi.fn(() => adapter)
+    };
+    const app = createApp({
+      db,
+      env: { RESPONSES_KEY: "secret" },
+      adapterRegistry
+    });
+
+    const providerResponse = await request(app).post("/api/providers").send({
+      name: "Responses",
+      type: "openai-compatible",
+      apiFormat: "openai-responses",
+      baseUrl: "https://example.test/v1",
+      apiKeyEnv: "RESPONSES_KEY",
+      enabled: true
+    });
+    const modelResponse = await request(app).post("/api/models").send({
+      providerId: providerResponse.body.id,
+      displayName: "Responses Chat",
+      modelId: "responses-chat",
+      capability: "chat",
+      enabled: true,
+      defaultParams: {},
+      pricing: {}
+    });
+
+    const testResponse = await request(app).post(`/api/models/${modelResponse.body.id}/test`);
+
+    expect(testResponse.status).toBe(200);
+    expect(testResponse.body).toMatchObject({
+      ok: true,
+      message: "ok",
+      usage: { inputTokens: 2, outputTokens: 1 }
+    });
+    expect(adapterRegistry.getModelAdapter).toHaveBeenCalledWith(
+      expect.objectContaining({ id: providerResponse.body.id, apiFormat: "openai-responses" })
+    );
+    expect(adapter.testModel).toHaveBeenCalledWith({
+      provider: expect.objectContaining({ id: providerResponse.body.id, apiFormat: "openai-responses" }),
+      model: expect.objectContaining({ id: modelResponse.body.id }),
+      apiKey: "secret"
+    });
+
+    db.close();
+  });
+
   it("reports missing API key without exposing a secret and records the failed run step", async () => {
     const db = createTestDatabase();
     const app = createApp({ db, env: { OTHER_KEY: "sk-should-not-leak" } });

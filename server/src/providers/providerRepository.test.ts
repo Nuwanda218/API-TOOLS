@@ -11,6 +11,7 @@ describe("ProviderRepository", () => {
       id: "provider-openai",
       name: "OpenAI",
       type: "openai-official",
+      apiFormat: "openai-chat-completions",
       baseUrl: "https://api.openai.com/v1",
       apiKeyEnv: "OPENAI_API_KEY",
       enabled: true
@@ -20,6 +21,7 @@ describe("ProviderRepository", () => {
       id: "provider-openai",
       name: "OpenAI",
       type: "openai-official",
+      apiFormat: "openai-chat-completions",
       baseUrl: "https://api.openai.com/v1",
       apiKeyEnv: "OPENAI_API_KEY",
       enabled: true
@@ -31,12 +33,14 @@ describe("ProviderRepository", () => {
 
     const updated = providers.update("provider-openai", {
       name: "OpenAI compatible",
+      apiFormat: "openai-responses",
       enabled: false
     });
 
     expect(updated).toMatchObject({
       id: "provider-openai",
       name: "OpenAI compatible",
+      apiFormat: "openai-responses",
       enabled: false
     });
     expect(updated?.createdAt).toEqual(created.createdAt);
@@ -63,6 +67,7 @@ describe("ProviderRepository", () => {
 
     expect(created.id).toEqual(expect.any(String));
     expect(created.id.length).toBeGreaterThan(0);
+    expect(created.apiFormat).toBe("openai-chat-completions");
 
     db.close();
   });

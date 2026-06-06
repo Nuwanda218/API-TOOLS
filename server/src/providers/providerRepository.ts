@@ -2,11 +2,13 @@ import type { AppDatabase } from "../db/client.js";
 import { nanoid } from "nanoid";
 
 export type ProviderType = "openai-compatible" | "openai-official";
+export type ProviderApiFormat = "openai-chat-completions" | "openai-responses";
 
 export interface Provider {
   id: string;
   name: string;
   type: ProviderType;
+  apiFormat: ProviderApiFormat;
   baseUrl: string;
   apiKeyEnv: string;
   enabled: boolean;
@@ -18,6 +20,7 @@ export interface CreateProviderInput {
   id?: string;
   name: string;
   type: ProviderType;
+  apiFormat?: ProviderApiFormat;
   baseUrl: string;
   apiKeyEnv: string;
   enabled?: boolean;
@@ -29,6 +32,7 @@ interface ProviderRow {
   id: string;
   name: string;
   type: ProviderType;
+  api_format: ProviderApiFormat;
   base_url: string;
   api_key_env: string;
   enabled: number;
@@ -44,12 +48,13 @@ export class ProviderRepository {
     const id = input.id ?? nanoid();
 
     this.db.prepare(`
-      insert into providers (id, name, type, base_url, api_key_env, enabled, created_at, updated_at)
-      values (@id, @name, @type, @baseUrl, @apiKeyEnv, @enabled, @createdAt, @updatedAt)
+      insert into providers (id, name, type, api_format, base_url, api_key_env, enabled, created_at, updated_at)
+      values (@id, @name, @type, @apiFormat, @baseUrl, @apiKeyEnv, @enabled, @createdAt, @updatedAt)
     `).run({
       id,
       name: input.name,
       type: input.type,
+      apiFormat: input.apiFormat ?? "openai-chat-completions",
       baseUrl: input.baseUrl,
       apiKeyEnv: input.apiKeyEnv,
       enabled: input.enabled === false ? 0 : 1,
@@ -80,6 +85,7 @@ export class ProviderRepository {
       update providers
       set name = @name,
           type = @type,
+          api_format = @apiFormat,
           base_url = @baseUrl,
           api_key_env = @apiKeyEnv,
           enabled = @enabled,
@@ -89,6 +95,7 @@ export class ProviderRepository {
       id,
       name: input.name ?? current.name,
       type: input.type ?? current.type,
+      apiFormat: input.apiFormat ?? current.apiFormat,
       baseUrl: input.baseUrl ?? current.baseUrl,
       apiKeyEnv: input.apiKeyEnv ?? current.apiKeyEnv,
       enabled: input.enabled ?? current.enabled ? 1 : 0,
@@ -116,6 +123,7 @@ function mapProviderRow(row: ProviderRow): Provider {
     id: row.id,
     name: row.name,
     type: row.type,
+    apiFormat: row.api_format,
     baseUrl: row.base_url,
     apiKeyEnv: row.api_key_env,
     enabled: row.enabled === 1,

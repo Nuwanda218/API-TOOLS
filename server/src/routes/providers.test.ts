@@ -21,6 +21,7 @@ describe("provider routes", () => {
       id: expect.any(String),
       name: "DeepSeek",
       type: "openai-compatible",
+      apiFormat: "openai-chat-completions",
       baseUrl: "https://api.deepseek.com/v1",
       apiKeyEnv: "DEEPSEEK_API_KEY",
       enabled: true
@@ -30,6 +31,32 @@ describe("provider routes", () => {
 
     expect(listResponse.status).toBe(200);
     expect(listResponse.body).toEqual([createResponse.body]);
+
+    db.close();
+  });
+
+  it("creates providers with explicit Responses API format", async () => {
+    const db = createTestDatabase();
+    const app = createApp({ db });
+
+    const response = await request(app).post("/api/providers").send({
+      name: "SharedChat",
+      type: "openai-compatible",
+      apiFormat: "openai-responses",
+      baseUrl: "https://new.sharedchat.cc/codex",
+      apiKeyEnv: "SHAREDCHAT_API_KEY",
+      enabled: true
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      name: "SharedChat",
+      type: "openai-compatible",
+      apiFormat: "openai-responses",
+      baseUrl: "https://new.sharedchat.cc/codex",
+      apiKeyEnv: "SHAREDCHAT_API_KEY",
+      enabled: true
+    });
 
     db.close();
   });
@@ -48,12 +75,13 @@ describe("provider routes", () => {
 
     const updateResponse = await request(app)
       .patch(`/api/providers/${createResponse.body.id}`)
-      .send({ name: "OpenAI disabled", enabled: false });
+      .send({ name: "OpenAI disabled", apiFormat: "openai-responses", enabled: false });
 
     expect(updateResponse.status).toBe(200);
     expect(updateResponse.body).toMatchObject({
       id: createResponse.body.id,
       name: "OpenAI disabled",
+      apiFormat: "openai-responses",
       enabled: false
     });
 

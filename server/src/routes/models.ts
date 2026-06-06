@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { createOpenAICompatibleAdapter } from "../adapters/openaiCompatible.js";
+import { createAdapterRegistry } from "../adapters/registry.js";
+import type { AdapterRegistry } from "../adapters/types.js";
 import { getRequiredApiKey } from "../config/env.js";
 import type { AppDatabase } from "../db/client.js";
 import { ProviderError } from "../errors/providerError.js";
@@ -22,13 +23,14 @@ const updateModelSchema = createModelSchema.partial();
 
 interface ModelsRouterDependencies {
   env: NodeJS.ProcessEnv;
+  adapterRegistry?: AdapterRegistry;
 }
 
 export function createModelsRouter(db: AppDatabase, dependencies: ModelsRouterDependencies) {
   const router = Router();
   const models = createModelRepository(db);
   const providers = createProviderRepository(db);
-  const adapter = createOpenAICompatibleAdapter();
+  const adapterRegistry = dependencies.adapterRegistry ?? createAdapterRegistry();
 
   router.get("/", (req, res) => {
     const providerId = typeof req.query.providerId === "string" ? req.query.providerId : undefined;
@@ -63,6 +65,7 @@ export function createModelsRouter(db: AppDatabase, dependencies: ModelsRouterDe
 
     try {
       const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
+      const adapter = adapterRegistry.getModelAdapter(provider);
       const result = await adapter.testModel({ provider, model, apiKey });
 
       completeModelTestRun(db, {

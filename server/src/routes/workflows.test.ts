@@ -1,6 +1,6 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import type { ModelAdapter } from "../adapters/types.js";
+import type { AdapterRegistry, ModelAdapter } from "../adapters/types.js";
 import { createApp } from "../app.js";
 import { createTestDatabase } from "../test/testDb.js";
 
@@ -12,7 +12,10 @@ describe("workflow routes", () => {
       testModel: async () => ({ ok: true, latencyMs: 1, message: "ok", usage: {} }),
       runChat: async () => ({ content: "Model reply", latencyMs: 8, usage: { inputTokens: 6, outputTokens: 3 } })
     };
-    const app = createApp({ db, env: { CUSTOM_KEY: "secret" }, workflowAdapter: adapter });
+    const adapterRegistry: AdapterRegistry = {
+      getModelAdapter: () => adapter
+    };
+    const app = createApp({ db, env: { CUSTOM_KEY: "secret" }, adapterRegistry });
 
     const providerResponse = await request(app).post("/api/providers").send({
       name: "Custom",
