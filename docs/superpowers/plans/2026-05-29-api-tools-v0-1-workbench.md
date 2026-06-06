@@ -3421,7 +3421,7 @@ npm run test --workspace server -- src/routes/providerRemoteModels.test.ts src/r
 
 Expected: PASS.
 
-- [ ] **Step 7: Manual validation with disposable local database**
+- [x] **Step 7: Manual validation with disposable local database**
 
 Because V0.1 local provider/model data is test data, schema migration is not required. Stop the server, delete the local test database, restart, then recreate providers and models.
 
