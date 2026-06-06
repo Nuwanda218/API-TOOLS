@@ -18,7 +18,8 @@ describe("model test route", () => {
       runChat: vi.fn()
     };
     const adapterRegistry: AdapterRegistry = {
-      getModelAdapter: vi.fn(() => adapter)
+      getModelAdapter: vi.fn(() => adapter),
+      invoke: vi.fn()
     };
     const app = createApp({
       db,

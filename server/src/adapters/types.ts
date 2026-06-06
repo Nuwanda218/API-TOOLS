@@ -1,5 +1,6 @@
 import type { Model } from "../providers/modelRepository.js";
 import type { Provider } from "../providers/providerRepository.js";
+import type { ApiInvocation, ApiInvocationOutcome } from "../apiProtocol/types.js";
 
 export type InternalOperation = "models.list" | "llm.chat";
 
@@ -50,4 +51,5 @@ export interface ModelAdapter {
 
 export interface AdapterRegistry {
   getModelAdapter(provider: Provider): ModelAdapter;
+  invoke(input: ApiInvocation): Promise<ApiInvocationOutcome>;
 }

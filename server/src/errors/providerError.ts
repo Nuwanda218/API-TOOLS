@@ -8,7 +8,9 @@ export type ProviderErrorCode =
   | "rate_limited"
   | "quota_exceeded"
   | "unsupported_capability"
+  | "unsupported_operation"
   | "unsupported_workflow_step"
+  | "invalid_api_resource"
   | "provider_error"
   | "network_error";
 

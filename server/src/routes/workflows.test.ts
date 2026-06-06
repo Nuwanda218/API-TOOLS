@@ -13,7 +13,13 @@ describe("workflow routes", () => {
       runChat: async () => ({ content: "Model reply", latencyMs: 8, usage: { inputTokens: 6, outputTokens: 3 } })
     };
     const adapterRegistry: AdapterRegistry = {
-      getModelAdapter: () => adapter
+      getModelAdapter: () => adapter,
+      invoke: async () => ({
+        ok: true,
+        data: { content: "Model reply" },
+        latencyMs: 8,
+        usage: { inputTokens: 6, outputTokens: 3 }
+      })
     };
     const app = createApp({ db, env: { CUSTOM_KEY: "secret" }, adapterRegistry });
 

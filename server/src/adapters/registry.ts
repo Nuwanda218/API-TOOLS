@@ -1,5 +1,7 @@
 import { ProviderError } from "../errors/providerError.js";
 import type { Provider } from "../providers/providerRepository.js";
+import type { ApiAdapter } from "../apiProtocol/types.js";
+import { createModelApiBridge } from "./modelApiBridge.js";
 import { createOpenAIChatCompletionsAdapter } from "./openaiChatCompletions.js";
 import { createOpenAIResponsesAdapter } from "./openaiResponses.js";
 import type { AdapterRegistry, ModelAdapter } from "./types.js";
@@ -12,16 +14,46 @@ export interface AdapterRegistryDependencies {
 export function createAdapterRegistry(dependencies: AdapterRegistryDependencies = {}): AdapterRegistry {
   const chatCompletionsAdapter = dependencies.chatCompletionsAdapter ?? createOpenAIChatCompletionsAdapter();
   const responsesAdapter = dependencies.responsesAdapter ?? createOpenAIResponsesAdapter();
+  const chatCompletionsBridge = createModelApiBridge("openai-chat-completions", chatCompletionsAdapter);
+  const responsesBridge = createModelApiBridge("openai-responses", responsesAdapter);
+
+  function selectModelAdapter(provider: Provider): ModelAdapter {
+    if (provider.apiFormat === "openai-chat-completions") return chatCompletionsAdapter;
+    if (provider.apiFormat === "openai-responses") return responsesAdapter;
+
+    throw unsupportedProviderFormat(provider);
+  }
+
+  function selectApiAdapter(provider: Provider): ApiAdapter {
+    if (provider.apiFormat === "openai-chat-completions") return chatCompletionsBridge;
+    if (provider.apiFormat === "openai-responses") return responsesBridge;
+
+    throw unsupportedProviderFormat(provider);
+  }
 
   return {
     getModelAdapter(provider: Provider): ModelAdapter {
-      if (provider.apiFormat === "openai-chat-completions") return chatCompletionsAdapter;
-      if (provider.apiFormat === "openai-responses") return responsesAdapter;
+      return selectModelAdapter(provider);
+    },
+    async invoke(input) {
+      const adapter = selectApiAdapter(input.provider);
 
-      throw new ProviderError("provider_error", `Unsupported provider API format: ${provider.apiFormat}`, {
-        statusCode: 400,
-        suggestion: "Choose a supported provider apiFormat."
-      });
+      if (!adapter.supports(input.operationId)) {
+        return {
+          ok: false,
+          code: "unsupported_operation",
+          message: `Unsupported operation: ${input.operationId}`
+        };
+      }
+
+      return adapter.invoke(input);
     }
   };
+}
+
+function unsupportedProviderFormat(provider: Provider) {
+  return new ProviderError("provider_error", `Unsupported provider API format: ${provider.apiFormat}`, {
+    statusCode: 400,
+    suggestion: "Choose a supported provider apiFormat."
+  });
 }

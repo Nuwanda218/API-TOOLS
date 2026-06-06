@@ -16,7 +16,8 @@ describe("provider remote model routes", () => {
       runChat: vi.fn()
     } satisfies ModelAdapter;
     const adapterRegistry: AdapterRegistry = {
-      getModelAdapter: vi.fn(() => adapter)
+      getModelAdapter: vi.fn(() => adapter),
+      invoke: vi.fn()
     };
     const app = createApp({
       db,

@@ -34,6 +34,16 @@ Deferred to later plans:
 - Generate/review multi-model workflows.
 - Desktop packaging or private deployment.
 
+## API extension rule
+
+When adding a new external API:
+
+1. Define the internal operation id and input/output contract first.
+2. Decide whether it can use a config-driven HTTP adapter or needs a dedicated adapter.
+3. Add the provider `apiFormat` or adapter id only after the internal operation is stable.
+4. Implement request mapping, response mapping, and error mapping inside the adapter.
+5. Keep workflow steps using internal operation ids; never expose provider-specific endpoint paths in workflow definitions.
+
 ## File structure
 
 Create these files:
@@ -3523,6 +3533,7 @@ Create a project-level API protocol that can represent LLM and non-LLM operation
 ```ts
 import type { Model } from "../providers/modelRepository.js";
 import type { Provider } from "../providers/providerRepository.js";
+import type { ProviderErrorCode } from "../errors/providerError.js";
 
 export type ApiOperationId =
   | "models.list"
@@ -3553,7 +3564,7 @@ export interface ApiInvocationResult<TData = unknown> {
 
 export interface ApiInvocationError {
   ok: false;
-  code: string;
+  code: ProviderErrorCode;
   message: string;
   providerMessage?: string;
   statusCode?: number;
@@ -3569,7 +3580,7 @@ export type ApiInvocationOutcome<TData = unknown> =
 export interface ApiAdapter {
   id: string;
   supports(operationId: ApiOperationId): boolean;
-  invoke<TData = unknown>(input: ApiInvocation): Promise<ApiInvocationOutcome<TData>>;
+  invoke(input: ApiInvocation): Promise<ApiInvocationOutcome>;
 }
 
 export interface LlmChatInput {
@@ -3581,7 +3592,7 @@ export interface LlmChatData {
 }
 ```
 
-- [ ] **Step 1: Write failing protocol shape tests**
+- [x] **Step 1: Write failing protocol shape tests**
 
 Create `server/src/apiProtocol/types.test.ts`:
 
@@ -3650,7 +3661,7 @@ npm run test --workspace server -- src/apiProtocol/types.test.ts
 
 Expected: FAIL because `server/src/apiProtocol/types.ts` does not exist.
 
-- [ ] **Step 2: Create generic API protocol types**
+- [x] **Step 2: Create generic API protocol types**
 
 Create `server/src/apiProtocol/types.ts` using the full type block from **Internal protocol target**.
 
@@ -3662,7 +3673,7 @@ npm run test --workspace server -- src/apiProtocol/types.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 3: Write failing model bridge tests**
+- [x] **Step 3: Write failing model bridge tests**
 
 Create `server/src/adapters/modelApiBridge.test.ts`:
 
@@ -3764,7 +3775,7 @@ npm run test --workspace server -- src/adapters/modelApiBridge.test.ts
 
 Expected: FAIL because the bridge does not exist.
 
-- [ ] **Step 4: Implement model API bridge**
+- [x] **Step 4: Implement model API bridge**
 
 Create `server/src/adapters/modelApiBridge.ts`:
 
@@ -3828,7 +3839,7 @@ npm run test --workspace server -- src/adapters/modelApiBridge.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Extend adapter registry with generic invoke**
+- [x] **Step 5: Extend adapter registry with generic invoke**
 
 Modify `server/src/adapters/registry.test.ts` with a new test:
 
@@ -3878,7 +3889,7 @@ import type { ApiInvocation, ApiInvocationOutcome } from "../apiProtocol/types.j
 
 export interface AdapterRegistry {
   getModelAdapter(provider: Provider): ModelAdapter;
-  invoke<TData = unknown>(input: ApiInvocation): Promise<ApiInvocationOutcome<TData>>;
+  invoke(input: ApiInvocation): Promise<ApiInvocationOutcome>;
 }
 ```
 
@@ -3926,7 +3937,7 @@ npm run test --workspace server -- src/adapters/registry.test.ts src/adapters/mo
 
 Expected: PASS.
 
-- [ ] **Step 6: Migrate workflow runner to generic invocation path**
+- [x] **Step 6: Migrate workflow runner to generic invocation path**
 
 Modify `server/src/workflows/runner.test.ts` assertion to verify generic invocation:
 
@@ -3957,7 +3968,7 @@ expect(adapterRegistry.invoke).toHaveBeenCalledWith({
 Modify `server/src/workflows/runner.ts`:
 
 ```ts
-const invocation = await dependencies.adapterRegistry.invoke<LlmChatData>({
+const invocation = await dependencies.adapterRegistry.invoke({
   operationId: "llm.chat",
   provider,
   apiKey,
@@ -3979,7 +3990,9 @@ if (!invocation.ok) {
 Map the generic result back to the existing workflow result:
 
 ```ts
-content: invocation.data.content,
+const data = invocation.data as LlmChatData;
+
+content: data.content,
 latencyMs: invocation.latencyMs,
 inputTokens: typeof invocation.usage?.inputTokens === "number" ? invocation.usage.inputTokens : undefined,
 outputTokens: typeof invocation.usage?.outputTokens === "number" ? invocation.usage.outputTokens : undefined
@@ -3993,7 +4006,7 @@ npm run test --workspace server -- src/workflows/runner.test.ts src/routes/workf
 
 Expected: PASS.
 
-- [ ] **Step 7: Document the extension rule in this plan**
+- [x] **Step 7: Document the extension rule in this plan**
 
 Add this rule to the project direction notes:
 
@@ -4008,7 +4021,7 @@ When adding a new external API:
 
 Expected: Future tasks have a clear rule for API integration.
 
-- [ ] **Step 8: Run full backend verification and commit**
+- [x] **Step 8: Run full backend verification and commit**
 
 Run:
 

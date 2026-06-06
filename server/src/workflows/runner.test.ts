@@ -36,7 +36,13 @@ describe("workflowRunner", () => {
       })
     };
     const adapterRegistry: AdapterRegistry = {
-      getModelAdapter: vi.fn(() => adapter)
+      getModelAdapter: vi.fn(() => adapter),
+      invoke: vi.fn(async () => ({
+        ok: true as const,
+        data: { content: "Hello from model" },
+        latencyMs: 12,
+        usage: { inputTokens: 10, outputTokens: 4 }
+      }))
     };
     const runner = createWorkflowRunner(db, {
       adapterRegistry,
@@ -62,9 +68,14 @@ describe("workflowRunner", () => {
     expect(result.run.totalInputTokens).toBe(10);
     expect(result.run.totalOutputTokens).toBe(4);
     expect(result.run.totalCostEstimate).toBeCloseTo(0.0000018);
-    expect(adapterRegistry.getModelAdapter).toHaveBeenCalledWith(
-      expect.objectContaining({ id: provider.id, apiFormat: "openai-chat-completions" })
-    );
+    expect(adapterRegistry.getModelAdapter).not.toHaveBeenCalled();
+    expect(adapterRegistry.invoke).toHaveBeenCalledWith({
+      operationId: "llm.chat",
+      provider: expect.objectContaining({ id: provider.id, apiFormat: "openai-chat-completions" }),
+      apiKey: "secret",
+      resource: { kind: "model", model: expect.objectContaining({ id: model.id }) },
+      input: { messages: [{ role: "user", content: "Hello" }] }
+    });
 
     const messages = db.prepare("select role, content from messages order by created_at asc").all<{
       role: string;

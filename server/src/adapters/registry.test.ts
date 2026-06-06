@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Model } from "../providers/modelRepository.js";
 import type { Provider } from "../providers/providerRepository.js";
 import type { ModelAdapter } from "./types.js";
 import { createAdapterRegistry } from "./registry.js";
@@ -25,6 +26,21 @@ function provider(apiFormat: Provider["apiFormat"]): Provider {
   };
 }
 
+function fakeModel(): Model {
+  return {
+    id: "model-1",
+    providerId: "provider-openai-chat-completions",
+    displayName: "Fast Chat",
+    modelId: "fast-chat",
+    capability: "chat",
+    enabled: true,
+    defaultParams: {},
+    pricing: {},
+    createdAt: "now",
+    updatedAt: "now"
+  };
+}
+
 describe("adapter registry", () => {
   it("selects model adapters by provider API format", () => {
     const chatCompletionsAdapter = fakeAdapter("chat");
@@ -33,5 +49,26 @@ describe("adapter registry", () => {
 
     expect(registry.getModelAdapter(provider("openai-chat-completions"))).toBe(chatCompletionsAdapter);
     expect(registry.getModelAdapter(provider("openai-responses"))).toBe(responsesAdapter);
+  });
+
+  it("invokes llm.chat through the generic API adapter path", async () => {
+    const chatCompletionsAdapter = fakeAdapter("chat");
+    const registry = createAdapterRegistry({ chatCompletionsAdapter });
+
+    const result = await registry.invoke({
+      operationId: "llm.chat",
+      provider: provider("openai-chat-completions"),
+      apiKey: "secret",
+      resource: { kind: "model", model: fakeModel() },
+      input: { messages: [{ role: "user", content: "Hello" }] }
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: { content: "chat" },
+      usage: {},
+      latencyMs: 1,
+      raw: undefined
+    });
   });
 });
