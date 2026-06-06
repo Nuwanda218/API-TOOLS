@@ -2633,7 +2633,7 @@ git commit -m "feat: add workflow runner core"
 - Create: `server/src/routes/workflows.test.ts`
 - Create: `server/src/routes/usage.test.ts`
 
-- [ ] **Step 1: Write failing generic workflow execution route test**
+- [x] **Step 1: Write failing generic workflow execution route test**
 
 Create `server/src/routes/workflows.test.ts`:
 
@@ -2692,7 +2692,7 @@ describe("workflow routes", () => {
 });
 ```
 
-- [ ] **Step 2: Write failing usage summary test**
+- [x] **Step 2: Write failing usage summary test**
 
 Create `server/src/routes/usage.test.ts`:
 
@@ -2750,7 +2750,7 @@ describe("usage routes", () => {
 });
 ```
 
-- [ ] **Step 3: Run route tests to verify they fail**
+- [x] **Step 3: Run route tests to verify they fail**
 
 Run:
 
@@ -2760,7 +2760,7 @@ npm run test --workspace server -- src/routes/workflows.test.ts src/routes/usage
 
 Expected: FAIL because generic workflow execution and usage routes are not implemented.
 
-- [ ] **Step 4: Implement usage service**
+- [x] **Step 4: Implement usage service**
 
 Create `server/src/usage/usageService.ts`:
 
@@ -2806,7 +2806,7 @@ export function createUsageService(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 5: Implement workflow and usage routes**
+- [x] **Step 5: Implement workflow and usage routes**
 
 Create `server/src/routes/workflows.ts`:
 
@@ -2879,7 +2879,7 @@ export function createUsageRouter(db: AppDatabase) {
 }
 ```
 
-- [ ] **Step 6: Register routes in app**
+- [x] **Step 6: Register routes in app**
 
 Modify `server/src/app.ts` to this complete file:
 
@@ -2949,7 +2949,7 @@ app.listen(port, () => {
 });
 ```
 
-- [ ] **Step 7: Run route tests to verify they pass**
+- [x] **Step 7: Run route tests to verify they pass**
 
 Run:
 
@@ -2959,7 +2959,7 @@ npm run test --workspace server -- src/routes/workflows.test.ts src/routes/usage
 
 Expected: PASS.
 
-- [ ] **Step 8: Run all backend tests**
+- [x] **Step 8: Run all backend tests**
 
 Run:
 
@@ -2969,7 +2969,7 @@ npm run test --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add server/src/app.ts server/src/index.ts server/src/routes/workflows.ts server/src/routes/usage.ts server/src/usage/usageService.ts server/src/routes/workflows.test.ts server/src/routes/usage.test.ts
