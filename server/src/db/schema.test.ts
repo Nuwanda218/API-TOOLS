@@ -69,4 +69,33 @@ describe("schema", () => {
 
     expect(provider).toEqual({ id: "provider-persisted", name: "Persisted Provider" });
   });
+
+  it("allows framework workflow and llm.chat step records", () => {
+    const database = createTestDatabase();
+    databases.push(database);
+
+    const timestamp = "2026-06-02T00:00:00.000Z";
+    database.exec(`
+      insert into providers (id, name, type, base_url, api_key_env, enabled, created_at, updated_at)
+      values ('provider-1', 'Provider', 'openai-compatible', 'https://example.test/v1', 'CUSTOM_KEY', 1, '${timestamp}', '${timestamp}');
+
+      insert into models (id, provider_id, display_name, model_id, capability, enabled, default_params_json, pricing_json, created_at, updated_at)
+      values ('model-1', 'provider-1', 'Fast Chat', 'fast-chat', 'chat', 1, '{}', '{}', '${timestamp}', '${timestamp}');
+
+      insert into sessions (id, title, workflow_type, created_at, updated_at)
+      values ('session-1', 'Workflow', 'api-workflow', '${timestamp}', '${timestamp}');
+
+      insert into runs (id, session_id, workflow_type, status, started_at)
+      values ('run-1', 'session-1', 'api-workflow', 'running', '${timestamp}');
+
+      insert into run_steps (id, run_id, step_index, step_type, provider_id, model_id, status, input_preview, created_at, updated_at)
+      values ('step-1', 'run-1', 0, 'llm.chat', 'provider-1', 'model-1', 'running', 'Hello', '${timestamp}', '${timestamp}');
+    `);
+
+    const step = database
+      .prepare("select workflow_type, step_type from runs join run_steps on run_steps.run_id = runs.id")
+      .get<{ workflow_type: string; step_type: string }>();
+
+    expect(step).toEqual({ workflow_type: "api-workflow", step_type: "llm.chat" });
+  });
 });

@@ -3,10 +3,12 @@ export type ProviderErrorCode =
   | "provider_not_found"
   | "invalid_api_key"
   | "invalid_base_url"
+  | "invalid_workflow_step"
   | "model_not_found"
   | "rate_limited"
   | "quota_exceeded"
   | "unsupported_capability"
+  | "unsupported_workflow_step"
   | "provider_error"
   | "network_error";
 

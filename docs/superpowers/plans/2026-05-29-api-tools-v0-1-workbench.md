@@ -2264,7 +2264,7 @@ git commit -m "fix: persist database on shutdown"
 - Create: `server/src/workflows/runner.ts`
 - Create: `server/src/workflows/runner.test.ts`
 
-- [ ] **Step 1: Write failing generic workflow runner test**
+- [x] **Step 1: Write failing generic workflow runner test**
 
 Create `server/src/workflows/runner.test.ts`:
 
@@ -2338,7 +2338,7 @@ describe("workflowRunner", () => {
 });
 ```
 
-- [ ] **Step 2: Run runner test to verify it fails**
+- [x] **Step 2: Run runner test to verify it fails**
 
 Run:
 
@@ -2348,7 +2348,7 @@ npm run test --workspace server -- src/workflows/runner.test.ts
 
 Expected: FAIL because generic workflow runner does not exist.
 
-- [ ] **Step 3: Update schema constraints and implement framework-oriented workflow types**
+- [x] **Step 3: Update schema constraints and implement framework-oriented workflow types**
 
 Modify `server/src/db/schema.ts` and `server/src/db/schema.test.ts` so:
 
@@ -2414,7 +2414,7 @@ export interface RunWorkflowResult {
 }
 ```
 
-- [ ] **Step 4: Implement runner core and the first llm.chat step executor**
+- [x] **Step 4: Implement runner core and the first llm.chat step executor**
 
 Create `server/src/workflows/runner.ts`:
 
@@ -2605,7 +2605,7 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
 }
 ```
 
-- [ ] **Step 5: Run runner test to verify it passes**
+- [x] **Step 5: Run runner test to verify it passes**
 
 Run:
 
@@ -2615,7 +2615,7 @@ npm run test --workspace server -- src/workflows/runner.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/src/db/schema.ts server/src/db/schema.test.ts server/src/workflows/types.ts server/src/workflows/runner.ts server/src/workflows/runner.test.ts
