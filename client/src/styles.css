@@ -1,0 +1,150 @@
+:root {
+  background: #f6f7f9;
+  color: #1f2937;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.top-nav {
+  align-items: center;
+  background: #17202a;
+  color: #ffffff;
+  display: flex;
+  gap: 28px;
+  min-height: 56px;
+  padding: 0 22px;
+}
+
+.brand {
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.top-nav nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.top-nav button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #d7dee8;
+  cursor: pointer;
+  line-height: 1;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.top-nav button.active {
+  background: #eef6ff;
+  color: #14324d;
+}
+
+.top-nav button:hover:not(.active) {
+  background: #273445;
+  color: #ffffff;
+}
+
+.page {
+  margin: 0 auto;
+  max-width: 1120px;
+  padding: 28px 24px;
+}
+
+.page-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.page h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.data-panel {
+  background: #ffffff;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.data-row {
+  border-right: 1px solid #e5e9ef;
+  display: grid;
+  gap: 8px;
+  min-height: 88px;
+  padding: 18px;
+}
+
+.data-row:last-child {
+  border-right: 0;
+}
+
+.data-row span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.data-row strong {
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .top-nav {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+
+  .top-nav nav {
+    width: 100%;
+  }
+
+  .top-nav button {
+    min-width: 72px;
+  }
+
+  .page {
+    padding: 22px 16px;
+  }
+
+  .data-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .data-row {
+    border-bottom: 1px solid #e5e9ef;
+    border-right: 0;
+  }
+
+  .data-row:last-child {
+    border-bottom: 0;
+  }
+}

@@ -4051,7 +4051,7 @@ git commit -m "docs: plan generic api protocol foundation"
 - Create: `client/src/styles.css`
 - Create: `client/src/App.test.tsx`
 
-- [ ] **Step 1: Write failing app shell test**
+- [x] **Step 1: Write failing app shell test**
 
 Create `client/vite.config.ts`:
 
@@ -4113,7 +4113,7 @@ describe("App", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -4123,7 +4123,7 @@ npm run test --workspace client -- src/App.test.tsx
 
 Expected: FAIL because `App.tsx` does not exist.
 
-- [ ] **Step 3: Implement app shell**
+- [x] **Step 3: Implement app shell**
 
 Create `client/src/components/TopNav.tsx`:
 
@@ -4275,7 +4275,7 @@ textarea {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run:
 
@@ -4285,7 +4285,7 @@ npm run test --workspace client -- src/App.test.tsx
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add client/vite.config.ts client/vitest.config.ts client/src/test/setup.ts client/src/main.tsx client/src/App.tsx client/src/components/TopNav.tsx client/src/styles.css client/src/App.test.tsx
