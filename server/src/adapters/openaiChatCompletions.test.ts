@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Model } from "../providers/modelRepository.js";
 import type { Provider } from "../providers/providerRepository.js";
-import { createOpenAICompatibleAdapter } from "./openaiCompatible.js";
+import { createOpenAIChatCompletionsAdapter } from "./openaiChatCompletions.js";
 
 const provider: Provider = {
   id: "provider-1",
   name: "Custom",
   type: "openai-compatible",
+  apiFormat: "openai-chat-completions",
   baseUrl: "https://example.test/v1",
   apiKeyEnv: "CUSTOM_KEY",
   enabled: true,
@@ -27,7 +28,7 @@ const model: Model = {
   updatedAt: "now"
 };
 
-describe("openaiCompatibleAdapter", () => {
+describe("openaiChatCompletionsAdapter", () => {
   it("tests a model using chat completions", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -37,7 +38,7 @@ describe("openaiCompatibleAdapter", () => {
         usage: { prompt_tokens: 4, completion_tokens: 1 }
       })
     });
-    const adapter = createOpenAICompatibleAdapter({ fetch: fetchMock });
+    const adapter = createOpenAIChatCompletionsAdapter({ fetch: fetchMock });
 
     const result = await adapter.testModel({
       provider,
@@ -77,7 +78,7 @@ describe("openaiCompatibleAdapter", () => {
         usage: { prompt_tokens: 6, completion_tokens: 2 }
       })
     });
-    const adapter = createOpenAICompatibleAdapter({ fetch: fetchMock });
+    const adapter = createOpenAIChatCompletionsAdapter({ fetch: fetchMock });
 
     const result = await adapter.runChat({
       provider,
@@ -109,7 +110,7 @@ describe("openaiCompatibleAdapter", () => {
       status: 401,
       json: async () => ({ error: { message: "invalid key" } })
     });
-    const adapter = createOpenAICompatibleAdapter({ fetch: fetchMock });
+    const adapter = createOpenAIChatCompletionsAdapter({ fetch: fetchMock });
 
     await expect(adapter.testModel({
       provider,
@@ -124,7 +125,7 @@ describe("openaiCompatibleAdapter", () => {
 
   it("standardizes network errors", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("ECONNRESET"));
-    const adapter = createOpenAICompatibleAdapter({ fetch: fetchMock });
+    const adapter = createOpenAIChatCompletionsAdapter({ fetch: fetchMock });
 
     await expect(adapter.testModel({
       provider,
@@ -147,7 +148,7 @@ describe("openaiCompatibleAdapter", () => {
         ]
       })
     });
-    const adapter = createOpenAICompatibleAdapter({ fetch: fetchMock });
+    const adapter = createOpenAIChatCompletionsAdapter({ fetch: fetchMock });
 
     const result = await adapter.listModels({
       provider,
@@ -175,7 +176,7 @@ describe("openaiCompatibleAdapter", () => {
       status: 401,
       json: async () => ({ error: { message: "invalid key" } })
     });
-    const adapter = createOpenAICompatibleAdapter({ fetch: fetchMock });
+    const adapter = createOpenAIChatCompletionsAdapter({ fetch: fetchMock });
 
     await expect(adapter.listModels({
       provider,

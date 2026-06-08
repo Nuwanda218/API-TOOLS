@@ -12,7 +12,7 @@ interface AdapterDependencies {
   fetch?: typeof fetch;
 }
 
-interface OpenAICompatibleResponse {
+interface OpenAIChatCompletionsResponse {
   choices?: Array<{ message?: { content?: string } }>;
   usage?: {
     prompt_tokens?: number;
@@ -23,7 +23,7 @@ interface OpenAICompatibleResponse {
   };
 }
 
-interface OpenAICompatibleModelsResponse {
+interface OpenAIChatCompletionsModelsResponse {
   data?: Array<{
     id?: string;
     owned_by?: string;
@@ -33,7 +33,7 @@ interface OpenAICompatibleModelsResponse {
   };
 }
 
-export function createOpenAICompatibleAdapter(dependencies: AdapterDependencies = {}): ModelAdapter {
+export function createOpenAIChatCompletionsAdapter(dependencies: AdapterDependencies = {}): ModelAdapter {
   const fetchImpl = dependencies.fetch ?? fetch;
 
   async function listModels(input: AdapterProviderInput): Promise<RemoteModel[]> {
@@ -154,17 +154,17 @@ function mapStatusToCode(status: number): ProviderErrorCode {
   return "provider_error";
 }
 
-async function parseJson(response: Response): Promise<OpenAICompatibleResponse> {
+async function parseJson(response: Response): Promise<OpenAIChatCompletionsResponse> {
   try {
-    return await response.json() as OpenAICompatibleResponse;
+    return await response.json() as OpenAIChatCompletionsResponse;
   } catch {
     return {};
   }
 }
 
-async function parseModelsJson(response: Response): Promise<OpenAICompatibleModelsResponse> {
+async function parseModelsJson(response: Response): Promise<OpenAIChatCompletionsModelsResponse> {
   try {
-    return await response.json() as OpenAICompatibleModelsResponse;
+    return await response.json() as OpenAIChatCompletionsModelsResponse;
   } catch {
     return {};
   }

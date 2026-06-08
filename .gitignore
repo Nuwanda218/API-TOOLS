@@ -8,3 +8,4 @@ dist/
 .vscode/
 .claude/settings.local.json
 coverage/
+client/.vite-dev*.log

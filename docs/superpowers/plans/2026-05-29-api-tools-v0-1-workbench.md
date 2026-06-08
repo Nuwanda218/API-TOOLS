@@ -34,6 +34,16 @@ Deferred to later plans:
 - Generate/review multi-model workflows.
 - Desktop packaging or private deployment.
 
+## API extension rule
+
+When adding a new external API:
+
+1. Define the internal operation id and input/output contract first.
+2. Decide whether it can use a config-driven HTTP adapter or needs a dedicated adapter.
+3. Add the provider `apiFormat` or adapter id only after the internal operation is stable.
+4. Implement request mapping, response mapping, and error mapping inside the adapter.
+5. Keep workflow steps using internal operation ids; never expose provider-specific endpoint paths in workflow definitions.
+
 ## File structure
 
 Create these files:
@@ -55,8 +65,12 @@ server/src/db/seed.ts
 server/src/errors/providerError.ts
 server/src/providers/providerRepository.ts
 server/src/providers/modelRepository.ts
+server/src/apiProtocol/types.ts
 server/src/adapters/types.ts
-server/src/adapters/openaiCompatible.ts
+server/src/adapters/openaiChatCompletions.ts
+server/src/adapters/openaiResponses.ts
+server/src/adapters/modelApiBridge.ts
+server/src/adapters/registry.ts
 server/src/workflows/types.ts
 server/src/workflows/runner.ts
 server/src/usage/usageService.ts
@@ -2976,6 +2990,1055 @@ git add server/src/app.ts server/src/index.ts server/src/routes/workflows.ts ser
 git commit -m "feat: add workflow execution route"
 ```
 
+## Task 9.5: Extensible adapter protocol and OpenAI Responses support
+
+**Goal:** Make provider execution protocol explicit so the workbench can keep using one internal workflow contract while adapters translate that contract to each provider's external API.
+
+**Design rule:** Workflow steps must target internal operations such as `llm.chat`; they must not know whether the provider uses OpenAI Chat Completions, OpenAI Responses, DeepSeek-compatible routes, or a future non-LLM API. Provider records select an adapter format, and an adapter registry owns external request/response conversion.
+
+**Files:**
+- Modify: `server/src/db/schema.ts`
+- Modify: `server/src/db/schema.test.ts`
+- Modify: `server/src/providers/providerRepository.ts`
+- Modify: `server/src/providers/providerRepository.test.ts`
+- Modify: `server/src/routes/providers.ts`
+- Modify: `server/src/routes/providers.test.ts`
+- Modify: `server/src/routes/providerRemoteModels.test.ts`
+- Modify: `server/src/routes/models.ts`
+- Modify: `server/src/routes/models.test.ts`
+- Modify: `server/src/routes/modelTest.test.ts`
+- Modify: `server/src/workflows/runner.ts`
+- Modify: `server/src/workflows/runner.test.ts`
+- Modify: `server/src/routes/workflows.test.ts`
+- Modify: `server/src/app.ts`
+- Modify: `server/src/adapters/types.ts`
+- Rename: `server/src/adapters/openaiCompatible.ts` to `server/src/adapters/openaiChatCompletions.ts`
+- Rename: `server/src/adapters/openaiCompatible.test.ts` to `server/src/adapters/openaiChatCompletions.test.ts`
+- Create: `server/src/adapters/openaiResponses.ts`
+- Create: `server/src/adapters/openaiResponses.test.ts`
+- Create: `server/src/adapters/registry.ts`
+- Create: `server/src/adapters/registry.test.ts`
+
+**Internal protocol boundary:**
+
+Adapters translate between external provider APIs and this internal shape. Keep the internal surface small for V0.1, but name it generically so later tasks can add `http.request`, `image.generate`, `embedding.create`, or arbitrary tool calls without rewriting workflow storage.
+
+```ts
+export type ProviderApiFormat = "openai-chat-completions" | "openai-responses";
+
+export type InternalOperation = "models.list" | "llm.chat";
+
+export interface ApiInvocationContext {
+  provider: Provider;
+  apiKey: string;
+}
+
+export interface AdapterUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
+export interface RemoteModel {
+  id: string;
+  ownedBy?: string;
+}
+
+export interface ChatRunInput extends ApiInvocationContext {
+  model: Model;
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+}
+
+export interface ChatRunResult {
+  content: string;
+  latencyMs: number;
+  usage: AdapterUsage;
+  raw?: unknown;
+}
+
+export interface ModelAdapter {
+  listModels(input: ApiInvocationContext): Promise<RemoteModel[]>;
+  testModel(input: ApiInvocationContext & { model: Model }): Promise<ModelTestResult>;
+  runChat(input: ChatRunInput): Promise<ChatRunResult>;
+}
+
+export interface AdapterRegistry {
+  getModelAdapter(provider: Provider): ModelAdapter;
+}
+```
+
+The name `ModelAdapter` remains for current LLM operations, but the registry and `InternalOperation` naming must not assume all future APIs are models.
+
+- [x] **Step 1: Write failing schema and repository tests for provider API format**
+
+Update `server/src/db/schema.test.ts` with a test that inserts and reads the new `api_format` column:
+
+```ts
+it("stores provider API format for adapter selection", () => {
+  const db = createTestDatabase();
+
+  db.prepare(`
+    insert into providers (id, name, type, api_format, base_url, api_key_env, enabled, created_at, updated_at)
+    values ('provider-responses', 'Responses', 'openai-compatible', 'openai-responses', 'https://example.test/v1', 'RESPONSES_KEY', 1, '2026-06-06T00:00:00.000Z', '2026-06-06T00:00:00.000Z')
+  `).run();
+
+  const row = db.prepare("select api_format from providers where id = ?").get("provider-responses");
+
+  expect(row).toEqual({ api_format: "openai-responses" });
+  db.close();
+});
+```
+
+Update `server/src/providers/providerRepository.test.ts` so provider creation has a default `apiFormat` and accepts an explicit value:
+
+```ts
+expect(created.apiFormat).toBe("openai-chat-completions");
+
+const responsesProvider = providers.create({
+  id: "provider-responses",
+  name: "Responses",
+  type: "openai-compatible",
+  apiFormat: "openai-responses",
+  baseUrl: "https://example.test/v1",
+  apiKeyEnv: "RESPONSES_KEY"
+});
+expect(responsesProvider.apiFormat).toBe("openai-responses");
+```
+
+Run:
+
+```bash
+npm run test --workspace server -- src/db/schema.test.ts src/providers/providerRepository.test.ts
+```
+
+Expected: FAIL because `api_format` and `apiFormat` do not exist.
+
+- [x] **Step 2: Add provider API format to schema, repository, and provider routes**
+
+Modify `server/src/db/schema.ts`:
+
+```sql
+api_format text not null default 'openai-chat-completions'
+  check (api_format in ('openai-chat-completions', 'openai-responses')),
+```
+
+Place the column in `providers` after `type`.
+
+Modify `server/src/providers/providerRepository.ts`:
+
+```ts
+export type ProviderApiFormat = "openai-chat-completions" | "openai-responses";
+export type ProviderType = "openai-compatible" | "openai-official";
+
+export interface Provider {
+  id: string;
+  name: string;
+  type: ProviderType;
+  apiFormat: ProviderApiFormat;
+  baseUrl: string;
+  apiKeyEnv: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProviderInput {
+  id?: string;
+  name: string;
+  type: ProviderType;
+  apiFormat?: ProviderApiFormat;
+  baseUrl: string;
+  apiKeyEnv: string;
+  enabled?: boolean;
+}
+```
+
+Update insert, update, row mapping, and `ProviderRow` to use `api_format`. Default missing input to `"openai-chat-completions"`.
+
+Modify `server/src/routes/providers.ts`:
+
+```ts
+apiFormat: z.enum(["openai-chat-completions", "openai-responses"]).default("openai-chat-completions"),
+```
+
+Update provider route tests to assert both default and explicit `apiFormat`.
+
+Run:
+
+```bash
+npm run test --workspace server -- src/db/schema.test.ts src/providers/providerRepository.test.ts src/routes/providers.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 3: Rename current adapter to Chat Completions format**
+
+Rename files:
+
+```bash
+git mv server/src/adapters/openaiCompatible.ts server/src/adapters/openaiChatCompletions.ts
+git mv server/src/adapters/openaiCompatible.test.ts server/src/adapters/openaiChatCompletions.test.ts
+```
+
+Rename exported factory:
+
+```ts
+export function createOpenAIChatCompletionsAdapter(dependencies: AdapterDependencies = {}): ModelAdapter
+```
+
+Keep external behavior unchanged:
+
+```ts
+GET  {baseUrl}/models
+POST {baseUrl}/chat/completions
+```
+
+Update imports in tests and route files that currently reference `createOpenAICompatibleAdapter`.
+
+Run:
+
+```bash
+npm run test --workspace server -- src/adapters/openaiChatCompletions.test.ts
+```
+
+Expected: PASS with the same assertions as the previous OpenAI-compatible adapter tests.
+
+- [x] **Step 4: Add adapter registry**
+
+Create `server/src/adapters/registry.ts`:
+
+```ts
+import type { Provider } from "../providers/providerRepository.js";
+import { ProviderError } from "../errors/providerError.js";
+import type { AdapterRegistry, ModelAdapter } from "./types.js";
+import { createOpenAIChatCompletionsAdapter } from "./openaiChatCompletions.js";
+import { createOpenAIResponsesAdapter } from "./openaiResponses.js";
+
+export interface AdapterRegistryDependencies {
+  chatCompletionsAdapter?: ModelAdapter;
+  responsesAdapter?: ModelAdapter;
+}
+
+export function createAdapterRegistry(dependencies: AdapterRegistryDependencies = {}): AdapterRegistry {
+  const chatCompletionsAdapter = dependencies.chatCompletionsAdapter ?? createOpenAIChatCompletionsAdapter();
+  const responsesAdapter = dependencies.responsesAdapter ?? createOpenAIResponsesAdapter();
+
+  return {
+    getModelAdapter(provider: Provider): ModelAdapter {
+      if (provider.apiFormat === "openai-chat-completions") return chatCompletionsAdapter;
+      if (provider.apiFormat === "openai-responses") return responsesAdapter;
+
+      throw new ProviderError("provider_error", `Unsupported provider API format: ${provider.apiFormat}`, {
+        statusCode: 400,
+        suggestion: "Choose a supported provider apiFormat."
+      });
+    }
+  };
+}
+```
+
+Create `server/src/adapters/registry.test.ts`:
+
+```ts
+it("selects adapters by provider apiFormat", () => {
+  const chatCompletionsAdapter = fakeAdapter("chat");
+  const responsesAdapter = fakeAdapter("responses");
+  const registry = createAdapterRegistry({ chatCompletionsAdapter, responsesAdapter });
+
+  expect(registry.getModelAdapter(provider({ apiFormat: "openai-chat-completions" }))).toBe(chatCompletionsAdapter);
+  expect(registry.getModelAdapter(provider({ apiFormat: "openai-responses" }))).toBe(responsesAdapter);
+});
+```
+
+Run:
+
+```bash
+npm run test --workspace server -- src/adapters/registry.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 5: Add OpenAI Responses adapter for llm.chat**
+
+Create `server/src/adapters/openaiResponses.test.ts` with two behavior tests:
+
+```ts
+it("runs chat through OpenAI Responses API shape", async () => {
+  const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+    output_text: "Responses reply",
+    usage: {
+      input_tokens: 7,
+      output_tokens: 4
+    }
+  }), { status: 200 }));
+
+  const adapter = createOpenAIResponsesAdapter({ fetch: fetchMock as typeof fetch });
+  const result = await adapter.runChat({
+    provider: provider({ baseUrl: "https://example.test/v1" }),
+    model: model({ modelId: "gpt-test" }),
+    apiKey: "secret",
+    messages: [{ role: "user", content: "Hello" }]
+  });
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://example.test/v1/responses",
+    expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({
+        model: "gpt-test",
+        input: [{ role: "user", content: "Hello" }]
+      })
+    })
+  );
+  expect(result).toMatchObject({
+    content: "Responses reply",
+    usage: { inputTokens: 7, outputTokens: 4 }
+  });
+});
+
+it("maps Responses API provider errors", async () => {
+  const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+    error: { message: "bad key" }
+  }), { status: 401 }));
+
+  const adapter = createOpenAIResponsesAdapter({ fetch: fetchMock as typeof fetch });
+
+  await expect(adapter.runChat({
+    provider: provider({ baseUrl: "https://example.test/v1" }),
+    model: model({ modelId: "gpt-test" }),
+    apiKey: "bad",
+    messages: [{ role: "user", content: "Hello" }]
+  })).rejects.toMatchObject({ code: "invalid_api_key" });
+});
+```
+
+Implement `server/src/adapters/openaiResponses.ts`:
+
+```ts
+export function createOpenAIResponsesAdapter(dependencies: AdapterDependencies = {}): ModelAdapter {
+  const fetchImpl = dependencies.fetch ?? fetch;
+
+  async function runChat(input: ChatRunInput): Promise<ChatRunResult> {
+    const startedAt = Date.now();
+    const response = await fetchImpl(responsesEndpoint(input.provider.baseUrl), {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${input.apiKey}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        model: input.model.modelId,
+        input: input.messages,
+        temperature: input.model.defaultParams.temperature,
+        max_output_tokens: input.model.defaultParams.maxTokens
+      })
+    });
+
+    const body = await parseJson(response);
+    if (!response.ok) throwProviderError(response.status, body);
+
+    return {
+      content: extractResponsesText(body),
+      latencyMs: Date.now() - startedAt,
+      usage: {
+        inputTokens: body.usage?.input_tokens,
+        outputTokens: body.usage?.output_tokens
+      },
+      raw: body
+    };
+  }
+
+  return {
+    listModels: createOpenAIChatCompletionsAdapter(dependencies).listModels,
+    async testModel(input) {
+      const result = await runChat({
+        ...input,
+        messages: [{ role: "user", content: "Reply with ok." }]
+      });
+      return { ok: true, latencyMs: result.latencyMs, message: result.content, usage: result.usage };
+    },
+    runChat
+  };
+}
+```
+
+`extractResponsesText()` must support both common Responses output forms:
+
+```ts
+body.output_text
+body.output[].content[].text
+```
+
+Run:
+
+```bash
+npm run test --workspace server -- src/adapters/openaiResponses.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 6: Wire model test, remote models, and workflow runner through registry**
+
+Modify route and runner dependencies:
+
+```ts
+interface ModelsRouterDependencies {
+  env: NodeJS.ProcessEnv;
+  adapterRegistry?: AdapterRegistry;
+}
+
+interface ProvidersRouterDependencies {
+  env: NodeJS.ProcessEnv;
+  adapterRegistry?: Pick<AdapterRegistry, "getModelAdapter">;
+}
+
+interface WorkflowRunnerDependencies {
+  adapterRegistry: AdapterRegistry;
+  env: NodeJS.ProcessEnv;
+}
+```
+
+Replace fixed adapter calls:
+
+```ts
+const adapter = adapterRegistry.getModelAdapter(provider);
+const result = await adapter.testModel({ provider, model, apiKey });
+```
+
+```ts
+const adapter = adapterRegistry.getModelAdapter(provider);
+const remoteModels = await adapter.listModels({ provider, apiKey });
+```
+
+```ts
+const adapter = dependencies.adapterRegistry.getModelAdapter(provider);
+const chatResult = await adapter.runChat({ provider, model, apiKey, messages });
+```
+
+Modify `server/src/app.ts` so one registry is created and shared:
+
+```ts
+const adapterRegistry = dependencies.adapterRegistry ?? createAdapterRegistry();
+app.use("/api/providers", createProvidersRouter(db, { env, adapterRegistry }));
+app.use("/api/models", createModelsRouter(db, { env, adapterRegistry }));
+app.use("/api/workflows", createWorkflowsRouter(db, { env, adapterRegistry }));
+```
+
+Update test dependency injection to provide fake registries instead of single adapters.
+
+Run:
+
+```bash
+npm run test --workspace server -- src/routes/providerRemoteModels.test.ts src/routes/models.test.ts src/routes/modelTest.test.ts src/workflows/runner.test.ts src/routes/workflows.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 7: Manual validation with disposable local database**
+
+Because V0.1 local provider/model data is test data, schema migration is not required. Stop the server, delete the local test database, restart, then recreate providers and models.
+
+DeepSeek provider must continue using Chat Completions format:
+
+```powershell
+$base = "http://127.0.0.1:8787"
+
+$deepseek = Invoke-RestMethod -Method Post "$base/api/providers" `
+  -ContentType "application/json" `
+  -Body (@{
+    name = "DeepSeek"
+    type = "openai-compatible"
+    apiFormat = "openai-chat-completions"
+    baseUrl = "https://api.deepseek.com/v1"
+    apiKeyEnv = "DEEPSEEK_API_KEY"
+    enabled = $true
+  } | ConvertTo-Json -Depth 10)
+```
+
+Responses-format provider must explicitly use Responses format:
+
+```powershell
+$responses = Invoke-RestMethod -Method Post "$base/api/providers" `
+  -ContentType "application/json" `
+  -Body (@{
+    name = "SharedChat"
+    type = "openai-compatible"
+    apiFormat = "openai-responses"
+    baseUrl = "https://new.sharedchat.cc/codex"
+    apiKeyEnv = "SHAREDCHAT_API_KEY"
+    enabled = $true
+  } | ConvertTo-Json -Depth 10)
+```
+
+Verify:
+
+```powershell
+Invoke-RestMethod "$base/api/providers/$($deepseek.id)/remote-models"
+Invoke-RestMethod "$base/api/providers/$($responses.id)/remote-models"
+```
+
+Import one chat model from each provider and run:
+
+```powershell
+Invoke-RestMethod -Method Post "$base/api/models/$($model.id)/test"
+Invoke-RestMethod -Method Post "$base/api/workflows/run" -ContentType "application/json" -Body $workflowBody
+```
+
+Expected:
+- DeepSeek model test succeeds through `/chat/completions`.
+- Responses-format provider model test succeeds through `/responses`.
+- Workflow request body remains unchanged because workflow uses internal `llm.chat`, not provider-specific routes.
+
+- [x] **Step 8: Run full backend verification and commit**
+
+Run:
+
+```bash
+npm run test --workspace server
+npm run typecheck --workspace server
+```
+
+Expected: all backend tests and typecheck pass.
+
+Commit:
+
+```bash
+git add server/src
+git commit -m "feat: add provider adapter registry"
+```
+
+## Task 9.6: Generic API operation protocol foundation
+
+**Goal:** Add a provider-independent API operation protocol so future APIs can be connected through explicit adapters instead of forcing every integration into the current LLM-only `ModelAdapter` shape.
+
+**Architecture:** Keep the current LLM model routes working, but introduce a generic `ApiInvocation -> ApiInvocationResult` path. The workflow runner should call the generic registry entry for `llm.chat`; the registry will bridge that operation to the existing model adapters. Future operations such as `search.query`, `weather.current`, `http.request`, or `github.issue.create` can then be added by implementing the same invocation interface.
+
+**Important boundary:** This task does not build a universal automatic API converter. It creates the extension point for custom adapters and future config-driven HTTP adapters. APIs with unusual auth, signatures, pagination, streaming, binary upload, or webhooks will still need dedicated adapters based on their documentation.
+
+**Files:**
+- Create: `server/src/apiProtocol/types.ts`
+- Create: `server/src/apiProtocol/types.test.ts`
+- Modify: `server/src/adapters/types.ts`
+- Create: `server/src/adapters/modelApiBridge.ts`
+- Create: `server/src/adapters/modelApiBridge.test.ts`
+- Modify: `server/src/adapters/registry.ts`
+- Modify: `server/src/adapters/registry.test.ts`
+- Modify: `server/src/workflows/runner.ts`
+- Modify: `server/src/workflows/runner.test.ts`
+- Modify: `docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md`
+
+**Internal protocol target:**
+
+Create a project-level API protocol that can represent LLM and non-LLM operations:
+
+```ts
+import type { Model } from "../providers/modelRepository.js";
+import type { Provider } from "../providers/providerRepository.js";
+import type { ProviderErrorCode } from "../errors/providerError.js";
+
+export type ApiOperationId =
+  | "models.list"
+  | "llm.chat"
+  | "http.request"
+  | (string & {});
+
+export type ApiResource =
+  | { kind: "model"; model: Model }
+  | { kind: "none" };
+
+export interface ApiInvocation<TInput = Record<string, unknown>> {
+  operationId: ApiOperationId;
+  provider: Provider;
+  apiKey: string;
+  resource: ApiResource;
+  input: TInput;
+  params?: Record<string, unknown>;
+}
+
+export interface ApiInvocationResult<TData = unknown> {
+  ok: true;
+  data: TData;
+  usage?: Record<string, unknown>;
+  latencyMs: number;
+  raw?: unknown;
+}
+
+export interface ApiInvocationError {
+  ok: false;
+  code: ProviderErrorCode;
+  message: string;
+  providerMessage?: string;
+  statusCode?: number;
+  suggestion?: string;
+  latencyMs?: number;
+  raw?: unknown;
+}
+
+export type ApiInvocationOutcome<TData = unknown> =
+  | ApiInvocationResult<TData>
+  | ApiInvocationError;
+
+export interface ApiAdapter {
+  id: string;
+  supports(operationId: ApiOperationId): boolean;
+  invoke(input: ApiInvocation): Promise<ApiInvocationOutcome>;
+}
+
+export interface LlmChatInput {
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+}
+
+export interface LlmChatData {
+  content: string;
+}
+```
+
+- [x] **Step 1: Write failing protocol shape tests**
+
+Create `server/src/apiProtocol/types.test.ts`:
+
+```ts
+import { describe, expect, it } from "vitest";
+import type { ApiInvocation, ApiInvocationResult, LlmChatData, LlmChatInput } from "./types.js";
+import type { Provider } from "../providers/providerRepository.js";
+import type { Model } from "../providers/modelRepository.js";
+
+const provider: Provider = {
+  id: "provider-1",
+  name: "Provider",
+  type: "openai-compatible",
+  apiFormat: "openai-chat-completions",
+  baseUrl: "https://example.test/v1",
+  apiKeyEnv: "CUSTOM_KEY",
+  enabled: true,
+  createdAt: "now",
+  updatedAt: "now"
+};
+
+const model: Model = {
+  id: "model-1",
+  providerId: "provider-1",
+  displayName: "Fast Chat",
+  modelId: "fast-chat",
+  capability: "chat",
+  enabled: true,
+  defaultParams: {},
+  pricing: {},
+  createdAt: "now",
+  updatedAt: "now"
+};
+
+describe("generic API protocol types", () => {
+  it("represents llm.chat as a provider-independent invocation", () => {
+    const invocation: ApiInvocation<LlmChatInput> = {
+      operationId: "llm.chat",
+      provider,
+      apiKey: "secret",
+      resource: { kind: "model", model },
+      input: {
+        messages: [{ role: "user", content: "Hello" }]
+      }
+    };
+
+    const result: ApiInvocationResult<LlmChatData> = {
+      ok: true,
+      data: { content: "Hi" },
+      usage: { inputTokens: 1, outputTokens: 1 },
+      latencyMs: 3
+    };
+
+    expect(invocation.operationId).toBe("llm.chat");
+    expect(invocation.resource.kind).toBe("model");
+    expect(result.data.content).toBe("Hi");
+  });
+});
+```
+
+Run:
+
+```bash
+npm run test --workspace server -- src/apiProtocol/types.test.ts
+```
+
+Expected: FAIL because `server/src/apiProtocol/types.ts` does not exist.
+
+- [x] **Step 2: Create generic API protocol types**
+
+Create `server/src/apiProtocol/types.ts` using the full type block from **Internal protocol target**.
+
+Run:
+
+```bash
+npm run test --workspace server -- src/apiProtocol/types.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 3: Write failing model bridge tests**
+
+Create `server/src/adapters/modelApiBridge.test.ts`:
+
+```ts
+import { describe, expect, it, vi } from "vitest";
+import type { Model } from "../providers/modelRepository.js";
+import type { Provider } from "../providers/providerRepository.js";
+import type { ModelAdapter } from "./types.js";
+import { createModelApiBridge } from "./modelApiBridge.js";
+
+const provider: Provider = {
+  id: "provider-1",
+  name: "Provider",
+  type: "openai-compatible",
+  apiFormat: "openai-chat-completions",
+  baseUrl: "https://example.test/v1",
+  apiKeyEnv: "CUSTOM_KEY",
+  enabled: true,
+  createdAt: "now",
+  updatedAt: "now"
+};
+
+const model: Model = {
+  id: "model-1",
+  providerId: "provider-1",
+  displayName: "Fast Chat",
+  modelId: "fast-chat",
+  capability: "chat",
+  enabled: true,
+  defaultParams: {},
+  pricing: {},
+  createdAt: "now",
+  updatedAt: "now"
+};
+
+describe("model API bridge", () => {
+  it("invokes llm.chat through an existing ModelAdapter", async () => {
+    const modelAdapter: ModelAdapter = {
+      listModels: vi.fn(),
+      testModel: vi.fn(),
+      runChat: vi.fn().mockResolvedValue({
+        content: "Bridge reply",
+        latencyMs: 9,
+        usage: { inputTokens: 2, outputTokens: 3 }
+      })
+    };
+    const bridge = createModelApiBridge("openai-chat-completions", modelAdapter);
+
+    const result = await bridge.invoke({
+      operationId: "llm.chat",
+      provider,
+      apiKey: "secret",
+      resource: { kind: "model", model },
+      input: { messages: [{ role: "user", content: "Hello" }] }
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: { content: "Bridge reply" },
+      usage: { inputTokens: 2, outputTokens: 3 },
+      latencyMs: 9
+    });
+    expect(modelAdapter.runChat).toHaveBeenCalledWith({
+      provider,
+      model,
+      apiKey: "secret",
+      messages: [{ role: "user", content: "Hello" }]
+    });
+  });
+
+  it("rejects llm.chat without a model resource", async () => {
+    const bridge = createModelApiBridge("openai-chat-completions", {
+      listModels: vi.fn(),
+      testModel: vi.fn(),
+      runChat: vi.fn()
+    });
+
+    const result = await bridge.invoke({
+      operationId: "llm.chat",
+      provider,
+      apiKey: "secret",
+      resource: { kind: "none" },
+      input: { messages: [{ role: "user", content: "Hello" }] }
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "invalid_api_resource"
+    });
+  });
+});
+```
+
+Run:
+
+```bash
+npm run test --workspace server -- src/adapters/modelApiBridge.test.ts
+```
+
+Expected: FAIL because the bridge does not exist.
+
+- [x] **Step 4: Implement model API bridge**
+
+Create `server/src/adapters/modelApiBridge.ts`:
+
+```ts
+import type {
+  ApiAdapter,
+  ApiInvocation,
+  ApiInvocationOutcome,
+  LlmChatData,
+  LlmChatInput
+} from "../apiProtocol/types.js";
+import type { ModelAdapter } from "./types.js";
+
+export function createModelApiBridge(id: string, modelAdapter: ModelAdapter): ApiAdapter {
+  return {
+    id,
+    supports(operationId) {
+      return operationId === "llm.chat";
+    },
+    async invoke(input: ApiInvocation<LlmChatInput>): Promise<ApiInvocationOutcome<LlmChatData>> {
+      if (input.operationId !== "llm.chat") {
+        return {
+          ok: false,
+          code: "unsupported_operation",
+          message: `Unsupported operation: ${input.operationId}`
+        };
+      }
+
+      if (input.resource.kind !== "model") {
+        return {
+          ok: false,
+          code: "invalid_api_resource",
+          message: "llm.chat requires a model resource."
+        };
+      }
+
+      const result = await modelAdapter.runChat({
+        provider: input.provider,
+        model: input.resource.model,
+        apiKey: input.apiKey,
+        messages: input.input.messages
+      });
+
+      return {
+        ok: true,
+        data: { content: result.content },
+        usage: result.usage,
+        latencyMs: result.latencyMs,
+        raw: result.raw
+      };
+    }
+  };
+}
+```
+
+Run:
+
+```bash
+npm run test --workspace server -- src/adapters/modelApiBridge.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 5: Extend adapter registry with generic invoke**
+
+Modify `server/src/adapters/registry.test.ts` with a new test:
+
+```ts
+import type { Model } from "../providers/modelRepository.js";
+
+function fakeModel(): Model {
+  return {
+    id: "model-1",
+    providerId: "provider-openai-chat-completions",
+    displayName: "Fast Chat",
+    modelId: "fast-chat",
+    capability: "chat",
+    enabled: true,
+    defaultParams: {},
+    pricing: {},
+    createdAt: "now",
+    updatedAt: "now"
+  };
+}
+
+it("invokes llm.chat through the generic API adapter path", async () => {
+  const chatCompletionsAdapter = fakeAdapter("chat");
+  const registry = createAdapterRegistry({ chatCompletionsAdapter });
+
+  const result = await registry.invoke({
+    operationId: "llm.chat",
+    provider: provider("openai-chat-completions"),
+    apiKey: "secret",
+    resource: { kind: "model", model: fakeModel() },
+    input: { messages: [{ role: "user", content: "Hello" }] }
+  });
+
+  expect(result).toEqual({
+    ok: true,
+    data: { content: "chat" },
+    usage: {},
+    latencyMs: 1
+  });
+});
+```
+
+Modify `server/src/adapters/types.ts` so `AdapterRegistry` includes the generic path:
+
+```ts
+import type { ApiInvocation, ApiInvocationOutcome } from "../apiProtocol/types.js";
+
+export interface AdapterRegistry {
+  getModelAdapter(provider: Provider): ModelAdapter;
+  invoke(input: ApiInvocation): Promise<ApiInvocationOutcome>;
+}
+```
+
+Modify `server/src/adapters/registry.ts`:
+
+```ts
+const chatCompletionsBridge = createModelApiBridge("openai-chat-completions", chatCompletionsAdapter);
+const responsesBridge = createModelApiBridge("openai-responses", responsesAdapter);
+
+function selectModelAdapter(provider: Provider) {
+  if (provider.apiFormat === "openai-chat-completions") return chatCompletionsAdapter;
+  if (provider.apiFormat === "openai-responses") return responsesAdapter;
+  throw unsupportedProviderFormat(provider);
+}
+
+function getApiAdapter(provider: Provider) {
+  if (provider.apiFormat === "openai-chat-completions") return chatCompletionsBridge;
+  if (provider.apiFormat === "openai-responses") return responsesBridge;
+  throw unsupportedProviderFormat(provider);
+}
+
+return {
+  getModelAdapter(provider) {
+    return selectModelAdapter(provider);
+  },
+  async invoke(input) {
+    const adapter = getApiAdapter(input.provider);
+    if (!adapter.supports(input.operationId)) {
+      return {
+        ok: false,
+        code: "unsupported_operation",
+        message: `Unsupported operation: ${input.operationId}`
+      };
+    }
+    return adapter.invoke(input);
+  }
+};
+```
+
+Run:
+
+```bash
+npm run test --workspace server -- src/adapters/registry.test.ts src/adapters/modelApiBridge.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 6: Migrate workflow runner to generic invocation path**
+
+Modify `server/src/workflows/runner.test.ts` assertion to verify generic invocation:
+
+```ts
+const adapterRegistry: AdapterRegistry = {
+  getModelAdapter: vi.fn(() => adapter),
+  invoke: vi.fn(async () => ({
+    ok: true,
+    data: { content: "Hello from model" },
+    latencyMs: 12,
+    usage: { inputTokens: 10, outputTokens: 4 }
+  }))
+};
+```
+
+Assert:
+
+```ts
+expect(adapterRegistry.invoke).toHaveBeenCalledWith({
+  operationId: "llm.chat",
+  provider: expect.objectContaining({ id: provider.id }),
+  apiKey: "secret",
+  resource: { kind: "model", model: expect.objectContaining({ id: model.id }) },
+  input: { messages: [{ role: "user", content: "Hello" }] }
+});
+```
+
+Modify `server/src/workflows/runner.ts`:
+
+```ts
+const invocation = await dependencies.adapterRegistry.invoke({
+  operationId: "llm.chat",
+  provider,
+  apiKey,
+  resource: { kind: "model", model },
+  input: {
+    messages: [{ role: "user", content: message }]
+  }
+});
+
+if (!invocation.ok) {
+  throw new ProviderError(invocation.code, invocation.message, {
+    providerMessage: invocation.providerMessage,
+    statusCode: invocation.statusCode,
+    suggestion: invocation.suggestion
+  });
+}
+```
+
+Map the generic result back to the existing workflow result:
+
+```ts
+const data = invocation.data as LlmChatData;
+
+content: data.content,
+latencyMs: invocation.latencyMs,
+inputTokens: typeof invocation.usage?.inputTokens === "number" ? invocation.usage.inputTokens : undefined,
+outputTokens: typeof invocation.usage?.outputTokens === "number" ? invocation.usage.outputTokens : undefined
+```
+
+Run:
+
+```bash
+npm run test --workspace server -- src/workflows/runner.test.ts src/routes/workflows.test.ts src/routes/usage.test.ts
+```
+
+Expected: PASS.
+
+- [x] **Step 7: Document the extension rule in this plan**
+
+Add this rule to the project direction notes:
+
+```md
+When adding a new external API:
+1. Define the internal operation id and input/output contract first.
+2. Decide whether it can use a config-driven HTTP adapter or needs a dedicated adapter.
+3. Add the provider apiFormat or adapter id only after the internal operation is stable.
+4. Implement request mapping, response mapping, and error mapping inside the adapter.
+5. Keep workflow steps using internal operation ids; never expose provider-specific endpoint paths in workflow definitions.
+```
+
+Expected: Future tasks have a clear rule for API integration.
+
+- [x] **Step 8: Run full backend verification and commit**
+
+Run:
+
+```bash
+npm run test --workspace server
+npm run typecheck --workspace server
+```
+
+Expected: all backend tests and typecheck pass.
+
+Commit:
+
+```bash
+git add server/src docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md
+git commit -m "docs: plan generic api protocol foundation"
+```
+
 ## Task 10: Frontend app shell and top navigation
 
 **Files:**
@@ -2988,7 +4051,7 @@ git commit -m "feat: add workflow execution route"
 - Create: `client/src/styles.css`
 - Create: `client/src/App.test.tsx`
 
-- [ ] **Step 1: Write failing app shell test**
+- [x] **Step 1: Write failing app shell test**
 
 Create `client/vite.config.ts`:
 
@@ -3050,7 +4113,7 @@ describe("App", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -3060,7 +4123,7 @@ npm run test --workspace client -- src/App.test.tsx
 
 Expected: FAIL because `App.tsx` does not exist.
 
-- [ ] **Step 3: Implement app shell**
+- [x] **Step 3: Implement app shell**
 
 Create `client/src/components/TopNav.tsx`:
 
@@ -3212,7 +4275,7 @@ textarea {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run:
 
@@ -3222,7 +4285,7 @@ npm run test --workspace client -- src/App.test.tsx
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add client/vite.config.ts client/vitest.config.ts client/src/test/setup.ts client/src/main.tsx client/src/App.tsx client/src/components/TopNav.tsx client/src/styles.css client/src/App.test.tsx

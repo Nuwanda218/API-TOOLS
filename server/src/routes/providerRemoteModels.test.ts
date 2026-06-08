@@ -1,5 +1,6 @@
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
+import type { AdapterRegistry, ModelAdapter } from "../adapters/types.js";
 import { createApp } from "../app.js";
 import { createTestDatabase } from "../test/testDb.js";
 
@@ -10,17 +11,24 @@ describe("provider remote model routes", () => {
       listModels: vi.fn().mockResolvedValue([
         { id: "gpt-4.1-mini", ownedBy: "openai" },
         { id: "gpt-4.1-nano" }
-      ])
+      ]),
+      testModel: vi.fn(),
+      runChat: vi.fn()
+    } satisfies ModelAdapter;
+    const adapterRegistry: AdapterRegistry = {
+      getModelAdapter: vi.fn(() => adapter),
+      invoke: vi.fn()
     };
     const app = createApp({
       db,
       env: { OPENAI_API_KEY: "sk-test" },
-      providerAdapter: adapter
+      adapterRegistry
     });
 
     const providerResponse = await request(app).post("/api/providers").send({
       name: "Horizon",
       type: "openai-official",
+      apiFormat: "openai-responses",
       baseUrl: "https://api.openai.com/v1",
       apiKeyEnv: "OPENAI_API_KEY",
       enabled: true
@@ -38,9 +46,12 @@ describe("provider remote model routes", () => {
       ]
     });
     expect(adapter.listModels).toHaveBeenCalledWith({
-      provider: expect.objectContaining({ id: providerResponse.body.id }),
+      provider: expect.objectContaining({ id: providerResponse.body.id, apiFormat: "openai-responses" }),
       apiKey: "sk-test"
     });
+    expect(adapterRegistry.getModelAdapter).toHaveBeenCalledWith(
+      expect.objectContaining({ id: providerResponse.body.id, apiFormat: "openai-responses" })
+    );
 
     db.close();
   });

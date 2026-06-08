@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
-import type { ModelAdapter } from "../adapters/types.js";
+import type { LlmChatData } from "../apiProtocol/types.js";
+import type { AdapterRegistry } from "../adapters/types.js";
 import { getRequiredApiKey } from "../config/env.js";
 import type { AppDatabase } from "../db/client.js";
 import { ProviderError } from "../errors/providerError.js";
@@ -14,7 +15,7 @@ import type {
 } from "./types.js";
 
 interface WorkflowRunnerDependencies {
-  adapter: ModelAdapter;
+  adapterRegistry: AdapterRegistry;
   env: NodeJS.ProcessEnv;
 }
 
@@ -52,21 +53,36 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
     }
 
     const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
-    const chatResult = await dependencies.adapter.runChat({
+    const invocation = await dependencies.adapterRegistry.invoke({
+      operationId: "llm.chat",
       provider,
-      model,
       apiKey,
-      messages: [{ role: "user", content: message }]
+      resource: { kind: "model", model },
+      input: {
+        messages: [{ role: "user", content: message }]
+      }
     });
+
+    if (!invocation.ok) {
+      throw new ProviderError(invocation.code, invocation.message, {
+        providerMessage: invocation.providerMessage,
+        statusCode: invocation.statusCode,
+        suggestion: invocation.suggestion
+      });
+    }
+
+    const inputTokens = asNumber(invocation.usage?.inputTokens);
+    const outputTokens = asNumber(invocation.usage?.outputTokens);
+    const data = invocation.data as LlmChatData;
 
     return {
       provider,
       model,
-      content: chatResult.content,
-      latencyMs: chatResult.latencyMs,
-      inputTokens: chatResult.usage.inputTokens,
-      outputTokens: chatResult.usage.outputTokens,
-      costEstimate: estimateCost(chatResult.usage.inputTokens, chatResult.usage.outputTokens, model.pricing)
+      content: data.content,
+      latencyMs: invocation.latencyMs,
+      inputTokens,
+      outputTokens,
+      costEstimate: estimateCost(inputTokens, outputTokens, model.pricing)
     };
   }
 
@@ -290,6 +306,10 @@ function resolveStepMessage(step: WorkflowStepDefinition, workflowInput: Record<
   }
 
   return typeof message === "string" ? message : resolveInputMessage(workflowInput);
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined;
 }
 
 function estimateCost(inputTokens: number | undefined, outputTokens: number | undefined, pricing: Model["pricing"]) {
