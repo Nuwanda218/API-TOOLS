@@ -1,5 +1,9 @@
 import { useState } from "react";
+import { apiClient } from "./api/client";
 import { TopNav, type LanguageKey, type PageKey } from "./components/TopNav";
+import { ModelsPage } from "./pages/ModelsPage";
+import { ProvidersPage } from "./pages/ProvidersPage";
+import { UsagePage } from "./pages/UsagePage";
 import "./styles.css";
 
 interface ModuleView {
@@ -270,6 +274,16 @@ export function App() {
   const [collapsed, setCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState<PageKey>("workbench");
   const [language, setLanguage] = useState<LanguageKey>("zh-CN");
+  const content =
+    currentPage === "providers" ? (
+      <ProvidersPage api={apiClient} language={language} />
+    ) : currentPage === "models" ? (
+      <ModelsPage api={apiClient} language={language} />
+    ) : currentPage === "usage" ? (
+      <UsagePage api={apiClient} language={language} />
+    ) : (
+      <ModulePage language={language} page={currentPage} />
+    );
 
   return (
     <div className={`app-shell ${collapsed ? "nav-collapsed" : ""}`} data-testid="app-shell">
@@ -281,7 +295,7 @@ export function App() {
         onLanguageChange={setLanguage}
         onPageChange={setCurrentPage}
       />
-      <ModulePage language={language} page={currentPage} />
+      {content}
     </div>
   );
 }

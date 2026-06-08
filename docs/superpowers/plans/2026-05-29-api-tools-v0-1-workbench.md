@@ -4303,7 +4303,7 @@ git commit -m "feat: add frontend app shell"
 - Modify: `client/src/App.tsx`
 - Create: `client/src/pages/ProvidersPage.test.tsx`
 
-- [ ] **Step 1: Write failing providers page test**
+- [x] **Step 1: Write failing providers page test**
 
 Create `client/src/pages/ProvidersPage.test.tsx`:
 
@@ -4340,7 +4340,7 @@ describe("ProvidersPage", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -4350,7 +4350,7 @@ npm run test --workspace client -- src/pages/ProvidersPage.test.tsx
 
 Expected: FAIL because page and API files do not exist.
 
-- [ ] **Step 3: Implement API types and client**
+- [x] **Step 3: Implement API types and client**
 
 Create `client/src/api/types.ts`:
 
@@ -4463,7 +4463,7 @@ export const apiClient = {
 export type ApiClient = typeof apiClient;
 ```
 
-- [ ] **Step 4: Implement providers page**
+- [x] **Step 4: Implement providers page**
 
 Create `client/src/pages/ProvidersPage.tsx`:
 
@@ -4538,7 +4538,7 @@ export function ProvidersPage({ api }: ProvidersPageProps) {
 }
 ```
 
-- [ ] **Step 5: Implement model and usage pages**
+- [x] **Step 5: Implement model and usage pages**
 
 Create `client/src/pages/ModelsPage.tsx`:
 
@@ -4667,7 +4667,7 @@ export function UsagePage({ api }: UsagePageProps) {
 }
 ```
 
-- [ ] **Step 6: Update app to use real pages**
+- [x] **Step 6: Update app to use real pages**
 
 Modify `client/src/App.tsx` to this complete file:
 
@@ -4706,7 +4706,7 @@ export function App() {
 }
 ```
 
-- [ ] **Step 7: Extend styles for forms and metrics**
+- [x] **Step 7: Extend styles for forms and metrics**
 
 Append to `client/src/styles.css`:
 
@@ -4798,7 +4798,7 @@ Append to `client/src/styles.css`:
 }
 ```
 
-- [ ] **Step 8: Run providers page test**
+- [x] **Step 8: Run providers page test**
 
 Run:
 
@@ -4808,7 +4808,7 @@ npm run test --workspace client -- src/pages/ProvidersPage.test.tsx
 
 Expected: PASS.
 
-- [ ] **Step 9: Run all frontend tests**
+- [x] **Step 9: Run all frontend tests**
 
 Run:
 
@@ -4818,7 +4818,7 @@ npm run test --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add client/src/api/types.ts client/src/api/client.ts client/src/pages/ProvidersPage.tsx client/src/pages/ModelsPage.tsx client/src/pages/UsagePage.tsx client/src/App.tsx client/src/pages/ProvidersPage.test.tsx client/src/styles.css

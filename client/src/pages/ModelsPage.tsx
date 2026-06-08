@@ -1,0 +1,225 @@
+import { type FormEvent, useEffect, useState } from "react";
+import type { ApiClient } from "../api/client";
+import type { ModelCapability, ModelRecord, ProviderRecord, RemoteModelRecord } from "../api/types";
+import type { LanguageKey } from "../components/TopNav";
+
+interface ModelsPageProps {
+  api: Pick<
+    ApiClient,
+    "listProviders" | "listModels" | "createModel" | "testModel" | "listRemoteModels" | "importModels"
+  >;
+  language?: LanguageKey;
+}
+
+const copy = {
+  "zh-CN": {
+    title: "模型管理",
+    subtitle: "从 Provider 创建或导入模型，并执行最小可用性测试。",
+    formTitle: "新增本地模型",
+    provider: "Provider",
+    displayName: "显示名称",
+    modelId: "Model ID",
+    capability: "能力",
+    submit: "添加模型",
+    remoteTitle: "远程模型",
+    fetchRemote: "拉取远程模型",
+    import: "导入",
+    localTitle: "本地模型",
+    test: "测试",
+    success: "成功",
+    empty: "还没有本地模型。",
+    noProvider: "请先创建 Provider。"
+  },
+  en: {
+    title: "Models",
+    subtitle: "Create or import models from providers, then run minimal availability tests.",
+    formTitle: "New local model",
+    provider: "Provider",
+    displayName: "Display name",
+    modelId: "Model ID",
+    capability: "Capability",
+    submit: "Add model",
+    remoteTitle: "Remote models",
+    fetchRemote: "Fetch remote models",
+    import: "Import",
+    localTitle: "Local models",
+    test: "Test",
+    success: "Succeeded",
+    empty: "No local models yet.",
+    noProvider: "Create a provider first."
+  }
+} satisfies Record<LanguageKey, Record<string, string>>;
+
+export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
+  const text = copy[language];
+  const [providers, setProviders] = useState<ProviderRecord[]>([]);
+  const [models, setModels] = useState<ModelRecord[]>([]);
+  const [remoteModels, setRemoteModels] = useState<RemoteModelRecord[]>([]);
+  const [providerId, setProviderId] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [modelId, setModelId] = useState("");
+  const [capability, setCapability] = useState<ModelCapability>("chat");
+  const [status, setStatus] = useState("");
+  const [testResult, setTestResult] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    Promise.all([api.listProviders(), api.listModels()])
+      .then(([providerRows, modelRows]) => {
+        if (!active) return;
+        setProviders(providerRows);
+        setModels(modelRows);
+        setProviderId((current) => current || providerRows[0]?.id || "");
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setStatus(error instanceof Error ? error.message : String(error));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [api]);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const created = await api.createModel({
+      providerId,
+      displayName,
+      modelId,
+      capability,
+      enabled: true,
+      defaultParams: {},
+      pricing: {}
+    });
+
+    setModels((current) => [...current, created]);
+    setDisplayName("");
+    setModelId("");
+  }
+
+  async function handleFetchRemoteModels() {
+    if (!providerId) {
+      setStatus(text.noProvider);
+      return;
+    }
+
+    setStatus("");
+    const result = await api.listRemoteModels(providerId);
+    setRemoteModels(result.models);
+  }
+
+  async function handleImport(remoteModel: RemoteModelRecord) {
+    const result = await api.importModels(providerId, [
+      {
+        providerId,
+        displayName: remoteModel.id,
+        modelId: remoteModel.id,
+        capability: "chat",
+        enabled: true,
+        defaultParams: {},
+        pricing: {}
+      }
+    ]);
+
+    setModels((current) => [...current, ...result.created]);
+    setStatus(result.skipped.length > 0 ? `${remoteModel.id}: ${result.skipped[0]?.reason}` : "");
+  }
+
+  async function handleTest(id: string) {
+    try {
+      const result = await api.testModel(id);
+      setTestResult(`${text.success}: ${result.message} (${result.latencyMs}ms)`);
+    } catch (error) {
+      setTestResult(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  return (
+    <main className="page two-column">
+      <section className="page-section">
+        <div className="page-heading">
+          <span className="module-badge">models</span>
+          <h1>{text.title}</h1>
+          <p>{text.subtitle}</p>
+        </div>
+
+        <form className="card-form" onSubmit={handleSubmit}>
+          <h2>{text.formTitle}</h2>
+          <label>
+            {text.provider}
+            <select value={providerId} onChange={(event) => setProviderId(event.target.value)} required>
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {text.displayName}
+            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
+          </label>
+          <label>
+            {text.modelId}
+            <input value={modelId} onChange={(event) => setModelId(event.target.value)} required />
+          </label>
+          <label>
+            {text.capability}
+            <select value={capability} onChange={(event) => setCapability(event.target.value as ModelCapability)}>
+              <option value="chat">chat</option>
+              <option value="image">image</option>
+              <option value="multimodal">multimodal</option>
+            </select>
+          </label>
+          <button type="submit" disabled={!providerId}>
+            {text.submit}
+          </button>
+        </form>
+
+        <section className="operation-panel management-panel">
+          <div className="panel-heading">
+            <h2>{text.remoteTitle}</h2>
+            <button className="secondary-action" type="button" onClick={handleFetchRemoteModels}>
+              {text.fetchRemote}
+            </button>
+          </div>
+          <div className="record-list compact-list">
+            {remoteModels.map((remoteModel) => (
+              <div className="record-row model-row" key={remoteModel.id}>
+                <strong>{remoteModel.id}</strong>
+                <span>{remoteModel.ownedBy ?? "unknown"}</span>
+                <button className="inline-action" type="button" onClick={() => handleImport(remoteModel)}>
+                  {text.import}
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      </section>
+
+      <section className="operation-panel management-panel" aria-label={text.localTitle}>
+        <div className="panel-heading">
+          <h2>{text.localTitle}</h2>
+          <span>{models.length}</span>
+        </div>
+        {status && <p className="panel-status">{status}</p>}
+        {testResult && <p className="panel-status success">{testResult}</p>}
+        {models.length === 0 && !status && <p className="panel-status">{text.empty}</p>}
+        <div className="record-list">
+          {models.map((model) => (
+            <div className="record-row model-row" key={model.id}>
+              <strong>{model.displayName}</strong>
+              <span>{model.modelId}</span>
+              <span>{model.capability}</span>
+              <button className="inline-action" type="button" onClick={() => handleTest(model.id)}>
+                {text.test}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}
