@@ -8,12 +8,16 @@ import { ProviderError } from "../errors/providerError.js";
 import { createModelRepository } from "../providers/modelRepository.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
 
+const apiKeyEnvSchema = z
+  .string()
+  .regex(/^[A-Z][A-Z0-9_]*$/, "API key env var must be an environment variable name");
+
 const createProviderSchema = z.object({
   name: z.string().min(1),
   type: z.enum(["openai-compatible", "openai-official"]),
   apiFormat: z.enum(["openai-chat-completions", "openai-responses"]).default("openai-chat-completions"),
   baseUrl: z.string().url(),
-  apiKeyEnv: z.string().min(1),
+  apiKeyEnv: apiKeyEnvSchema,
   enabled: z.boolean().default(true)
 });
 

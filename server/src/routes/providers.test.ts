@@ -113,4 +113,24 @@ describe("provider routes", () => {
 
     db.close();
   });
+
+  it("rejects raw API keys in apiKeyEnv", async () => {
+    const db = createTestDatabase();
+    const app = createApp({ db });
+
+    const response = await request(app).post("/api/providers").send({
+      name: "DeepSeek",
+      type: "openai-compatible",
+      apiFormat: "openai-chat-completions",
+      baseUrl: "https://api.deepseek.com/v1",
+      apiKeyEnv: "sk-e7c5cfcf8e3a4444a0479f264e39c52d",
+      enabled: true
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("invalid_request");
+    expect(response.body.issues[0].message).toBe("API key env var must be an environment variable name");
+
+    db.close();
+  });
 });
