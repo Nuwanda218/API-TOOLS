@@ -1,16 +1,27 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
 describe("App", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders top-level modules and switches pages", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        headers: { "content-type": "application/json" },
+        status: 200
+      })
+    );
+
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "工作台" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "API接入" })).toBeInTheDocument();
-    expect(screen.getByText("本地 API")).toBeInTheDocument();
-    expect(screen.getByText("适配器注册表")).toBeInTheDocument();
+    expect(screen.getByText("单步工作流")).toBeInTheDocument();
+    expect(screen.getByLabelText("消息")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "用量检测" }));
 
@@ -18,6 +29,13 @@ describe("App", () => {
   });
 
   it("collapses the sidebar and switches between Chinese and English", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        headers: { "content-type": "application/json" },
+        status: 200
+      })
+    );
+
     render(<App />);
 
     await userEvent.click(screen.getByRole("button", { name: "收起侧栏" }));

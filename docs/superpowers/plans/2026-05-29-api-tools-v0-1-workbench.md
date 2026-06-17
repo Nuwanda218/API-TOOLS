@@ -4832,7 +4832,7 @@ git commit -m "feat: add api management pages"
 - Modify: `client/src/App.tsx`
 - Create: `client/src/pages/WorkbenchPage.test.tsx`
 
-- [ ] **Step 1: Write failing workbench test**
+- [x] **Step 1: Write failing workbench test**
 
 Create `client/src/pages/WorkbenchPage.test.tsx`:
 
@@ -4887,7 +4887,7 @@ describe("WorkbenchPage", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -4897,7 +4897,7 @@ npm run test --workspace client -- src/pages/WorkbenchPage.test.tsx
 
 Expected: FAIL because `WorkbenchPage.tsx` does not exist.
 
-- [ ] **Step 3: Implement workbench page**
+- [x] **Step 3: Implement workbench page**
 
 Create `client/src/pages/WorkbenchPage.tsx`:
 
@@ -5007,7 +5007,7 @@ export function WorkbenchPage({ api }: WorkbenchPageProps) {
 }
 ```
 
-- [ ] **Step 4: Update app to render workbench page**
+- [x] **Step 4: Update app to render workbench page**
 
 Modify `client/src/App.tsx` to this complete file:
 
@@ -5047,7 +5047,7 @@ export function App() {
 }
 ```
 
-- [ ] **Step 5: Add workbench styles**
+- [x] **Step 5: Add workbench styles**
 
 Append to `client/src/styles.css`:
 
@@ -5158,7 +5158,7 @@ Append to `client/src/styles.css`:
 }
 ```
 
-- [ ] **Step 6: Run workbench test**
+- [x] **Step 6: Run workbench test**
 
 Run:
 
@@ -5168,7 +5168,7 @@ npm run test --workspace client -- src/pages/WorkbenchPage.test.tsx
 
 Expected: PASS.
 
-- [ ] **Step 7: Run all frontend tests**
+- [x] **Step 7: Run all frontend tests**
 
 Run:
 
@@ -5178,7 +5178,7 @@ npm run test --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add client/src/pages/WorkbenchPage.tsx client/src/pages/WorkbenchPage.test.tsx client/src/App.tsx client/src/styles.css

@@ -484,7 +484,8 @@ button {
 }
 
 .card-form input,
-.card-form select {
+.card-form select,
+.card-form textarea {
   background: #fbfcfd;
   border: 1px solid #cfd8e2;
   border-radius: 8px;
@@ -495,10 +496,18 @@ button {
 }
 
 .card-form input:focus,
-.card-form select:focus {
+.card-form select:focus,
+.card-form textarea:focus {
   border-color: #2eac8c;
   box-shadow: 0 0 0 3px rgba(46, 172, 140, 0.14);
   outline: 0;
+}
+
+.card-form textarea {
+  line-height: 1.5;
+  min-height: 132px;
+  padding: 10px;
+  resize: vertical;
 }
 
 .card-form button,
@@ -554,6 +563,10 @@ button {
   color: #1f6b58;
 }
 
+.panel-status.error {
+  color: #a13f30;
+}
+
 .provider-row {
   grid-template-columns: minmax(130px, 1fr) minmax(170px, 1fr) minmax(180px, 1.4fr) 90px;
 }
@@ -568,6 +581,52 @@ button {
 
 .compact-list .record-row {
   min-height: 48px;
+}
+
+.workbench-page {
+  grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.18fr);
+}
+
+.workflow-form {
+  align-self: start;
+}
+
+.chat-transcript {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.chat-message {
+  border: 1px solid #dce4eb;
+  border-radius: 8px;
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+}
+
+.chat-message span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.chat-message p {
+  color: #17202a;
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.chat-message.user {
+  background: #f5f8fb;
+}
+
+.chat-message.assistant {
+  background: #f4faf8;
+  border-color: #cfe7df;
 }
 
 @media (max-width: 900px) {
@@ -596,6 +655,10 @@ button {
   }
 
   .two-column {
+    grid-template-columns: 1fr;
+  }
+
+  .workbench-page {
     grid-template-columns: 1fr;
   }
 

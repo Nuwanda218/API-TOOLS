@@ -4,6 +4,7 @@ import { TopNav, type LanguageKey, type PageKey } from "./components/TopNav";
 import { ModelsPage } from "./pages/ModelsPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { UsagePage } from "./pages/UsagePage";
+import { WorkbenchPage } from "./pages/WorkbenchPage";
 import "./styles.css";
 
 interface ModuleView {
@@ -275,7 +276,9 @@ export function App() {
   const [currentPage, setCurrentPage] = useState<PageKey>("workbench");
   const [language, setLanguage] = useState<LanguageKey>("zh-CN");
   const content =
-    currentPage === "providers" ? (
+    currentPage === "workbench" ? (
+      <WorkbenchPage api={apiClient} language={language} />
+    ) : currentPage === "providers" ? (
       <ProvidersPage api={apiClient} language={language} />
     ) : currentPage === "models" ? (
       <ModelsPage api={apiClient} language={language} />
