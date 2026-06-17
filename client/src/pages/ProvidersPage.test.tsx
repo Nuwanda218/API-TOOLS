@@ -40,4 +40,20 @@ describe("ProvidersPage", () => {
     expect(await screen.findByText("DeepSeek")).toBeInTheDocument();
     expect(screen.getAllByText("openai-chat-completions").length).toBeGreaterThan(0);
   });
+
+  it("shows provider creation errors", async () => {
+    const api = {
+      listProviders: vi.fn().mockResolvedValue([]),
+      createProvider: vi.fn().mockRejectedValue(new Error("Invalid provider base URL"))
+    };
+
+    render(<ProvidersPage api={api} />);
+
+    await userEvent.type(screen.getByLabelText("名称"), "Broken");
+    await userEvent.type(screen.getByLabelText("Base URL"), "https://example.com/v1");
+    await userEvent.type(screen.getByLabelText("API Key 环境变量"), "BROKEN_API_KEY");
+    await userEvent.click(screen.getByRole("button", { name: "添加 Provider" }));
+
+    expect(await screen.findByText("Invalid provider base URL")).toBeInTheDocument();
+  });
 });

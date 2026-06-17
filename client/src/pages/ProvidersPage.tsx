@@ -23,7 +23,8 @@ const copy = {
     empty: "还没有 Provider。",
     enabled: "enabled",
     loading: "加载中",
-    error: "加载失败"
+    error: "加载失败",
+    creating: "创建中"
   },
   en: {
     title: "Providers",
@@ -39,7 +40,8 @@ const copy = {
     empty: "No providers yet.",
     enabled: "enabled",
     loading: "Loading",
-    error: "Load failed"
+    error: "Load failed",
+    creating: "Creating"
   }
 } satisfies Record<LanguageKey, Record<string, string>>;
 
@@ -52,6 +54,7 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKeyEnv, setApiKeyEnv] = useState("");
   const [status, setStatus] = useState(text.loading);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -75,19 +78,28 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const created = await api.createProvider({
-      name,
-      type,
-      apiFormat,
-      baseUrl,
-      apiKeyEnv,
-      enabled: true
-    });
+    setCreating(true);
+    setStatus("");
 
-    setProviders((current) => [...current, created]);
-    setName("");
-    setBaseUrl("");
-    setApiKeyEnv("");
+    try {
+      const created = await api.createProvider({
+        name,
+        type,
+        apiFormat,
+        baseUrl,
+        apiKeyEnv,
+        enabled: true
+      });
+
+      setProviders((current) => [...current, created]);
+      setName("");
+      setBaseUrl("");
+      setApiKeyEnv("");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
@@ -127,7 +139,9 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
             {text.apiKeyEnv}
             <input value={apiKeyEnv} onChange={(event) => setApiKeyEnv(event.target.value)} required />
           </label>
-          <button type="submit">{text.submit}</button>
+          <button type="submit" disabled={creating}>
+            {creating ? text.creating : text.submit}
+          </button>
         </form>
       </section>
 
