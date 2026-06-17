@@ -55,6 +55,10 @@ export const apiClient = {
     });
   },
 
+  deleteProvider(providerId: string) {
+    return requestJson<void>(`/api/providers/${providerId}`, { method: "DELETE" });
+  },
+
   listRemoteModels(providerId: string) {
     return requestJson<{ ok: true; providerId: string; models: RemoteModelRecord[] }>(
       `/api/providers/${providerId}/remote-models`
@@ -83,6 +87,10 @@ export const apiClient = {
       method: "POST",
       body: JSON.stringify(input)
     });
+  },
+
+  deleteModel(modelId: string) {
+    return requestJson<void>(`/api/models/${modelId}`, { method: "DELETE" });
   },
 
   testModel(modelId: string) {

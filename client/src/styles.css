@@ -548,6 +548,18 @@ button {
   justify-self: start;
 }
 
+.inline-action:disabled,
+.secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.danger-action {
+  background: #fff5f2;
+  border-color: #f1c5b9;
+  color: #9b3b2d;
+}
+
 .management-panel {
   min-width: 0;
 }
@@ -568,11 +580,11 @@ button {
 }
 
 .provider-row {
-  grid-template-columns: minmax(130px, 1fr) minmax(170px, 1fr) minmax(180px, 1.4fr) 90px;
+  grid-template-columns: minmax(130px, 1fr) minmax(170px, 1fr) minmax(180px, 1.4fr) 90px 82px;
 }
 
 .model-row {
-  grid-template-columns: minmax(150px, 1.2fr) minmax(150px, 1fr) minmax(90px, 0.7fr) 92px;
+  grid-template-columns: minmax(150px, 1.2fr) minmax(150px, 1fr) minmax(90px, 0.7fr) 92px 82px;
 }
 
 .usage-row {

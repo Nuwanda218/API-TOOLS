@@ -6,7 +6,7 @@ import type { LanguageKey } from "../components/TopNav";
 interface ModelsPageProps {
   api: Pick<
     ApiClient,
-    "listProviders" | "listModels" | "createModel" | "testModel" | "listRemoteModels" | "importModels"
+    "listProviders" | "listModels" | "createModel" | "deleteModel" | "testModel" | "listRemoteModels" | "importModels"
   >;
   language?: LanguageKey;
 }
@@ -28,7 +28,19 @@ const copy = {
     test: "测试",
     success: "成功",
     empty: "还没有本地模型。",
-    noProvider: "请先创建 Provider。"
+    noProvider: "请先创建 Provider。",
+    creating: "正在创建模型...",
+    created: "模型已创建",
+    fetchingRemote: "正在拉取远程模型...",
+    fetchedRemote: "已拉取",
+    remoteSuffix: "个远程模型",
+    importDone: "导入完成",
+    createdCount: "新增",
+    skippedCount: "跳过",
+    countSuffix: "个",
+    delete: "删除",
+    deleting: "正在删除模型...",
+    deleted: "模型已删除"
   },
   en: {
     title: "Models",
@@ -46,7 +58,19 @@ const copy = {
     test: "Test",
     success: "Succeeded",
     empty: "No local models yet.",
-    noProvider: "Create a provider first."
+    noProvider: "Create a provider first.",
+    creating: "Creating model...",
+    created: "Model created",
+    fetchingRemote: "Fetching remote models...",
+    fetchedRemote: "Fetched",
+    remoteSuffix: "remote models",
+    importDone: "Import complete",
+    createdCount: "created",
+    skippedCount: "skipped",
+    countSuffix: "",
+    delete: "Delete",
+    deleting: "Deleting model...",
+    deleted: "Model deleted"
   }
 } satisfies Record<LanguageKey, Record<string, string>>;
 
@@ -61,6 +85,10 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
   const [capability, setCapability] = useState<ModelCapability>("chat");
   const [status, setStatus] = useState("");
   const [testResult, setTestResult] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [fetchingRemote, setFetchingRemote] = useState(false);
+  const [importingId, setImportingId] = useState("");
+  const [deletingId, setDeletingId] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -82,21 +110,37 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
     };
   }, [api]);
 
+  async function refreshModels() {
+    const modelRows = await api.listModels();
+    setModels(modelRows);
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const created = await api.createModel({
-      providerId,
-      displayName,
-      modelId,
-      capability,
-      enabled: true,
-      defaultParams: {},
-      pricing: {}
-    });
+    setCreating(true);
+    setStatus(text.creating);
+    setTestResult("");
 
-    setModels((current) => [...current, created]);
-    setDisplayName("");
-    setModelId("");
+    try {
+      const created = await api.createModel({
+        providerId,
+        displayName,
+        modelId,
+        capability,
+        enabled: true,
+        defaultParams: {},
+        pricing: {}
+      });
+
+      await refreshModels();
+      setStatus(`${text.created}：${created.displayName}`);
+      setDisplayName("");
+      setModelId("");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function handleFetchRemoteModels() {
@@ -105,34 +149,76 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
       return;
     }
 
-    setStatus("");
-    const result = await api.listRemoteModels(providerId);
-    setRemoteModels(result.models);
+    setFetchingRemote(true);
+    setStatus(text.fetchingRemote);
+    setTestResult("");
+
+    try {
+      const result = await api.listRemoteModels(providerId);
+      setRemoteModels(result.models);
+      setStatus(`${text.fetchedRemote} ${result.models.length} ${text.remoteSuffix}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setFetchingRemote(false);
+    }
   }
 
   async function handleImport(remoteModel: RemoteModelRecord) {
-    const result = await api.importModels(providerId, [
-      {
-        providerId,
-        displayName: remoteModel.id,
-        modelId: remoteModel.id,
-        capability: "chat",
-        enabled: true,
-        defaultParams: {},
-        pricing: {}
-      }
-    ]);
+    setImportingId(remoteModel.id);
+    setStatus("");
+    setTestResult("");
 
-    setModels((current) => [...current, ...result.created]);
-    setStatus(result.skipped.length > 0 ? `${remoteModel.id}: ${result.skipped[0]?.reason}` : "");
+    try {
+      const result = await api.importModels(providerId, [
+        {
+          providerId,
+          displayName: remoteModel.id,
+          modelId: remoteModel.id,
+          capability: "chat",
+          enabled: true,
+          defaultParams: {},
+          pricing: {}
+        }
+      ]);
+
+      await refreshModels();
+      setStatus(
+        `${text.importDone}：${text.createdCount} ${result.created.length} ${text.countSuffix}，${text.skippedCount} ${result.skipped.length} ${text.countSuffix}`.trim()
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setImportingId("");
+    }
   }
 
   async function handleTest(id: string) {
     try {
       const result = await api.testModel(id);
-      setTestResult(`${text.success}: ${result.message} (${result.latencyMs}ms)`);
+      const usage =
+        result.usage?.inputTokens !== undefined || result.usage?.outputTokens !== undefined
+          ? `, tokens ${result.usage?.inputTokens ?? 0}/${result.usage?.outputTokens ?? 0}`
+          : "";
+      setTestResult(`${text.success}: ${result.message} (${result.latencyMs}ms${usage})`);
     } catch (error) {
       setTestResult(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function handleDelete(model: ModelRecord) {
+    setDeletingId(model.id);
+    setStatus(text.deleting);
+    setTestResult("");
+
+    try {
+      await api.deleteModel(model.id);
+      await refreshModels();
+      setStatus(`${text.deleted}：${model.displayName}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDeletingId("");
     }
   }
 
@@ -173,16 +259,16 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
               <option value="multimodal">multimodal</option>
             </select>
           </label>
-          <button type="submit" disabled={!providerId}>
-            {text.submit}
+          <button type="submit" disabled={!providerId || creating}>
+            {creating ? text.creating : text.submit}
           </button>
         </form>
 
         <section className="operation-panel management-panel">
           <div className="panel-heading">
             <h2>{text.remoteTitle}</h2>
-            <button className="secondary-action" type="button" onClick={handleFetchRemoteModels}>
-              {text.fetchRemote}
+            <button className="secondary-action" disabled={fetchingRemote} type="button" onClick={handleFetchRemoteModels}>
+              {fetchingRemote ? text.fetchingRemote : text.fetchRemote}
             </button>
           </div>
           <div className="record-list compact-list">
@@ -190,8 +276,13 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
               <div className="record-row model-row" key={remoteModel.id}>
                 <strong>{remoteModel.id}</strong>
                 <span>{remoteModel.ownedBy ?? "unknown"}</span>
-                <button className="inline-action" type="button" onClick={() => handleImport(remoteModel)}>
-                  {text.import}
+                <button
+                  className="inline-action"
+                  disabled={importingId === remoteModel.id}
+                  type="button"
+                  onClick={() => handleImport(remoteModel)}
+                >
+                  {importingId === remoteModel.id ? text.importDone : text.import}
                 </button>
               </div>
             ))}
@@ -213,8 +304,22 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
               <strong>{model.displayName}</strong>
               <span>{model.modelId}</span>
               <span>{model.capability}</span>
-              <button className="inline-action" type="button" onClick={() => handleTest(model.id)}>
+              <button
+                aria-label={`${text.test} ${model.displayName}`}
+                className="inline-action"
+                type="button"
+                onClick={() => handleTest(model.id)}
+              >
                 {text.test}
+              </button>
+              <button
+                aria-label={`${text.delete} ${model.displayName}`}
+                className="inline-action danger-action"
+                disabled={deletingId === model.id}
+                type="button"
+                onClick={() => handleDelete(model)}
+              >
+                {deletingId === model.id ? text.deleting : text.delete}
               </button>
             </div>
           ))}

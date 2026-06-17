@@ -5453,8 +5453,228 @@ git commit -m "fix: complete v0.1 verification"
 
 Expected: no commit is created if no fixes were needed.
 
+## Task 14.5: Frontend operation feedback and delete controls
+
+**Goal:** Make API接入 and 模型管理 provide immediate, visible feedback for backend operations, including create/import/test/delete success and failure states, so manual testing can confirm actions without inspecting the database or terminal.
+
+**Files:**
+- Modify: `client/src/api/client.ts`
+- Modify: `client/src/pages/ProvidersPage.tsx`
+- Modify: `client/src/pages/ProvidersPage.test.tsx`
+- Modify: `client/src/pages/ModelsPage.tsx`
+- Modify: `client/src/pages/ModelsPage.test.tsx`
+- Modify: `client/src/styles.css` only if existing styles need a small state/button addition.
+
+**Existing backend support:**
+- `DELETE /api/providers/:id` already exists in `server/src/routes/providers.ts`.
+- `DELETE /api/models/:id` already exists in `server/src/routes/models.ts`.
+- Provider deletion cascades local model rows through the schema's `models.provider_id references providers(id) on delete cascade`.
+- This task should not change backend routes unless a frontend test reveals a contract mismatch.
+
+- [x] **Step 1: Write failing API client tests or extend page tests for delete methods**
+
+Add behavior coverage that expects the frontend API layer to call:
+
+```ts
+await apiClient.deleteProvider("provider-1");
+await apiClient.deleteModel("model-1");
+```
+
+Expected requests:
+
+```text
+DELETE /api/providers/provider-1
+DELETE /api/models/model-1
+```
+
+Expected result: both methods resolve on HTTP 204 and throw the backend error message on non-2xx responses.
+
+- [x] **Step 2: Run the focused tests and verify RED**
+
+Run:
+
+```bash
+npm run test --workspace client -- src/pages/ProvidersPage.test.tsx src/pages/ModelsPage.test.tsx
+```
+
+Expected: FAIL because `deleteProvider` and `deleteModel` are not exposed to the frontend pages yet.
+
+- [x] **Step 3: Implement frontend API delete methods**
+
+Add:
+
+```ts
+deleteProvider(providerId: string) {
+  return requestJson<void>(`/api/providers/${providerId}`, { method: "DELETE" });
+},
+deleteModel(modelId: string) {
+  return requestJson<void>(`/api/models/${modelId}`, { method: "DELETE" });
+}
+```
+
+Expected: HTTP 204 returns without JSON parsing, matching existing `requestJson` behavior.
+
+- [x] **Step 4: Add provider page operation feedback**
+
+Update `ProvidersPage` so it:
+
+1. Accepts `deleteProvider` in its `api` prop.
+2. Shows create loading text while a provider is being created.
+3. Shows success text after create, including provider name.
+4. Shows backend error text when create fails.
+5. Adds one delete button per provider row/card.
+6. Disables the delete button while that provider is deleting.
+7. Shows success text after delete, including provider name.
+8. Refreshes the provider list after create and delete, rather than relying only on local append/filter state.
+
+Required manual-test visible strings:
+
+```text
+正在创建供应商...
+供应商已创建：DeepSeek
+正在删除供应商...
+供应商已删除：DeepSeek
+```
+
+English mode should expose equivalent text:
+
+```text
+Creating provider...
+Provider created: DeepSeek
+Deleting provider...
+Provider deleted: DeepSeek
+```
+
+- [x] **Step 5: Add provider page tests**
+
+Cover:
+
+1. Create success displays a success message and refreshes the list.
+2. Create failure displays the backend error message.
+3. Delete click calls `deleteProvider(id)`, displays deleting state, refreshes the list, then displays delete success.
+4. Delete failure displays the backend error message.
+
+Run:
+
+```bash
+npm run test --workspace client -- src/pages/ProvidersPage.test.tsx
+```
+
+Expected: PASS.
+
+- [x] **Step 6: Add model page operation feedback**
+
+Update `ModelsPage` so it:
+
+1. Accepts `deleteModel` in its `api` prop.
+2. Shows loading text while manual model creation is running.
+3. Shows success text after manual model creation, including model display name.
+4. Shows remote model fetch success text with fetched count.
+5. Shows import success text with created/skipped counts.
+6. Shows test success details with latency and usage when available.
+7. Adds one delete button per model row/card.
+8. Disables the delete button while that model is deleting.
+9. Shows success text after delete, including model display name.
+10. Refreshes model list after create/import/delete.
+
+Required manual-test visible strings:
+
+```text
+模型已创建：deepseek-chat
+已拉取 2 个远程模型
+导入完成：新增 1 个，跳过 0 个
+正在删除模型...
+模型已删除：deepseek-chat
+```
+
+English mode should expose equivalent text.
+
+- [x] **Step 7: Add model page tests**
+
+Cover:
+
+1. Manual model creation displays success and refreshes model list.
+2. Remote fetch displays fetched count.
+3. Import displays created/skipped count.
+4. Model test displays success details.
+5. Delete click calls `deleteModel(id)`, refreshes the list, then displays delete success.
+6. Delete failure displays the backend error message.
+
+Run:
+
+```bash
+npm run test --workspace client -- src/pages/ModelsPage.test.tsx
+```
+
+Expected: PASS.
+
+- [x] **Step 8: Run frontend verification**
+
+Run:
+
+```bash
+npm run test --workspace client
+npm run typecheck --workspace client
+npm run build --workspace client
+```
+
+Expected: all commands pass.
+
+- [ ] **Step 9: Manual verification**
+
+Start the app:
+
+```bash
+npm run dev
+```
+
+Manual browser checks:
+
+1. In API接入, delete the DeepSeek provider and confirm success feedback appears.
+2. Confirm the DeepSeek provider is removed from the provider list.
+3. Recreate the DeepSeek provider and confirm create success feedback appears.
+4. In 模型管理, fetch remote models and confirm fetched-count feedback appears.
+5. Import a DeepSeek model and confirm created/skipped feedback appears.
+6. Test the model and confirm latency/result feedback appears.
+7. Delete the imported model and confirm delete success feedback appears.
+8. Confirm failures show backend error messages without exposing full API keys.
+
+- [x] **Step 10: Prevent raw API keys in provider apiKeyEnv**
+
+The Provider form field named `API Key 环境变量` stores an environment variable name, not the real API key value. Add frontend and backend validation so a user cannot accidentally save a raw key such as `sk-...` as `apiKeyEnv`.
+
+Backend expected behavior:
+
+```text
+POST /api/providers
+apiKeyEnv = "sk-e7c5..."
+HTTP 400 invalid_request
+message includes "API key env var must be an environment variable name"
+```
+
+Frontend expected behavior:
+
+```text
+API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。
+```
+
+Validation rule:
+
+```ts
+const apiKeyEnvPattern = /^[A-Z][A-Z0-9_]*$/;
+```
+
+This accepts `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, and `SHAREDCHAT_API_KEY`, and rejects raw keys, lowercase URLs, spaces, and secret-looking values.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add client/src/api/client.ts client/src/pages/ProvidersPage.tsx client/src/pages/ProvidersPage.test.tsx client/src/pages/ModelsPage.tsx client/src/pages/ModelsPage.test.tsx client/src/styles.css docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md
+git commit -m "feat: add frontend operation feedback"
+```
+
 ## Plan self-review
 
-- Spec coverage: this plan covers scaffold, API接入, 模型管理, OpenAI-compatible chat, model testing, generic workflow execution with a first `llm.chat` step, run/run_step records, a workflow workbench, and minimal usage summary. It intentionally defers image2, arbitrary HTTP/API step execution, advanced usage analytics, and full visual workflow editing to later plans.
+- Spec coverage: this plan covers scaffold, API接入, 模型管理, OpenAI-compatible chat, model testing, generic workflow execution with a first `llm.chat` step, run/run_step records, a workflow workbench, minimal usage summary, and frontend operation feedback for manual provider/model management. It intentionally defers image2, arbitrary HTTP/API step execution, advanced usage analytics, and full visual workflow editing to later plans.
 - Placeholder scan: no TBD/TODO/fill-in placeholders remain. Deferred scope is explicitly named as later plans.
 - Type consistency: provider/model/session/run/run_step names match the design spec and remain consistent across repositories, routes, runner, workflow step types, and frontend API types.

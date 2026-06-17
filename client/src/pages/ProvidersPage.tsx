@@ -4,7 +4,7 @@ import type { ProviderApiFormat, ProviderRecord } from "../api/types";
 import type { LanguageKey } from "../components/TopNav";
 
 interface ProvidersPageProps {
-  api: Pick<ApiClient, "listProviders" | "createProvider">;
+  api: Pick<ApiClient, "listProviders" | "createProvider" | "deleteProvider">;
   language?: LanguageKey;
 }
 
@@ -24,7 +24,13 @@ const copy = {
     enabled: "enabled",
     loading: "加载中",
     error: "加载失败",
-    creating: "创建中"
+    creating: "正在创建供应商...",
+    created: "供应商已创建",
+    delete: "删除",
+    deleting: "正在删除供应商...",
+    deleted: "供应商已删除",
+    apiKeyEnvHelp: "填写 .env 里的变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。",
+    invalidApiKeyEnv: "API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。"
   },
   en: {
     title: "Providers",
@@ -41,9 +47,17 @@ const copy = {
     enabled: "enabled",
     loading: "Loading",
     error: "Load failed",
-    creating: "Creating"
+    creating: "Creating provider...",
+    created: "Provider created",
+    delete: "Delete",
+    deleting: "Deleting provider...",
+    deleted: "Provider deleted",
+    apiKeyEnvHelp: "Use the variable name from .env, for example DEEPSEEK_API_KEY. Do not enter the real key.",
+    invalidApiKeyEnv: "API key env var must be a variable name such as DEEPSEEK_API_KEY, not the real key."
   }
 } satisfies Record<LanguageKey, Record<string, string>>;
+
+const apiKeyEnvPattern = /^[A-Z][A-Z0-9_]*$/;
 
 export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
   const text = copy[language];
@@ -55,6 +69,7 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
   const [apiKeyEnv, setApiKeyEnv] = useState("");
   const [status, setStatus] = useState(text.loading);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -76,10 +91,21 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
     };
   }, [api, text.error, text.loading]);
 
+  async function refreshProviders() {
+    const rows = await api.listProviders();
+    setProviders(rows);
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+
+    if (!apiKeyEnvPattern.test(apiKeyEnv)) {
+      setStatus(text.invalidApiKeyEnv);
+      return;
+    }
+
     setCreating(true);
-    setStatus("");
+    setStatus(text.creating);
 
     try {
       const created = await api.createProvider({
@@ -91,7 +117,8 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
         enabled: true
       });
 
-      setProviders((current) => [...current, created]);
+      await refreshProviders();
+      setStatus(`${text.created}：${created.name}`);
       setName("");
       setBaseUrl("");
       setApiKeyEnv("");
@@ -99,6 +126,21 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
       setStatus(error instanceof Error ? error.message : String(error));
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleDelete(provider: ProviderRecord) {
+    setDeletingId(provider.id);
+    setStatus(text.deleting);
+
+    try {
+      await api.deleteProvider(provider.id);
+      await refreshProviders();
+      setStatus(`${text.deleted}：${provider.name}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDeletingId("");
     }
   }
 
@@ -137,7 +179,13 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
           </label>
           <label>
             {text.apiKeyEnv}
-            <input value={apiKeyEnv} onChange={(event) => setApiKeyEnv(event.target.value)} required />
+            <input
+              aria-label={text.apiKeyEnv}
+              value={apiKeyEnv}
+              onChange={(event) => setApiKeyEnv(event.target.value)}
+              required
+            />
+            <small>{text.apiKeyEnvHelp}</small>
           </label>
           <button type="submit" disabled={creating}>
             {creating ? text.creating : text.submit}
@@ -159,6 +207,15 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
               <span>{provider.apiFormat}</span>
               <span>{provider.baseUrl}</span>
               <em>{provider.enabled ? text.enabled : "disabled"}</em>
+              <button
+                aria-label={`${text.delete} ${provider.name}`}
+                className="inline-action danger-action"
+                disabled={deletingId === provider.id}
+                type="button"
+                onClick={() => handleDelete(provider)}
+              >
+                {deletingId === provider.id ? text.deleting : text.delete}
+              </button>
             </div>
           ))}
         </div>
