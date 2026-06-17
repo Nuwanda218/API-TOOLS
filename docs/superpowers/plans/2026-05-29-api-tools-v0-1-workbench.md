@@ -5372,7 +5372,7 @@ git commit -m "feat: add workflow template pages"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md` only if execution reveals plan corrections are needed.
 
-- [ ] **Step 1: Run full test suite**
+- [x] **Step 1: Run full test suite**
 
 Run:
 
@@ -5382,7 +5382,7 @@ npm test
 
 Expected: server and client tests pass.
 
-- [ ] **Step 2: Run typecheck**
+- [x] **Step 2: Run typecheck**
 
 Run:
 
@@ -5392,7 +5392,7 @@ npm run typecheck
 
 Expected: server and client TypeScript checks pass.
 
-- [ ] **Step 3: Run build**
+- [x] **Step 3: Run build**
 
 Run:
 
@@ -5402,7 +5402,7 @@ npm run build
 
 Expected: server TypeScript build and client Vite build pass.
 
-- [ ] **Step 4: Start the local app**
+- [x] **Step 4: Start the local app**
 
 Create `.env` from `.env.example` and set at least one usable API key variable. Then run:
 
@@ -5415,7 +5415,11 @@ Expected:
 - Server starts on `http://127.0.0.1:8787`.
 - Client starts on `http://127.0.0.1:5173`.
 
+Verified by automated startup probe on 2026-06-17: both ports accepted local connections, then the spawned dev processes were stopped.
+
 - [ ] **Step 5: Manual verification in browser**
+
+Pending user browser verification. Automated tests cover provider/model/workflow/usage route behavior and frontend rendering, but this checklist must be confirmed in the actual browser with the user's local API keys and data.
 
 Open `http://127.0.0.1:5173` and verify:
 
@@ -5428,7 +5432,7 @@ Open `http://127.0.0.1:5173` and verify:
 7. 用量检测 shows request count and tokens after a workflow run.
 8. Frontend never displays a full API key.
 
-- [ ] **Step 6: Inspect git status**
+- [x] **Step 6: Inspect git status**
 
 Run:
 
