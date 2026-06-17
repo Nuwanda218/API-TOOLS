@@ -5193,7 +5193,7 @@ git commit -m "feat: add workflow workbench"
 - Modify: `client/src/App.tsx`
 - Create: `client/src/pages/WorkflowTemplatesPage.test.tsx`
 
-- [ ] **Step 1: Write failing workflow templates test**
+- [x] **Step 1: Write failing workflow templates test**
 
 Create `client/src/pages/WorkflowTemplatesPage.test.tsx`:
 
@@ -5214,7 +5214,7 @@ describe("WorkflowTemplatesPage", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -5224,7 +5224,7 @@ npm run test --workspace client -- src/pages/WorkflowTemplatesPage.test.tsx
 
 Expected: FAIL because page does not exist.
 
-- [ ] **Step 3: Implement workflow templates and settings pages**
+- [x] **Step 3: Implement workflow templates and settings pages**
 
 Create `client/src/pages/WorkflowTemplatesPage.tsx`:
 
@@ -5287,7 +5287,7 @@ export function SettingsPage() {
 }
 ```
 
-- [ ] **Step 4: Update app to use pages**
+- [x] **Step 4: Update app to use pages**
 
 Modify `client/src/App.tsx` to this complete file:
 
@@ -5320,7 +5320,7 @@ export function App() {
 }
 ```
 
-- [ ] **Step 5: Add template styles**
+- [x] **Step 5: Add template styles**
 
 Append to `client/src/styles.css`:
 
@@ -5340,7 +5340,7 @@ Append to `client/src/styles.css`:
 }
 ```
 
-- [ ] **Step 6: Run workflow templates test**
+- [x] **Step 6: Run workflow templates test**
 
 Run:
 
@@ -5350,7 +5350,7 @@ npm run test --workspace client -- src/pages/WorkflowTemplatesPage.test.tsx
 
 Expected: PASS.
 
-- [ ] **Step 7: Run all frontend tests**
+- [x] **Step 7: Run all frontend tests**
 
 Run:
 
@@ -5360,7 +5360,7 @@ npm run test --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add client/src/pages/WorkflowTemplatesPage.tsx client/src/pages/SettingsPage.tsx client/src/App.tsx client/src/pages/WorkflowTemplatesPage.test.tsx client/src/styles.css

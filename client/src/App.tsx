@@ -3,8 +3,10 @@ import { apiClient } from "./api/client";
 import { TopNav, type LanguageKey, type PageKey } from "./components/TopNav";
 import { ModelsPage } from "./pages/ModelsPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { UsagePage } from "./pages/UsagePage";
 import { WorkbenchPage } from "./pages/WorkbenchPage";
+import { WorkflowTemplatesPage } from "./pages/WorkflowTemplatesPage";
 import "./styles.css";
 
 interface ModuleView {
@@ -284,6 +286,10 @@ export function App() {
       <ModelsPage api={apiClient} language={language} />
     ) : currentPage === "usage" ? (
       <UsagePage api={apiClient} language={language} />
+    ) : currentPage === "workflows" ? (
+      <WorkflowTemplatesPage language={language} />
+    ) : currentPage === "settings" ? (
+      <SettingsPage language={language} />
     ) : (
       <ModulePage language={language} page={currentPage} />
     );
