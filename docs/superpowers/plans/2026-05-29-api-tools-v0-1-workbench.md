@@ -5666,15 +5666,697 @@ const apiKeyEnvPattern = /^[A-Z][A-Z0-9_]*$/;
 
 This accepts `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, and `SHAREDCHAT_API_KEY`, and rejects raw keys, lowercase URLs, spaces, and secret-looking values.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add client/src/api/client.ts client/src/pages/ProvidersPage.tsx client/src/pages/ProvidersPage.test.tsx client/src/pages/ModelsPage.tsx client/src/pages/ModelsPage.test.tsx client/src/styles.css docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md
 git commit -m "feat: add frontend operation feedback"
 ```
 
+Committed and pushed as `d847b7f feat: add frontend operation feedback`.
+
+## Task 14.6: Global operation notifications with structured errors
+
+**Goal:** Add one complete notification plan that makes user-triggered frontend operations report progress, success, warnings, backend error codes, and compact diagnostic logs in a global toast layer.
+
+**Architecture:** Use a React notification provider mounted in `App`. Pages keep their existing local `panel-status` text for context, and additionally call `notify.success/error/warning/info` for global visibility. The API client throws a structured `ApiClientError` so page error notifications can show `code`, `message`, `providerMessage`, `statusCode`, and a short `log` string without parsing raw backend responses inside pages.
+
+**Files:**
+- Create: `client/src/components/notifications/NotificationProvider.tsx`
+- Create: `client/src/components/notifications/NotificationProvider.test.tsx`
+- Create: `client/src/api/client.test.ts`
+- Modify: `client/src/api/client.ts`
+- Modify: `client/src/App.tsx`
+- Modify: `client/src/pages/ProvidersPage.tsx`
+- Modify: `client/src/pages/ProvidersPage.test.tsx`
+- Modify: `client/src/pages/ModelsPage.tsx`
+- Modify: `client/src/pages/ModelsPage.test.tsx`
+- Modify: `client/src/pages/WorkbenchPage.tsx`
+- Modify: `client/src/pages/WorkbenchPage.test.tsx`
+- Modify: `client/src/styles.css`
+- Modify: `docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md`
+
+- [x] **Step 1: Write failing notification provider tests**
+
+Create `client/src/components/notifications/NotificationProvider.test.tsx` with tests for rendering and dismissing notifications:
+
+```tsx
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it } from "vitest";
+import { NotificationProvider, useNotifications } from "./NotificationProvider";
+
+function TriggerButtons() {
+  const notify = useNotifications();
+
+  return (
+    <>
+      <button onClick={() => notify.success({ title: "保存成功", detail: "Provider 已创建" })}>success</button>
+      <button onClick={() => notify.error({ title: "请求失败", code: "missing_api_key", detail: "missing_api_key: Missing API key env var | env var not found" })}>error</button>
+      <button onClick={() => notify.warning({ title: "输入有误", detail: "不要填真实 key" })}>warning</button>
+      <button onClick={() => notify.info({ title: "正在执行", detail: "拉取远程模型" })}>info</button>
+    </>
+  );
+}
+
+describe("NotificationProvider", () => {
+  it("renders success, error, warning, and info messages with code and detail", async () => {
+    render(
+      <NotificationProvider>
+        <TriggerButtons />
+      </NotificationProvider>
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "success" }));
+    await userEvent.click(screen.getByRole("button", { name: "error" }));
+    await userEvent.click(screen.getByRole("button", { name: "warning" }));
+    await userEvent.click(screen.getByRole("button", { name: "info" }));
+
+    expect(screen.getByText("保存成功")).toBeInTheDocument();
+    expect(screen.getByText("missing_api_key")).toBeInTheDocument();
+    expect(screen.getByText("不要填真实 key")).toBeInTheDocument();
+    expect(screen.getByText("拉取远程模型")).toBeInTheDocument();
+  });
+
+  it("lets users dismiss a notification", async () => {
+    render(
+      <NotificationProvider>
+        <TriggerButtons />
+      </NotificationProvider>
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "error" }));
+    await userEvent.click(screen.getByRole("button", { name: "关闭 请求失败" }));
+
+    await waitFor(() => expect(screen.queryByText("请求失败")).not.toBeInTheDocument());
+  });
+});
+```
+
+- [x] **Step 2: Run notification provider tests and verify RED**
+
+Run:
+
+```bash
+npm run test --workspace client -- src/components/notifications/NotificationProvider.test.tsx
+```
+
+Expected: FAIL because `NotificationProvider` does not exist.
+
+- [x] **Step 3: Write failing API client structured error tests**
+
+Create `client/src/api/client.test.ts`:
+
+```ts
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ApiClientError, apiClient } from "./client";
+
+describe("apiClient errors", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("throws structured errors with backend code and provider message", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          code: "missing_api_key",
+          message: "Missing API key env var: DEEPSEEK_API_KEY",
+          providerMessage: "env var not found",
+          statusCode: 400
+        })
+      })
+    );
+
+    await expect(apiClient.listProviders()).rejects.toMatchObject({
+      code: "missing_api_key",
+      message: "Missing API key env var: DEEPSEEK_API_KEY",
+      providerMessage: "env var not found",
+      statusCode: 400,
+      log: "missing_api_key: Missing API key env var: DEEPSEEK_API_KEY | env var not found"
+    });
+  });
+
+  it("falls back to invalid_request for legacy error responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: "invalid_request" })
+      })
+    );
+
+    await expect(apiClient.listProviders()).rejects.toBeInstanceOf(ApiClientError);
+    await expect(apiClient.listProviders()).rejects.toMatchObject({
+      code: "invalid_request",
+      message: "invalid_request",
+      statusCode: 400
+    });
+  });
+});
+```
+
+- [x] **Step 4: Run API client tests and verify RED**
+
+Run:
+
+```bash
+npm run test --workspace client -- src/api/client.test.ts
+```
+
+Expected: FAIL because `ApiClientError` does not exist.
+
+- [x] **Step 5: Implement `NotificationProvider` and mount it in App**
+
+Create `client/src/components/notifications/NotificationProvider.tsx` with:
+
+```tsx
+import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
+
+type NotificationTone = "success" | "error" | "warning" | "info";
+
+interface NotificationInput {
+  title: string;
+  detail?: string;
+  code?: string;
+}
+
+interface NotificationRecord extends NotificationInput {
+  id: string;
+  tone: NotificationTone;
+}
+
+interface NotificationContextValue {
+  success(input: NotificationInput): void;
+  error(input: NotificationInput): void;
+  warning(input: NotificationInput): void;
+  info(input: NotificationInput): void;
+}
+
+const NotificationContext = createContext<NotificationContextValue | null>(null);
+
+export function NotificationProvider({ children }: { children: ReactNode }) {
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
+
+  function push(tone: NotificationTone, input: NotificationInput) {
+    const id = `1781746059881-${Math.random().toString(36).slice(2)}`;
+    setNotifications((current) => [{ id, tone, ...input }, ...current].slice(0, 4));
+  }
+
+  function dismiss(id: string) {
+    setNotifications((current) => current.filter((item) => item.id !== id));
+  }
+
+  const value = useMemo<NotificationContextValue>(
+    () => ({
+      success: (input) => push("success", input),
+      error: (input) => push("error", input),
+      warning: (input) => push("warning", input),
+      info: (input) => push("info", input)
+    }),
+    []
+  );
+
+  return (
+    <NotificationContext.Provider value={value}>
+      {children}
+      <section className="notification-viewport" aria-label="Notifications">
+        {notifications.map((notification) => (
+          <article className={`notification-toast ${notification.tone}`} key={notification.id}>
+            <div>
+              <strong>{notification.title}</strong>
+              {notification.code && <code>{notification.code}</code>}
+              {notification.detail && <p>{notification.detail}</p>}
+            </div>
+            <button type="button" aria-label={`关闭 ${notification.title}`} onClick={() => dismiss(notification.id)}>
+              ×
+            </button>
+          </article>
+        ))}
+      </section>
+    </NotificationContext.Provider>
+  );
+}
+
+export function useNotifications() {
+  const value = useContext(NotificationContext);
+  if (!value) {
+    throw new Error("useNotifications must be used inside NotificationProvider");
+  }
+  return value;
+}
+```
+
+Modify `client/src/App.tsx`:
+
+```tsx
+import { NotificationProvider } from "./components/notifications/NotificationProvider";
+```
+
+Wrap the shell:
+
+```tsx
+return (
+  <NotificationProvider>
+    <div className={`app-shell ${collapsed ? "nav-collapsed" : ""}`} data-testid="app-shell">
+      ...
+    </div>
+  </NotificationProvider>
+);
+```
+
+- [x] **Step 6: Implement `ApiClientError`**
+
+Modify `client/src/api/client.ts`:
+
+```ts
+export class ApiClientError extends Error {
+  public readonly code: string;
+  public readonly providerMessage?: string;
+  public readonly statusCode: number;
+  public readonly log: string;
+
+  constructor(input: { code: string; message: string; providerMessage?: string; statusCode: number }) {
+    super(input.message);
+    this.name = "ApiClientError";
+    this.code = input.code;
+    this.providerMessage = input.providerMessage;
+    this.statusCode = input.statusCode;
+    this.log = [input.code, input.message].filter(Boolean).join(": ");
+    if (input.providerMessage) {
+      this.log = `undefined | ${input.providerMessage}`;
+    }
+  }
+}
+```
+
+Replace the old error reader with:
+
+```ts
+async function readApiError(response: Response) {
+  try {
+    const body = await response.json();
+    const code = typeof body?.code === "string" ? body.code : typeof body?.error === "string" ? body.error : "request_failed";
+    const message =
+      typeof body?.message === "string"
+        ? body.message
+        : typeof body?.error === "string"
+          ? body.error
+          : `Request failed: ${response.status}`;
+    const providerMessage = typeof body?.providerMessage === "string" ? body.providerMessage : undefined;
+    const statusCode = typeof body?.statusCode === "number" ? body.statusCode : response.status;
+    return new ApiClientError({ code, message, providerMessage, statusCode });
+  } catch {
+    return new ApiClientError({
+      code: "request_failed",
+      message: response.statusText || `Request failed: ${response.status}`,
+      statusCode: response.status
+    });
+  }
+}
+```
+
+Update `requestJson`:
+
+```ts
+if (!response.ok) {
+  throw await readApiError(response);
+}
+```
+
+- [x] **Step 7: Add notification styles**
+
+Modify `client/src/styles.css` with top-right toast styles:
+
+```css
+.notification-viewport {
+  display: grid;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  z-index: 30;
+}
+
+.notification-toast {
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid #d9e2ea;
+  border-left-width: 4px;
+  border-radius: 8px;
+  box-shadow: 0 16px 36px rgba(22, 34, 45, 0.16);
+  color: #18222d;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  padding: 12px;
+}
+
+.notification-toast.success { border-left-color: #2eac8c; }
+.notification-toast.error { border-left-color: #c84d3f; }
+.notification-toast.warning { border-left-color: #d89b25; }
+.notification-toast.info { border-left-color: #3f75c8; }
+
+.notification-toast strong,
+.notification-toast p,
+.notification-toast code {
+  display: block;
+  margin: 0;
+}
+
+.notification-toast code {
+  color: #5f6f80;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.notification-toast p {
+  color: #5f6f80;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-top: 6px;
+}
+
+.notification-toast button {
+  background: transparent;
+  border: 0;
+  color: #5f6f80;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+```
+
+- [x] **Step 8: Write failing page notification tests**
+
+Extend page tests so each page is rendered inside `NotificationProvider` and assert global messages are visible.
+
+Provider page assertions:
+
+```tsx
+expect((await screen.findAllByText("供应商已创建：DeepSeek")).length).toBeGreaterThanOrEqual(1);
+expect(await screen.findByText("Provider delete failed")).toBeInTheDocument();
+expect(await screen.findByText("API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。")).toBeInTheDocument();
+```
+
+Model page assertions:
+
+```tsx
+expect(await screen.findByText("已拉取 2 个远程模型")).toBeInTheDocument();
+expect(await screen.findByText("导入完成：新增 1 个，跳过 0 个")).toBeInTheDocument();
+expect(await screen.findByText("成功: ok. (123ms, tokens 8/2)")).toBeInTheDocument();
+```
+
+Workbench page assertions:
+
+```tsx
+expect(await screen.findByText("工作流运行成功")).toBeInTheDocument();
+expect(await screen.findByText("missing_api_key")).toBeInTheDocument();
+```
+
+- [x] **Step 9: Run focused page tests and verify RED**
+
+Run:
+
+```bash
+npm run test --workspace client -- src/pages/ProvidersPage.test.tsx src/pages/ModelsPage.test.tsx src/pages/WorkbenchPage.test.tsx
+```
+
+Expected: FAIL because pages do not call `useNotifications()` yet.
+
+- [x] **Step 10: Connect page operations to notifications**
+
+In `ProvidersPage.tsx`, `ModelsPage.tsx`, and `WorkbenchPage.tsx`:
+
+```ts
+import { ApiClientError } from "../api/client";
+import { useNotifications } from "../components/notifications/NotificationProvider";
+```
+
+Use:
+
+```ts
+const notify = useNotifications();
+
+function notifyError(error: unknown, fallbackTitle: string) {
+  if (error instanceof ApiClientError) {
+    notify.error({ title: error.message || fallbackTitle, code: error.code, detail: error.log });
+    return;
+  }
+  notify.error({ title: error instanceof Error ? error.message : fallbackTitle });
+}
+```
+
+Emit notifications:
+
+```ts
+notify.info({ title: text.fetchingRemote });
+notify.success({ title: successMessage });
+notify.warning({ title: text.invalidApiKeyEnv });
+notifyError(error, text.error);
+```
+
+Do not remove existing `panel-status` text.
+
+- [x] **Step 11: Run focused tests and full frontend verification**
+
+Run:
+
+```bash
+npm run test --workspace client -- src/components/notifications/NotificationProvider.test.tsx src/api/client.test.ts src/pages/ProvidersPage.test.tsx src/pages/ModelsPage.test.tsx src/pages/WorkbenchPage.test.tsx
+npm run test --workspace client
+npm run typecheck --workspace client
+npm run build --workspace client
+```
+
+Expected: all commands pass.
+
+- [ ] **Step 12: Manual verification**
+
+Start:
+
+```bash
+npm run dev
+```
+
+Manual checks:
+
+1. Create provider: global success toast appears.
+2. Fill raw `sk-...` in `API Key 环境变量`: warning toast appears.
+3. Pull remote models with missing env var: error toast shows code `missing_api_key` and short log.
+4. Import model: success toast appears.
+5. Test model: success or error toast appears with compact details.
+6. Run workbench workflow: running info toast then success/error toast appears.
+
+- [ ] **Step 13: Commit**
+
+```bash
+git add client/src/api/client.ts client/src/api/client.test.ts client/src/components/notifications/NotificationProvider.tsx client/src/components/notifications/NotificationProvider.test.tsx client/src/pages/ProvidersPage.tsx client/src/pages/ProvidersPage.test.tsx client/src/pages/ModelsPage.tsx client/src/pages/ModelsPage.test.tsx client/src/pages/WorkbenchPage.tsx client/src/pages/WorkbenchPage.test.tsx client/src/App.tsx client/src/styles.css docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md
+git commit -m "feat: add global operation notifications"
+```
+
+## Task 15: Local API key management and .env synchronization
+
+**Goal:** Let the frontend create/update provider API keys in the local workspace `.env` through explicit backend endpoints, instead of requiring users to manually edit `.env` after creating providers.
+
+**Architecture:** Add a backend-only local key management route that accepts `apiKeyEnv` and a raw key value, validates the env var name, writes or updates the matching line in the workspace `.env`, and updates `process.env` for the current server process. The provider record continues to store only `apiKeyEnv`; raw keys are never stored in SQLite or returned to the frontend.
+
+**Files:**
+- Create: `server/src/config/dotenvFile.ts`
+- Create: `server/src/config/dotenvFile.test.ts`
+- Create: `server/src/routes/apiKeys.ts`
+- Create: `server/src/routes/apiKeys.test.ts`
+- Modify: `server/src/app.ts`
+- Modify: `client/src/api/types.ts`
+- Modify: `client/src/api/client.ts`
+- Modify: `client/src/pages/ProvidersPage.tsx`
+- Modify: `client/src/pages/ProvidersPage.test.tsx`
+- Modify: `docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md`
+
+- [ ] **Step 1: Write dotenv file unit tests**
+
+Create tests for inserting, updating, and preserving unrelated lines in `.env`:
+
+```ts
+expect(updateDotenvContent("", "DEEPSEEK_API_KEY", "sk-test")).toBe("DEEPSEEK_API_KEY=sk-test\n");
+expect(updateDotenvContent("DEEPSEEK_API_KEY=old\n", "DEEPSEEK_API_KEY", "new")).toBe("DEEPSEEK_API_KEY=new\n");
+expect(updateDotenvContent("OPENAI_API_KEY=abc\n", "DEEPSEEK_API_KEY", "sk-test")).toBe("OPENAI_API_KEY=abc\nDEEPSEEK_API_KEY=sk-test\n");
+```
+
+- [ ] **Step 2: Write API key route tests**
+
+Create route tests for:
+
+```text
+POST /api/api-keys
+{ apiKeyEnv: "DEEPSEEK_API_KEY", apiKey: "sk-test" }
+=> 204
+process.env.DEEPSEEK_API_KEY === "sk-test"
+
+POST /api/api-keys
+{ apiKeyEnv: "sk-real-key", apiKey: "sk-test" }
+=> 400 invalid_request
+```
+
+- [ ] **Step 3: Implement dotenv file helper and route**
+
+Implement pure helper functions first, then route handler. The route must never return the raw key. Response is `204 No Content` on success.
+
+- [ ] **Step 4: Add frontend API method and provider form field**
+
+Add optional `apiKey` input to Provider creation form. If present, call `saveApiKey({ apiKeyEnv, apiKey })` before creating or testing provider. The field label must make the behavior explicit:
+
+```text
+API Key（可选，会写入本地 .env）
+```
+
+- [ ] **Step 5: Add notifications for key save success/failure**
+
+Use Task 14.6 notification system:
+
+```text
+API Key 已写入本地 .env：DEEPSEEK_API_KEY
+API Key 写入失败：<error code/log>
+```
+
+- [ ] **Step 6: Run verification and commit**
+
+Run:
+
+```bash
+npm run test --workspace server
+npm run test --workspace client
+npm run typecheck --workspace client
+npm run build --workspace client
+```
+
+Commit:
+
+```bash
+git add server/src/config/dotenvFile.ts server/src/config/dotenvFile.test.ts server/src/routes/apiKeys.ts server/src/routes/apiKeys.test.ts server/src/app.ts client/src/api/types.ts client/src/api/client.ts client/src/pages/ProvidersPage.tsx client/src/pages/ProvidersPage.test.tsx docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md
+git commit -m "feat: add local api key management"
+```
+
+## Task 16: Claude Messages API adapter
+
+**Goal:** Add a Claude-compatible model adapter so providers using Anthropic Claude Messages API can be registered, models can be imported manually, and `llm.chat` workflow steps can call Claude models through the internal generic API protocol.
+
+**Architecture:** Extend provider `apiFormat` with `claude-messages`. Add a Claude adapter that maps internal chat messages to `POST /v1/messages`, sends `x-api-key`, `anthropic-version`, and content blocks, then maps Claude text blocks and usage back to the existing internal `chat.completion` output. Keep the provider/model registry pattern unchanged.
+
+**Files:**
+- Modify: `server/src/providers/providerRepository.ts`
+- Modify: `server/src/routes/providers.ts`
+- Modify: `server/src/adapters/registry.ts`
+- Create: `server/src/adapters/claudeMessages.ts`
+- Create: `server/src/adapters/claudeMessages.test.ts`
+- Modify: `server/src/adapters/types.ts`
+- Modify: `client/src/api/types.ts`
+- Modify: `client/src/pages/ProvidersPage.tsx`
+- Modify: `client/src/pages/ProvidersPage.test.tsx`
+- Modify: `docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md`
+
+- [ ] **Step 1: Write Claude adapter tests**
+
+Tests must cover:
+
+```text
+- Uses POST <baseUrl>/messages when baseUrl ends with /v1
+- Sends headers: x-api-key, anthropic-version, content-type
+- Maps system messages to top-level system
+- Maps user/assistant messages to messages[]
+- Maps response content[0].text to internal content
+- Maps usage.input_tokens/output_tokens to inputTokens/outputTokens
+- Maps 401/403 to invalid_api_key
+- Maps 429 to rate_limited
+```
+
+- [ ] **Step 2: Extend provider apiFormat type tests**
+
+Assert `claude-messages` is accepted by backend provider creation and frontend provider form options.
+
+- [ ] **Step 3: Implement Claude adapter and registry wiring**
+
+Add adapter selection:
+
+```ts
+case "claude-messages":
+  return createClaudeMessagesAdapter();
+```
+
+Use request shape:
+
+```json
+{
+  "model": "claude-3-5-sonnet-latest",
+  "max_tokens": 1024,
+  "system": "optional system text",
+  "messages": [{ "role": "user", "content": "hello" }]
+}
+```
+
+- [ ] **Step 4: Update frontend provider form**
+
+Add protocol option:
+
+```text
+claude-messages
+```
+
+Suggested default fields for a Claude provider:
+
+```text
+Base URL: https://api.anthropic.com/v1
+API Key 环境变量: ANTHROPIC_API_KEY
+```
+
+- [ ] **Step 5: Run backend and frontend verification**
+
+Run:
+
+```bash
+npm run test --workspace server
+npm run test --workspace client
+npm run typecheck --workspace client
+npm run build --workspace client
+```
+
+Expected: all commands pass.
+
+- [ ] **Step 6: Manual verification**
+
+Create provider:
+
+```text
+name: Claude
+apiFormat: claude-messages
+baseUrl: https://api.anthropic.com/v1
+apiKeyEnv: ANTHROPIC_API_KEY
+```
+
+Create/import model manually:
+
+```text
+modelId: claude-3-5-sonnet-latest
+capability: chat
+```
+
+Run model test and one workbench workflow.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add server/src/providers/providerRepository.ts server/src/routes/providers.ts server/src/adapters/registry.ts server/src/adapters/claudeMessages.ts server/src/adapters/claudeMessages.test.ts server/src/adapters/types.ts client/src/api/types.ts client/src/pages/ProvidersPage.tsx client/src/pages/ProvidersPage.test.tsx docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md
+git commit -m "feat: add claude messages adapter"
+```
+
 ## Plan self-review
 
-- Spec coverage: this plan covers scaffold, API接入, 模型管理, OpenAI-compatible chat, model testing, generic workflow execution with a first `llm.chat` step, run/run_step records, a workflow workbench, minimal usage summary, and frontend operation feedback for manual provider/model management. It intentionally defers image2, arbitrary HTTP/API step execution, advanced usage analytics, and full visual workflow editing to later plans.
+- Spec coverage: this plan covers scaffold, API接入, 模型管理, OpenAI-compatible chat, model testing, generic workflow execution with a first `llm.chat` step, run/run_step records, a workflow workbench, minimal usage summary, frontend operation feedback, structured frontend errors, and global notifications for manual provider/model/workbench operations. It intentionally defers image2, arbitrary HTTP/API step execution, advanced usage analytics, full visual workflow editing, and Claude Messages API adapter to later plans.
 - Placeholder scan: no TBD/TODO/fill-in placeholders remain. Deferred scope is explicitly named as later plans.
 - Type consistency: provider/model/session/run/run_step names match the design spec and remain consistent across repositories, routes, runner, workflow step types, and frontend API types.

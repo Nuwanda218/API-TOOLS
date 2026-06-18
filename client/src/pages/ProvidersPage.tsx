@@ -1,6 +1,8 @@
 import { type FormEvent, useEffect, useState } from "react";
 import type { ApiClient } from "../api/client";
+import { formatErrorNotification, formatErrorTitle } from "../api/errors";
 import type { ProviderApiFormat, ProviderRecord } from "../api/types";
+import { useNotifications } from "../components/notifications/NotificationProvider";
 import type { LanguageKey } from "../components/TopNav";
 
 interface ProvidersPageProps {
@@ -61,6 +63,7 @@ const apiKeyEnvPattern = /^[A-Z][A-Z0-9_]*$/;
 
 export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
   const text = copy[language];
+  const notify = useNotifications();
   const [providers, setProviders] = useState<ProviderRecord[]>([]);
   const [name, setName] = useState("");
   const [type, setType] = useState<ProviderRecord["type"]>("openai-compatible");
@@ -83,7 +86,7 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
       })
       .catch((error: unknown) => {
         if (!active) return;
-        setStatus(error instanceof Error ? error.message : text.error);
+        setStatus(formatErrorTitle(error, text.error));
       });
 
     return () => {
@@ -101,11 +104,13 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
 
     if (!apiKeyEnvPattern.test(apiKeyEnv)) {
       setStatus(text.invalidApiKeyEnv);
+      notify.warning({ title: text.invalidApiKeyEnv });
       return;
     }
 
     setCreating(true);
     setStatus(text.creating);
+    notify.info({ title: text.creating });
 
     try {
       const created = await api.createProvider({
@@ -118,12 +123,15 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
       });
 
       await refreshProviders();
-      setStatus(`${text.created}：${created.name}`);
+      const successMessage = `${text.created}：${created.name}`;
+      setStatus(successMessage);
+      notify.success({ title: successMessage });
       setName("");
       setBaseUrl("");
       setApiKeyEnv("");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
+      setStatus(formatErrorTitle(error, text.error));
+      notify.error(formatErrorNotification(error, text.error));
     } finally {
       setCreating(false);
     }
@@ -132,13 +140,17 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
   async function handleDelete(provider: ProviderRecord) {
     setDeletingId(provider.id);
     setStatus(text.deleting);
+    notify.info({ title: text.deleting, detail: provider.name });
 
     try {
       await api.deleteProvider(provider.id);
       await refreshProviders();
-      setStatus(`${text.deleted}：${provider.name}`);
+      const successMessage = `${text.deleted}：${provider.name}`;
+      setStatus(successMessage);
+      notify.success({ title: successMessage });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
+      setStatus(formatErrorTitle(error, text.error));
+      notify.error(formatErrorNotification(error, text.error));
     } finally {
       setDeletingId("");
     }

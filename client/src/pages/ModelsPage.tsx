@@ -1,6 +1,8 @@
 import { type FormEvent, useEffect, useState } from "react";
 import type { ApiClient } from "../api/client";
+import { formatErrorNotification, formatErrorTitle } from "../api/errors";
 import type { ModelCapability, ModelRecord, ProviderRecord, RemoteModelRecord } from "../api/types";
+import { useNotifications } from "../components/notifications/NotificationProvider";
 import type { LanguageKey } from "../components/TopNav";
 
 interface ModelsPageProps {
@@ -76,6 +78,7 @@ const copy = {
 
 export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
   const text = copy[language];
+  const notify = useNotifications();
   const [providers, setProviders] = useState<ProviderRecord[]>([]);
   const [models, setModels] = useState<ModelRecord[]>([]);
   const [remoteModels, setRemoteModels] = useState<RemoteModelRecord[]>([]);
@@ -102,7 +105,7 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
       })
       .catch((error: unknown) => {
         if (!active) return;
-        setStatus(error instanceof Error ? error.message : String(error));
+        setStatus(formatErrorTitle(error, text.noProvider));
       });
 
     return () => {
@@ -120,6 +123,7 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
     setCreating(true);
     setStatus(text.creating);
     setTestResult("");
+    notify.info({ title: text.creating });
 
     try {
       const created = await api.createModel({
@@ -133,11 +137,14 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
       });
 
       await refreshModels();
-      setStatus(`${text.created}：${created.displayName}`);
+      const successMessage = `${text.created}：${created.displayName}`;
+      setStatus(successMessage);
+      notify.success({ title: successMessage });
       setDisplayName("");
       setModelId("");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
+      setStatus(formatErrorTitle(error, text.created));
+      notify.error(formatErrorNotification(error, text.created));
     } finally {
       setCreating(false);
     }
@@ -146,19 +153,24 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
   async function handleFetchRemoteModels() {
     if (!providerId) {
       setStatus(text.noProvider);
+      notify.warning({ title: text.noProvider });
       return;
     }
 
     setFetchingRemote(true);
     setStatus(text.fetchingRemote);
     setTestResult("");
+    notify.info({ title: text.fetchingRemote });
 
     try {
       const result = await api.listRemoteModels(providerId);
       setRemoteModels(result.models);
-      setStatus(`${text.fetchedRemote} ${result.models.length} ${text.remoteSuffix}`);
+      const successMessage = `${text.fetchedRemote} ${result.models.length} ${text.remoteSuffix}`;
+      setStatus(successMessage);
+      notify.success({ title: successMessage });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
+      setStatus(formatErrorTitle(error, text.fetchRemote));
+      notify.error(formatErrorNotification(error, text.fetchRemote));
     } finally {
       setFetchingRemote(false);
     }
@@ -168,6 +180,7 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
     setImportingId(remoteModel.id);
     setStatus("");
     setTestResult("");
+    notify.info({ title: text.import, detail: remoteModel.id });
 
     try {
       const result = await api.importModels(providerId, [
@@ -183,26 +196,32 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
       ]);
 
       await refreshModels();
-      setStatus(
+      const successMessage =
         `${text.importDone}：${text.createdCount} ${result.created.length} ${text.countSuffix}，${text.skippedCount} ${result.skipped.length} ${text.countSuffix}`.trim()
-      );
+      setStatus(successMessage);
+      notify.success({ title: successMessage });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
+      setStatus(formatErrorTitle(error, text.importDone));
+      notify.error(formatErrorNotification(error, text.importDone));
     } finally {
       setImportingId("");
     }
   }
 
   async function handleTest(id: string) {
+    notify.info({ title: text.test });
     try {
       const result = await api.testModel(id);
       const usage =
         result.usage?.inputTokens !== undefined || result.usage?.outputTokens !== undefined
           ? `, tokens ${result.usage?.inputTokens ?? 0}/${result.usage?.outputTokens ?? 0}`
           : "";
-      setTestResult(`${text.success}: ${result.message} (${result.latencyMs}ms${usage})`);
+      const successMessage = `${text.success}: ${result.message} (${result.latencyMs}ms${usage})`;
+      setTestResult(successMessage);
+      notify.success({ title: successMessage });
     } catch (error) {
-      setTestResult(error instanceof Error ? error.message : String(error));
+      setTestResult(formatErrorTitle(error, text.test));
+      notify.error(formatErrorNotification(error, text.test));
     }
   }
 
@@ -210,13 +229,17 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
     setDeletingId(model.id);
     setStatus(text.deleting);
     setTestResult("");
+    notify.info({ title: text.deleting, detail: model.displayName });
 
     try {
       await api.deleteModel(model.id);
       await refreshModels();
-      setStatus(`${text.deleted}：${model.displayName}`);
+      const successMessage = `${text.deleted}：${model.displayName}`;
+      setStatus(successMessage);
+      notify.success({ title: successMessage });
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
+      setStatus(formatErrorTitle(error, text.deleted));
+      notify.error(formatErrorNotification(error, text.deleted));
     } finally {
       setDeletingId("");
     }

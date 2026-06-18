@@ -1,6 +1,8 @@
 import { type FormEvent, useEffect, useState } from "react";
 import type { ApiClient } from "../api/client";
+import { formatErrorNotification, formatErrorTitle } from "../api/errors";
 import type { ModelRecord } from "../api/types";
+import { useNotifications } from "../components/notifications/NotificationProvider";
 import type { LanguageKey } from "../components/TopNav";
 
 interface WorkbenchPageProps {
@@ -27,7 +29,8 @@ const copy = {
     empty: "还没有可用的 chat 模型。请先在模型管理中导入模型。",
     idle: "idle",
     running: "running",
-    failed: "failed"
+    failed: "failed",
+    runSucceeded: "工作流运行成功"
   },
   en: {
     title: "Workbench",
@@ -42,7 +45,8 @@ const copy = {
     empty: "No chat-capable models yet. Import a model in Models first.",
     idle: "idle",
     running: "running",
-    failed: "failed"
+    failed: "failed",
+    runSucceeded: "Workflow run succeeded"
   }
 } satisfies Record<LanguageKey, Record<string, string>>;
 
@@ -57,6 +61,7 @@ function readOutputContent(outputs: Record<string, Record<string, unknown>>) {
 
 export function WorkbenchPage({ api, language = "zh-CN" }: WorkbenchPageProps) {
   const text = copy[language];
+  const notify = useNotifications();
   const [models, setModels] = useState<ModelRecord[]>([]);
   const [selectedModelId, setSelectedModelId] = useState("");
   const [message, setMessage] = useState("");
@@ -79,7 +84,7 @@ export function WorkbenchPage({ api, language = "zh-CN" }: WorkbenchPageProps) {
       })
       .catch((loadError: unknown) => {
         if (!active) return;
-        setError(loadError instanceof Error ? loadError.message : String(loadError));
+        setError(formatErrorTitle(loadError, text.failed));
       });
 
     return () => {
@@ -96,6 +101,7 @@ export function WorkbenchPage({ api, language = "zh-CN" }: WorkbenchPageProps) {
     setMessage("");
     setRunStatus(text.running);
     setError("");
+    notify.info({ title: text.running });
 
     try {
       const result = await api.runWorkflow({
@@ -120,9 +126,11 @@ export function WorkbenchPage({ api, language = "zh-CN" }: WorkbenchPageProps) {
       if (content) {
         setMessages((current) => [...current, { role: "assistant", content }]);
       }
+      notify.success({ title: text.runSucceeded });
     } catch (runError) {
       setRunStatus(text.failed);
-      setError(runError instanceof Error ? runError.message : String(runError));
+      setError(formatErrorTitle(runError, text.failed));
+      notify.error(formatErrorNotification(runError, text.failed));
     }
   }
 

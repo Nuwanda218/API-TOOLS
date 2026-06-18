@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { apiClient } from "./api/client";
+import { NotificationProvider } from "./components/notifications/NotificationProvider";
 import { TopNav, type LanguageKey, type PageKey } from "./components/TopNav";
 import { ModelsPage } from "./pages/ModelsPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
@@ -295,16 +296,18 @@ export function App() {
     );
 
   return (
-    <div className={`app-shell ${collapsed ? "nav-collapsed" : ""}`} data-testid="app-shell">
-      <TopNav
-        collapsed={collapsed}
-        currentPage={currentPage}
-        language={language}
-        onCollapsedChange={setCollapsed}
-        onLanguageChange={setLanguage}
-        onPageChange={setCurrentPage}
-      />
-      {content}
-    </div>
+    <NotificationProvider>
+      <div className={`app-shell ${collapsed ? "nav-collapsed" : ""}`} data-testid="app-shell">
+        <TopNav
+          collapsed={collapsed}
+          currentPage={currentPage}
+          language={language}
+          onCollapsedChange={setCollapsed}
+          onLanguageChange={setLanguage}
+          onPageChange={setCurrentPage}
+        />
+        {content}
+      </div>
+    </NotificationProvider>
   );
 }

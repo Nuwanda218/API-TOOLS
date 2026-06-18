@@ -1,7 +1,13 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { NotificationProvider } from "../components/notifications/NotificationProvider";
 import { ProvidersPage } from "./ProvidersPage";
+
+function renderWithNotifications(ui: ReactElement) {
+  return render(<NotificationProvider>{ui}</NotificationProvider>);
+}
 
 describe("ProvidersPage", () => {
   it("creates a provider and refreshes the local list", async () => {
@@ -34,7 +40,7 @@ describe("ProvidersPage", () => {
       deleteProvider: vi.fn()
     };
 
-    render(<ProvidersPage api={api} />);
+    renderWithNotifications(<ProvidersPage api={api} />);
 
     await userEvent.type(screen.getByLabelText("名称"), "DeepSeek");
     await userEvent.type(screen.getByLabelText("Base URL"), "https://api.deepseek.com/v1");
@@ -51,7 +57,7 @@ describe("ProvidersPage", () => {
         enabled: true
       })
     );
-    expect(await screen.findByText("供应商已创建：DeepSeek")).toBeInTheDocument();
+    expect((await screen.findAllByText("供应商已创建：DeepSeek")).length).toBeGreaterThanOrEqual(1);
     expect(await screen.findByText("DeepSeek")).toBeInTheDocument();
     expect(screen.getAllByText("openai-chat-completions").length).toBeGreaterThan(0);
     expect(api.listProviders).toHaveBeenCalledTimes(2);
@@ -64,14 +70,14 @@ describe("ProvidersPage", () => {
       deleteProvider: vi.fn()
     };
 
-    render(<ProvidersPage api={api} />);
+    renderWithNotifications(<ProvidersPage api={api} />);
 
     await userEvent.type(screen.getByLabelText("名称"), "Broken");
     await userEvent.type(screen.getByLabelText("Base URL"), "https://example.com/v1");
     await userEvent.type(screen.getByLabelText("API Key 环境变量"), "BROKEN_API_KEY");
     await userEvent.click(screen.getByRole("button", { name: "添加 Provider" }));
 
-    expect(await screen.findByText("Invalid provider base URL")).toBeInTheDocument();
+    expect((await screen.findAllByText("Invalid provider base URL")).length).toBeGreaterThanOrEqual(1);
   });
 
   it("rejects raw API keys before creating a provider", async () => {
@@ -81,7 +87,7 @@ describe("ProvidersPage", () => {
       deleteProvider: vi.fn()
     };
 
-    render(<ProvidersPage api={api} />);
+    renderWithNotifications(<ProvidersPage api={api} />);
 
     await userEvent.type(screen.getByLabelText("名称"), "DeepSeek");
     await userEvent.type(screen.getByLabelText("Base URL"), "https://api.deepseek.com/v1");
@@ -89,8 +95,8 @@ describe("ProvidersPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "添加 Provider" }));
 
     expect(
-      await screen.findByText("API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。")
-    ).toBeInTheDocument();
+      (await screen.findAllByText("API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。")).length
+    ).toBeGreaterThanOrEqual(1);
     expect(api.createProvider).not.toHaveBeenCalled();
   });
 
@@ -112,13 +118,13 @@ describe("ProvidersPage", () => {
       deleteProvider: vi.fn().mockResolvedValue(undefined)
     };
 
-    render(<ProvidersPage api={api} />);
+    renderWithNotifications(<ProvidersPage api={api} />);
 
     expect(await screen.findByText("DeepSeek")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "删除 DeepSeek" }));
 
     await waitFor(() => expect(api.deleteProvider).toHaveBeenCalledWith("provider-1"));
-    expect(await screen.findByText("供应商已删除：DeepSeek")).toBeInTheDocument();
+    expect((await screen.findAllByText("供应商已删除：DeepSeek")).length).toBeGreaterThanOrEqual(1);
     expect(api.listProviders).toHaveBeenCalledTimes(2);
   });
 
@@ -140,11 +146,11 @@ describe("ProvidersPage", () => {
       deleteProvider: vi.fn().mockRejectedValue(new Error("Provider delete failed"))
     };
 
-    render(<ProvidersPage api={api} />);
+    renderWithNotifications(<ProvidersPage api={api} />);
 
     expect(await screen.findByText("DeepSeek")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "删除 DeepSeek" }));
 
-    expect(await screen.findByText("Provider delete failed")).toBeInTheDocument();
+    expect((await screen.findAllByText("Provider delete failed")).length).toBeGreaterThanOrEqual(1);
   });
 });
