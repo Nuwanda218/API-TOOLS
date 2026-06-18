@@ -1,5 +1,5 @@
 export type ProviderType = "openai-compatible" | "openai-official";
-export type ProviderApiFormat = "openai-chat-completions" | "openai-responses";
+export type ProviderApiFormat = "openai-chat-completions" | "openai-responses" | "claude-messages";
 export type ModelCapability = "chat" | "image" | "multimodal";
 
 export interface ProviderRecord {

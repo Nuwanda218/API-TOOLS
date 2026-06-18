@@ -2,7 +2,7 @@ import type { AppDatabase } from "../db/client.js";
 import { nanoid } from "nanoid";
 
 export type ProviderType = "openai-compatible" | "openai-official";
-export type ProviderApiFormat = "openai-chat-completions" | "openai-responses";
+export type ProviderApiFormat = "openai-chat-completions" | "openai-responses" | "claude-messages";
 
 export interface Provider {
   id: string;

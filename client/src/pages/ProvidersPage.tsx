@@ -202,6 +202,7 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
             <select value={apiFormat} onChange={(event) => setApiFormat(event.target.value as ProviderApiFormat)}>
               <option value="openai-chat-completions">openai-chat-completions</option>
               <option value="openai-responses">openai-responses</option>
+              <option value="claude-messages">claude-messages</option>
             </select>
           </label>
           <label>

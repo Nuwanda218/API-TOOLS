@@ -6261,7 +6261,7 @@ git commit -m "feat: add local api key management"
 - Modify: `client/src/pages/ProvidersPage.test.tsx`
 - Modify: `docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md`
 
-- [ ] **Step 1: Write Claude adapter tests**
+- [x] **Step 1: Write Claude adapter tests**
 
 Tests must cover:
 
@@ -6276,11 +6276,11 @@ Tests must cover:
 - Maps 429 to rate_limited
 ```
 
-- [ ] **Step 2: Extend provider apiFormat type tests**
+- [x] **Step 2: Extend provider apiFormat type tests**
 
 Assert `claude-messages` is accepted by backend provider creation and frontend provider form options.
 
-- [ ] **Step 3: Implement Claude adapter and registry wiring**
+- [x] **Step 3: Implement Claude adapter and registry wiring**
 
 Add adapter selection:
 
@@ -6300,7 +6300,7 @@ Use request shape:
 }
 ```
 
-- [ ] **Step 4: Update frontend provider form**
+- [x] **Step 4: Update frontend provider form**
 
 Add protocol option:
 
@@ -6315,7 +6315,7 @@ Base URL: https://api.anthropic.com/v1
 API Key 环境变量: ANTHROPIC_API_KEY
 ```
 
-- [ ] **Step 5: Run backend and frontend verification**
+- [x] **Step 5: Run backend and frontend verification**
 
 Run:
 
@@ -6329,6 +6329,8 @@ npm run build --workspace client
 Expected: all commands pass.
 
 - [ ] **Step 6: Manual verification**
+
+Pending user verification with a real Claude-compatible API key.
 
 Create provider:
 
@@ -6348,7 +6350,7 @@ capability: chat
 
 Run model test and one workbench workflow.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/providers/providerRepository.ts server/src/routes/providers.ts server/src/adapters/registry.ts server/src/adapters/claudeMessages.ts server/src/adapters/claudeMessages.test.ts server/src/adapters/types.ts client/src/api/types.ts client/src/pages/ProvidersPage.tsx client/src/pages/ProvidersPage.test.tsx docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md

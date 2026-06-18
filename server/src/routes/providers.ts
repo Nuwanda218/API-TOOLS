@@ -15,7 +15,7 @@ const apiKeyEnvSchema = z
 const createProviderSchema = z.object({
   name: z.string().min(1),
   type: z.enum(["openai-compatible", "openai-official"]),
-  apiFormat: z.enum(["openai-chat-completions", "openai-responses"]).default("openai-chat-completions"),
+  apiFormat: z.enum(["openai-chat-completions", "openai-responses", "claude-messages"]).default("openai-chat-completions"),
   baseUrl: z.string().url(),
   apiKeyEnv: apiKeyEnvSchema,
   enabled: z.boolean().default(true)
