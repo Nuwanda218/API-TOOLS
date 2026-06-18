@@ -6,7 +6,7 @@ import { useNotifications } from "../components/notifications/NotificationProvid
 import type { LanguageKey } from "../components/TopNav";
 
 interface ProvidersPageProps {
-  api: Pick<ApiClient, "listProviders" | "createProvider" | "deleteProvider">;
+  api: Pick<ApiClient, "listProviders" | "createProvider" | "saveApiKey" | "deleteProvider">;
   language?: LanguageKey;
 }
 
@@ -20,6 +20,7 @@ const copy = {
     apiFormat: "API 协议格式",
     baseUrl: "Base URL",
     apiKeyEnv: "API Key 环境变量",
+    apiKey: "API Key（可选，会写入本地 .env）",
     submit: "添加 Provider",
     listTitle: "已接入 API",
     empty: "还没有 Provider。",
@@ -32,6 +33,9 @@ const copy = {
     deleting: "正在删除供应商...",
     deleted: "供应商已删除",
     apiKeyEnvHelp: "填写 .env 里的变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。",
+    apiKeyHelp: "如果填写，会由本地后端写入 .env；不会保存到数据库。",
+    savingApiKey: "正在写入 API Key...",
+    apiKeySaved: "API Key 已写入本地 .env",
     invalidApiKeyEnv: "API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。"
   },
   en: {
@@ -43,6 +47,7 @@ const copy = {
     apiFormat: "API format",
     baseUrl: "Base URL",
     apiKeyEnv: "API key env var",
+    apiKey: "API key (optional, writes to local .env)",
     submit: "Add Provider",
     listTitle: "Connected APIs",
     empty: "No providers yet.",
@@ -55,6 +60,9 @@ const copy = {
     deleting: "Deleting provider...",
     deleted: "Provider deleted",
     apiKeyEnvHelp: "Use the variable name from .env, for example DEEPSEEK_API_KEY. Do not enter the real key.",
+    apiKeyHelp: "If filled, the local backend writes it to .env. It is not saved to the database.",
+    savingApiKey: "Saving API key...",
+    apiKeySaved: "API key saved to local .env",
     invalidApiKeyEnv: "API key env var must be a variable name such as DEEPSEEK_API_KEY, not the real key."
   }
 } satisfies Record<LanguageKey, Record<string, string>>;
@@ -70,6 +78,7 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
   const [apiFormat, setApiFormat] = useState<ProviderApiFormat>("openai-chat-completions");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKeyEnv, setApiKeyEnv] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [status, setStatus] = useState(text.loading);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState("");
@@ -113,6 +122,15 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
     notify.info({ title: text.creating });
 
     try {
+      if (apiKey.trim()) {
+        setStatus(text.savingApiKey);
+        notify.info({ title: text.savingApiKey, detail: apiKeyEnv });
+        await api.saveApiKey({ apiKeyEnv, apiKey: apiKey.trim() });
+        const savedMessage = `${text.apiKeySaved}：${apiKeyEnv}`;
+        setStatus(savedMessage);
+        notify.success({ title: savedMessage });
+      }
+
       const created = await api.createProvider({
         name,
         type,
@@ -129,6 +147,7 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
       setName("");
       setBaseUrl("");
       setApiKeyEnv("");
+      setApiKey("");
     } catch (error) {
       setStatus(formatErrorTitle(error, text.error));
       notify.error(formatErrorNotification(error, text.error));
@@ -198,6 +217,17 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
               required
             />
             <small>{text.apiKeyEnvHelp}</small>
+          </label>
+          <label>
+            {text.apiKey}
+            <input
+              aria-label={text.apiKey}
+              autoComplete="off"
+              type="password"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+            />
+            <small>{text.apiKeyHelp}</small>
           </label>
           <button type="submit" disabled={creating}>
             {creating ? text.creating : text.submit}

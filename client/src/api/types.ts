@@ -23,6 +23,11 @@ export interface CreateProviderInput {
   enabled: boolean;
 }
 
+export interface SaveApiKeyInput {
+  apiKeyEnv: string;
+  apiKey: string;
+}
+
 export interface RemoteModelRecord {
   id: string;
   ownedBy?: string;

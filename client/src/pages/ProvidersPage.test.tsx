@@ -37,6 +37,7 @@ describe("ProvidersPage", () => {
         createdAt: "2026-06-08T00:00:00.000Z",
         updatedAt: "2026-06-08T00:00:00.000Z"
       }),
+      saveApiKey: vi.fn(),
       deleteProvider: vi.fn()
     };
 
@@ -63,10 +64,50 @@ describe("ProvidersPage", () => {
     expect(api.listProviders).toHaveBeenCalledTimes(2);
   });
 
+  it("saves an optional API key before creating a provider", async () => {
+    const providersAfterCreate = [
+      {
+        id: "provider-1",
+        name: "DeepSeek",
+        type: "openai-compatible" as const,
+        apiFormat: "openai-chat-completions" as const,
+        baseUrl: "https://api.deepseek.com/v1",
+        apiKeyEnv: "DEEPSEEK_API_KEY",
+        enabled: true,
+        createdAt: "2026-06-08T00:00:00.000Z",
+        updatedAt: "2026-06-08T00:00:00.000Z"
+      }
+    ];
+    const api = {
+      listProviders: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce(providersAfterCreate),
+      createProvider: vi.fn().mockResolvedValue(providersAfterCreate[0]),
+      saveApiKey: vi.fn().mockResolvedValue(undefined),
+      deleteProvider: vi.fn()
+    };
+
+    renderWithNotifications(<ProvidersPage api={api} />);
+
+    await userEvent.type(screen.getByLabelText("名称"), "DeepSeek");
+    await userEvent.type(screen.getByLabelText("Base URL"), "https://api.deepseek.com/v1");
+    await userEvent.type(screen.getByLabelText("API Key 环境变量"), "DEEPSEEK_API_KEY");
+    await userEvent.type(screen.getByLabelText("API Key（可选，会写入本地 .env）"), "sk-test");
+    await userEvent.click(screen.getByRole("button", { name: "添加 Provider" }));
+
+    await waitFor(() =>
+      expect(api.saveApiKey).toHaveBeenCalledWith({
+        apiKeyEnv: "DEEPSEEK_API_KEY",
+        apiKey: "sk-test"
+      })
+    );
+    expect(api.createProvider).toHaveBeenCalled();
+    expect((await screen.findAllByText("API Key 已写入本地 .env：DEEPSEEK_API_KEY")).length).toBeGreaterThanOrEqual(1);
+  });
+
   it("shows provider creation errors", async () => {
     const api = {
       listProviders: vi.fn().mockResolvedValue([]),
       createProvider: vi.fn().mockRejectedValue(new Error("Invalid provider base URL")),
+      saveApiKey: vi.fn(),
       deleteProvider: vi.fn()
     };
 
@@ -84,6 +125,7 @@ describe("ProvidersPage", () => {
     const api = {
       listProviders: vi.fn().mockResolvedValue([]),
       createProvider: vi.fn(),
+      saveApiKey: vi.fn(),
       deleteProvider: vi.fn()
     };
 
@@ -115,6 +157,7 @@ describe("ProvidersPage", () => {
     const api = {
       listProviders: vi.fn().mockResolvedValueOnce([provider]).mockResolvedValueOnce([]),
       createProvider: vi.fn(),
+      saveApiKey: vi.fn(),
       deleteProvider: vi.fn().mockResolvedValue(undefined)
     };
 
@@ -143,6 +186,7 @@ describe("ProvidersPage", () => {
     const api = {
       listProviders: vi.fn().mockResolvedValue([provider]),
       createProvider: vi.fn(),
+      saveApiKey: vi.fn(),
       deleteProvider: vi.fn().mockRejectedValue(new Error("Provider delete failed"))
     };
 

@@ -6,6 +6,7 @@ import type {
   RemoteModelRecord,
   RunWorkflowRequest,
   RunWorkflowResponse,
+  SaveApiKeyInput,
   TestModelResponse,
   UsageSummary
 } from "./types";
@@ -78,6 +79,13 @@ export const apiClient = {
 
   createProvider(input: CreateProviderInput) {
     return requestJson<ProviderRecord>("/api/providers", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+
+  saveApiKey(input: SaveApiKeyInput) {
+    return requestJson<void>("/api/api-keys", {
       method: "POST",
       body: JSON.stringify(input)
     });

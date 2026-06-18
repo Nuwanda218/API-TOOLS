@@ -6179,7 +6179,7 @@ git commit -m "feat: add global operation notifications"
 - Modify: `client/src/pages/ProvidersPage.test.tsx`
 - Modify: `docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md`
 
-- [ ] **Step 1: Write dotenv file unit tests**
+- [x] **Step 1: Write dotenv file unit tests**
 
 Create tests for inserting, updating, and preserving unrelated lines in `.env`:
 
@@ -6189,7 +6189,7 @@ expect(updateDotenvContent("DEEPSEEK_API_KEY=old\n", "DEEPSEEK_API_KEY", "new"))
 expect(updateDotenvContent("OPENAI_API_KEY=abc\n", "DEEPSEEK_API_KEY", "sk-test")).toBe("OPENAI_API_KEY=abc\nDEEPSEEK_API_KEY=sk-test\n");
 ```
 
-- [ ] **Step 2: Write API key route tests**
+- [x] **Step 2: Write API key route tests**
 
 Create route tests for:
 
@@ -6204,11 +6204,11 @@ POST /api/api-keys
 => 400 invalid_request
 ```
 
-- [ ] **Step 3: Implement dotenv file helper and route**
+- [x] **Step 3: Implement dotenv file helper and route**
 
 Implement pure helper functions first, then route handler. The route must never return the raw key. Response is `204 No Content` on success.
 
-- [ ] **Step 4: Add frontend API method and provider form field**
+- [x] **Step 4: Add frontend API method and provider form field**
 
 Add optional `apiKey` input to Provider creation form. If present, call `saveApiKey({ apiKeyEnv, apiKey })` before creating or testing provider. The field label must make the behavior explicit:
 
@@ -6216,7 +6216,7 @@ Add optional `apiKey` input to Provider creation form. If present, call `saveApi
 API Key（可选，会写入本地 .env）
 ```
 
-- [ ] **Step 5: Add notifications for key save success/failure**
+- [x] **Step 5: Add notifications for key save success/failure**
 
 Use Task 14.6 notification system:
 
@@ -6225,7 +6225,7 @@ API Key 已写入本地 .env：DEEPSEEK_API_KEY
 API Key 写入失败：<error code/log>
 ```
 
-- [ ] **Step 6: Run verification and commit**
+- [x] **Step 6: Run verification and commit**
 
 Run:
 
