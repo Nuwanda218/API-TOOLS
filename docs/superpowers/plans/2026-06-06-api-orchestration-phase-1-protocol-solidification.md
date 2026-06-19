@@ -81,10 +81,11 @@ Responsibilities:
 **Files:**
 - Create: `server/src/apiProtocol/operationCatalog.ts`
 - Create: `server/src/apiProtocol/operationCatalog.test.ts`
+- Create: `server/src/apiProtocol/llmChat.ts` with shared `llm.chat` type declarations required by `types.ts`; Task 2 adds runtime parsing.
 - Modify: `server/src/apiProtocol/types.ts`
 - Modify: `server/src/apiProtocol/types.test.ts`
 
-- [ ] **Step 1: Write failing operation catalog tests**
+- [x] **Step 1: Write failing operation catalog tests**
 
 Create `server/src/apiProtocol/operationCatalog.test.ts`:
 
@@ -137,7 +138,7 @@ describe("operation catalog", () => {
 });
 ```
 
-- [ ] **Step 2: Run operation catalog tests to verify they fail**
+- [x] **Step 2: Run operation catalog tests to verify they fail**
 
 Run:
 
@@ -147,7 +148,7 @@ npm run test --workspace server -- src/apiProtocol/operationCatalog.test.ts
 
 Expected: FAIL because `server/src/apiProtocol/operationCatalog.ts` does not exist.
 
-- [ ] **Step 3: Implement operation catalog**
+- [x] **Step 3: Implement operation catalog**
 
 Create `server/src/apiProtocol/operationCatalog.ts`:
 
@@ -215,7 +216,7 @@ export function isWorkflowExecutableOperation(operationId: string): boolean {
 }
 ```
 
-- [ ] **Step 4: Update generic protocol types to use the catalog**
+- [x] **Step 4: Update generic protocol types to use the catalog**
 
 Modify `server/src/apiProtocol/types.ts` to this complete file:
 
@@ -284,7 +285,7 @@ export interface ApiAdapter {
 }
 ```
 
-- [ ] **Step 5: Update existing protocol type test**
+- [x] **Step 5: Update existing protocol type test**
 
 Modify `server/src/apiProtocol/types.test.ts` to this complete file:
 
@@ -349,7 +350,7 @@ describe("generic API protocol types", () => {
 });
 ```
 
-- [ ] **Step 6: Run protocol tests**
+- [x] **Step 6: Run protocol tests**
 
 Run:
 
@@ -359,7 +360,7 @@ npm run test --workspace server -- src/apiProtocol/types.test.ts src/apiProtocol
 
 Expected: PASS.
 
-- [ ] **Step 7: Run server typecheck**
+- [x] **Step 7: Run server typecheck**
 
 Run:
 
@@ -369,10 +370,10 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
-git add server/src/apiProtocol/operationCatalog.ts server/src/apiProtocol/operationCatalog.test.ts server/src/apiProtocol/types.ts server/src/apiProtocol/types.test.ts
+git add server/src/apiProtocol/operationCatalog.ts server/src/apiProtocol/operationCatalog.test.ts server/src/apiProtocol/llmChat.ts server/src/apiProtocol/types.ts server/src/apiProtocol/types.test.ts
 git commit -m "feat: add api operation catalog"
 ```
 

@@ -1,15 +1,26 @@
 import type { Model } from "../providers/modelRepository.js";
 import type { Provider } from "../providers/providerRepository.js";
 import type { ProviderErrorCode } from "../errors/providerError.js";
+import type { ApiOperationId } from "./operationCatalog.js";
 
-export type ApiOperationId =
-  | "models.list"
-  | "llm.chat"
-  | "http.request"
-  | (string & {});
+export type {
+  ApiOperationId,
+  ApiResourceKind,
+  CoreOperationId,
+  OperationImplementationStatus,
+  OperationSpec
+} from "./operationCatalog.js";
+export {
+  CORE_OPERATION_SPECS,
+  getCoreOperationSpec,
+  isCoreOperation,
+  isWorkflowExecutableOperation
+} from "./operationCatalog.js";
+export type { LlmChatData, LlmChatInput, LlmChatMessage, LlmChatRole } from "./llmChat.js";
 
 export type ApiResource =
   | { kind: "model"; model: Model }
+  | { kind: "endpoint"; endpointId: string }
   | { kind: "none" };
 
 export interface ApiInvocation<TInput = Record<string, unknown>> {
@@ -48,18 +59,4 @@ export interface ApiAdapter {
   id: string;
   supports(operationId: ApiOperationId): boolean;
   invoke(input: ApiInvocation): Promise<ApiInvocationOutcome>;
-}
-
-export interface LlmChatInput {
-  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
-}
-
-export interface LlmChatData {
-  content: string;
-}
-
-const coreOperations = new Set<ApiOperationId>(["models.list", "llm.chat", "http.request"]);
-
-export function isCoreOperation(operationId: string): operationId is ApiOperationId {
-  return coreOperations.has(operationId as ApiOperationId);
 }

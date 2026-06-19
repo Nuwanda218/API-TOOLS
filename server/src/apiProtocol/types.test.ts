@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Model } from "../providers/modelRepository.js";
 import type { Provider } from "../providers/providerRepository.js";
 import type { ApiInvocation, ApiInvocationResult, LlmChatData, LlmChatInput } from "./types.js";
-import { isCoreOperation } from "./types.js";
+import { getCoreOperationSpec, isCoreOperation } from "./types.js";
 
 const provider: Provider = {
   id: "provider-1",
@@ -50,6 +50,7 @@ describe("generic API protocol types", () => {
 
     expect(invocation.operationId).toBe("llm.chat");
     expect(isCoreOperation(invocation.operationId)).toBe(true);
+    expect(getCoreOperationSpec(invocation.operationId)?.resourceKind).toBe("model");
     expect(isCoreOperation("weather.current")).toBe(false);
     expect(invocation.resource.kind).toBe("model");
     expect(result.data.content).toBe("Hi");

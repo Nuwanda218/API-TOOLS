@@ -1,0 +1,46 @@
+import { describe, expect, it } from "vitest";
+import {
+  CORE_OPERATION_SPECS,
+  getCoreOperationSpec,
+  isCoreOperation,
+  isWorkflowExecutableOperation
+} from "./operationCatalog.js";
+
+describe("operation catalog", () => {
+  it("declares the Phase 1 core operations", () => {
+    expect(Object.keys(CORE_OPERATION_SPECS).sort()).toEqual([
+      "http.request",
+      "llm.chat",
+      "models.list"
+    ]);
+  });
+
+  it("marks llm.chat as the only workflow-executable implemented operation", () => {
+    expect(getCoreOperationSpec("llm.chat")).toMatchObject({
+      id: "llm.chat",
+      status: "implemented",
+      resourceKind: "model",
+      workflowStep: true
+    });
+    expect(isWorkflowExecutableOperation("llm.chat")).toBe(true);
+    expect(isWorkflowExecutableOperation("models.list")).toBe(false);
+    expect(isWorkflowExecutableOperation("http.request")).toBe(false);
+  });
+
+  it("keeps http.request reserved so it cannot accidentally execute", () => {
+    expect(getCoreOperationSpec("http.request")).toMatchObject({
+      id: "http.request",
+      status: "reserved",
+      resourceKind: "none",
+      workflowStep: false
+    });
+  });
+
+  it("recognizes core operation ids without accepting unknown ids", () => {
+    expect(isCoreOperation("llm.chat")).toBe(true);
+    expect(isCoreOperation("models.list")).toBe(true);
+    expect(isCoreOperation("http.request")).toBe(true);
+    expect(isCoreOperation("weather.current")).toBe(false);
+    expect(getCoreOperationSpec("weather.current")).toBeUndefined();
+  });
+});
