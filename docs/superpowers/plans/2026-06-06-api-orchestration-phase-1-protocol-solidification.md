@@ -380,11 +380,11 @@ git commit -m "feat: add api operation catalog"
 ## Task 2: Add `llm.chat` runtime input contract
 
 **Files:**
-- Create: `server/src/apiProtocol/llmChat.ts`
+- Modify: `server/src/apiProtocol/llmChat.ts`
 - Create: `server/src/apiProtocol/llmChat.test.ts`
 - Modify: `server/src/apiProtocol/types.ts`
 
-- [ ] **Step 1: Write failing `llm.chat` input parser tests**
+- [x] **Step 1: Write failing `llm.chat` input parser tests**
 
 Create `server/src/apiProtocol/llmChat.test.ts`:
 
@@ -444,7 +444,7 @@ describe("llm.chat input contract", () => {
 });
 ```
 
-- [ ] **Step 2: Run parser tests to verify they fail**
+- [x] **Step 2: Run parser tests to verify they fail**
 
 Run:
 
@@ -452,11 +452,11 @@ Run:
 npm run test --workspace server -- src/apiProtocol/llmChat.test.ts
 ```
 
-Expected: FAIL because `server/src/apiProtocol/llmChat.ts` does not exist.
+Expected: FAIL because `parseLlmChatInput()` is not implemented yet.
 
-- [ ] **Step 3: Implement `llm.chat` input parser**
+- [x] **Step 3: Implement `llm.chat` input parser**
 
-Create `server/src/apiProtocol/llmChat.ts`:
+Modify `server/src/apiProtocol/llmChat.ts`:
 
 ```ts
 export type LlmChatRole = "system" | "user" | "assistant";
@@ -520,7 +520,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 ```
 
-- [ ] **Step 4: Run parser tests**
+- [x] **Step 4: Run parser tests**
 
 Run:
 
@@ -530,7 +530,7 @@ npm run test --workspace server -- src/apiProtocol/llmChat.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Run existing protocol tests**
+- [x] **Step 5: Run existing protocol tests**
 
 Run:
 
@@ -540,7 +540,7 @@ npm run test --workspace server -- src/apiProtocol
 
 Expected: PASS.
 
-- [ ] **Step 6: Run server typecheck**
+- [x] **Step 6: Run server typecheck**
 
 Run:
 
@@ -550,7 +550,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/apiProtocol/llmChat.ts server/src/apiProtocol/llmChat.test.ts server/src/apiProtocol/types.ts
