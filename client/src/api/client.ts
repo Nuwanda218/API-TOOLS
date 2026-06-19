@@ -6,9 +6,29 @@ import type {
   RemoteModelRecord,
   RunWorkflowRequest,
   RunWorkflowResponse,
+  SaveApiKeyInput,
   TestModelResponse,
   UsageSummary
 } from "./types";
+
+export class ApiClientError extends Error {
+  public readonly code: string;
+  public readonly providerMessage?: string;
+  public readonly statusCode: number;
+  public readonly log: string;
+
+  constructor(input: { code: string; message: string; providerMessage?: string; statusCode: number }) {
+    super(input.message);
+    this.name = "ApiClientError";
+    this.code = input.code;
+    this.providerMessage = input.providerMessage;
+    this.statusCode = input.statusCode;
+    this.log = [input.code, input.message].filter(Boolean).join(": ");
+    if (input.providerMessage) {
+      this.log = `${this.log} | ${input.providerMessage}`;
+    }
+  }
+}
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -20,8 +40,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new Error(message);
+    throw await readApiError(response);
   }
 
   if (response.status === 204) {
@@ -31,16 +50,26 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function readErrorMessage(response: Response) {
+async function readApiError(response: Response) {
   try {
     const body = await response.json();
-    if (typeof body?.message === "string") return body.message;
-    if (typeof body?.error === "string") return body.error;
+    const code = typeof body?.code === "string" ? body.code : typeof body?.error === "string" ? body.error : "request_failed";
+    const message =
+      typeof body?.message === "string"
+        ? body.message
+        : typeof body?.error === "string"
+          ? body.error
+          : `Request failed: ${response.status}`;
+    const providerMessage = typeof body?.providerMessage === "string" ? body.providerMessage : undefined;
+    const statusCode = typeof body?.statusCode === "number" ? body.statusCode : response.status;
+    return new ApiClientError({ code, message, providerMessage, statusCode });
   } catch {
-    // Response was not JSON; fall through to the status text.
+    return new ApiClientError({
+      code: "request_failed",
+      message: response.statusText || `Request failed: ${response.status}`,
+      statusCode: response.status
+    });
   }
-
-  return `Request failed: ${response.status}`;
 }
 
 export const apiClient = {
@@ -50,6 +79,13 @@ export const apiClient = {
 
   createProvider(input: CreateProviderInput) {
     return requestJson<ProviderRecord>("/api/providers", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+
+  saveApiKey(input: SaveApiKeyInput) {
+    return requestJson<void>("/api/api-keys", {
       method: "POST",
       body: JSON.stringify(input)
     });

@@ -6,7 +6,7 @@ export function applySchema(db: AppDatabase) {
       id text primary key,
       name text not null,
       type text not null check (type in ('openai-compatible', 'openai-official')),
-      api_format text not null default 'openai-chat-completions' check (api_format in ('openai-chat-completions', 'openai-responses')),
+      api_format text not null default 'openai-chat-completions' check (api_format in ('openai-chat-completions', 'openai-responses', 'claude-messages')),
       base_url text not null,
       api_key_env text not null,
       enabled integer not null default 1,

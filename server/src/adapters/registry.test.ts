@@ -45,10 +45,12 @@ describe("adapter registry", () => {
   it("selects model adapters by provider API format", () => {
     const chatCompletionsAdapter = fakeAdapter("chat");
     const responsesAdapter = fakeAdapter("responses");
-    const registry = createAdapterRegistry({ chatCompletionsAdapter, responsesAdapter });
+    const claudeMessagesAdapter = fakeAdapter("claude");
+    const registry = createAdapterRegistry({ chatCompletionsAdapter, responsesAdapter, claudeMessagesAdapter });
 
     expect(registry.getModelAdapter(provider("openai-chat-completions"))).toBe(chatCompletionsAdapter);
     expect(registry.getModelAdapter(provider("openai-responses"))).toBe(responsesAdapter);
+    expect(registry.getModelAdapter(provider("claude-messages"))).toBe(claudeMessagesAdapter);
   });
 
   it("invokes llm.chat through the generic API adapter path", async () => {

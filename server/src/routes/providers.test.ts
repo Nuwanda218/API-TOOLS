@@ -61,6 +61,32 @@ describe("provider routes", () => {
     db.close();
   });
 
+  it("creates providers with explicit Claude Messages API format", async () => {
+    const db = createTestDatabase();
+    const app = createApp({ db });
+
+    const response = await request(app).post("/api/providers").send({
+      name: "Claude",
+      type: "openai-compatible",
+      apiFormat: "claude-messages",
+      baseUrl: "https://api.anthropic.com/v1",
+      apiKeyEnv: "ANTHROPIC_API_KEY",
+      enabled: true
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      name: "Claude",
+      type: "openai-compatible",
+      apiFormat: "claude-messages",
+      baseUrl: "https://api.anthropic.com/v1",
+      apiKeyEnv: "ANTHROPIC_API_KEY",
+      enabled: true
+    });
+
+    db.close();
+  });
+
   it("updates and deletes providers", async () => {
     const db = createTestDatabase();
     const app = createApp({ db });

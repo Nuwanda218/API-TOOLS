@@ -70,7 +70,7 @@ describe("schema", () => {
     expect(provider).toEqual({ id: "provider-persisted", name: "Persisted Provider" });
   });
 
-  it("stores provider API format for adapter selection", () => {
+  it("stores provider API formats for adapter selection", () => {
     const database = createTestDatabase();
     databases.push(database);
 
@@ -78,12 +78,16 @@ describe("schema", () => {
       insert into providers (id, name, type, api_format, base_url, api_key_env, enabled, created_at, updated_at)
       values ('provider-responses', 'Responses', 'openai-compatible', 'openai-responses', 'https://example.test/v1', 'RESPONSES_KEY', 1, '2026-06-06T00:00:00.000Z', '2026-06-06T00:00:00.000Z')
     `).run();
+    database.prepare(`
+      insert into providers (id, name, type, api_format, base_url, api_key_env, enabled, created_at, updated_at)
+      values ('provider-claude', 'Claude', 'openai-compatible', 'claude-messages', 'https://api.anthropic.com/v1', 'ANTHROPIC_API_KEY', 1, '2026-06-06T00:00:00.000Z', '2026-06-06T00:00:00.000Z')
+    `).run();
 
-    const row = database
-      .prepare("select api_format from providers where id = ?")
-      .get<{ api_format: string }>("provider-responses");
+    const rows = database
+      .prepare("select api_format from providers where id in ('provider-responses', 'provider-claude') order by id")
+      .all<{ api_format: string }>();
 
-    expect(row).toEqual({ api_format: "openai-responses" });
+    expect(rows).toEqual([{ api_format: "claude-messages" }, { api_format: "openai-responses" }]);
   });
 
   it("allows framework workflow and llm.chat step records", () => {

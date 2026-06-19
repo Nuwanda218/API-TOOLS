@@ -1,8 +1,14 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { ModelsPage } from "./ModelsPage";
 import type { ModelRecord, ProviderRecord } from "../api/types";
+import { NotificationProvider } from "../components/notifications/NotificationProvider";
+import { ModelsPage } from "./ModelsPage";
+
+function renderWithNotifications(ui: ReactElement) {
+  return render(<NotificationProvider>{ui}</NotificationProvider>);
+}
 
 const provider: ProviderRecord = {
   id: "provider-1",
@@ -56,7 +62,7 @@ describe("ModelsPage", () => {
       listModels: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([model])
     });
 
-    render(<ModelsPage api={api} />);
+    renderWithNotifications(<ModelsPage api={api} />);
 
     await screen.findByText("DeepSeek");
     await userEvent.type(screen.getByLabelText("显示名称"), "deepseek-chat");
@@ -64,19 +70,19 @@ describe("ModelsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "添加模型" }));
 
     await waitFor(() => expect(api.createModel).toHaveBeenCalledWith(modelWithoutId(model)));
-    expect(await screen.findByText("模型已创建：deepseek-chat")).toBeInTheDocument();
+    expect((await screen.findAllByText("模型已创建：deepseek-chat")).length).toBeGreaterThanOrEqual(1);
     expect(api.listModels).toHaveBeenCalledTimes(2);
   });
 
   it("fetches remote models and reports the count", async () => {
     const api = createApi();
 
-    render(<ModelsPage api={api} />);
+    renderWithNotifications(<ModelsPage api={api} />);
 
     await screen.findByText("DeepSeek");
     await userEvent.click(screen.getByRole("button", { name: "拉取远程模型" }));
 
-    expect(await screen.findByText("已拉取 2 个远程模型")).toBeInTheDocument();
+    expect((await screen.findAllByText("已拉取 2 个远程模型")).length).toBeGreaterThanOrEqual(1);
     expect(await screen.findByText("deepseek-chat")).toBeInTheDocument();
   });
 
@@ -85,26 +91,26 @@ describe("ModelsPage", () => {
       listModels: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([model])
     });
 
-    render(<ModelsPage api={api} />);
+    renderWithNotifications(<ModelsPage api={api} />);
 
     await screen.findByText("DeepSeek");
     await userEvent.click(screen.getByRole("button", { name: "拉取远程模型" }));
     await screen.findByText("deepseek-chat");
     await userEvent.click(screen.getAllByRole("button", { name: "导入" })[0]);
 
-    expect(await screen.findByText("导入完成：新增 1 个，跳过 0 个")).toBeInTheDocument();
+    expect((await screen.findAllByText("导入完成：新增 1 个，跳过 0 个")).length).toBeGreaterThanOrEqual(1);
     expect(api.listModels).toHaveBeenCalledTimes(2);
   });
 
   it("tests a model and reports latency plus usage", async () => {
     const api = createApi({ listModels: vi.fn().mockResolvedValue([model]) });
 
-    render(<ModelsPage api={api} />);
+    renderWithNotifications(<ModelsPage api={api} />);
 
     expect(await screen.findByRole("button", { name: "测试 deepseek-chat" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "测试 deepseek-chat" }));
 
-    expect(await screen.findByText("成功: ok. (123ms, tokens 8/2)")).toBeInTheDocument();
+    expect((await screen.findAllByText("成功: ok. (123ms, tokens 8/2)")).length).toBeGreaterThanOrEqual(1);
   });
 
   it("deletes a model and refreshes the local list", async () => {
@@ -112,13 +118,13 @@ describe("ModelsPage", () => {
       listModels: vi.fn().mockResolvedValueOnce([model]).mockResolvedValueOnce([])
     });
 
-    render(<ModelsPage api={api} />);
+    renderWithNotifications(<ModelsPage api={api} />);
 
     expect(await screen.findByRole("button", { name: "删除 deepseek-chat" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "删除 deepseek-chat" }));
 
     await waitFor(() => expect(api.deleteModel).toHaveBeenCalledWith("model-1"));
-    expect(await screen.findByText("模型已删除：deepseek-chat")).toBeInTheDocument();
+    expect((await screen.findAllByText("模型已删除：deepseek-chat")).length).toBeGreaterThanOrEqual(1);
     expect(api.listModels).toHaveBeenCalledTimes(2);
   });
 
@@ -128,12 +134,12 @@ describe("ModelsPage", () => {
       deleteModel: vi.fn().mockRejectedValue(new Error("Model delete failed"))
     });
 
-    render(<ModelsPage api={api} />);
+    renderWithNotifications(<ModelsPage api={api} />);
 
     expect(await screen.findByRole("button", { name: "删除 deepseek-chat" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "删除 deepseek-chat" }));
 
-    expect(await screen.findByText("Model delete failed")).toBeInTheDocument();
+    expect((await screen.findAllByText("Model delete failed")).length).toBeGreaterThanOrEqual(1);
   });
 });
 

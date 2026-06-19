@@ -1,7 +1,13 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { NotificationProvider } from "../components/notifications/NotificationProvider";
 import { ProvidersPage } from "./ProvidersPage";
+
+function renderWithNotifications(ui: ReactElement) {
+  return render(<NotificationProvider>{ui}</NotificationProvider>);
+}
 
 describe("ProvidersPage", () => {
   it("creates a provider and refreshes the local list", async () => {
@@ -31,10 +37,11 @@ describe("ProvidersPage", () => {
         createdAt: "2026-06-08T00:00:00.000Z",
         updatedAt: "2026-06-08T00:00:00.000Z"
       }),
+      saveApiKey: vi.fn(),
       deleteProvider: vi.fn()
     };
 
-    render(<ProvidersPage api={api} />);
+    renderWithNotifications(<ProvidersPage api={api} />);
 
     await userEvent.type(screen.getByLabelText("名称"), "DeepSeek");
     await userEvent.type(screen.getByLabelText("Base URL"), "https://api.deepseek.com/v1");
@@ -51,37 +58,117 @@ describe("ProvidersPage", () => {
         enabled: true
       })
     );
-    expect(await screen.findByText("供应商已创建：DeepSeek")).toBeInTheDocument();
+    expect((await screen.findAllByText("供应商已创建：DeepSeek")).length).toBeGreaterThanOrEqual(1);
     expect(await screen.findByText("DeepSeek")).toBeInTheDocument();
     expect(screen.getAllByText("openai-chat-completions").length).toBeGreaterThan(0);
     expect(api.listProviders).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers Claude Messages API format for provider creation", async () => {
+    const providersAfterCreate = [
+      {
+        id: "provider-1",
+        name: "Claude",
+        type: "openai-compatible" as const,
+        apiFormat: "claude-messages" as const,
+        baseUrl: "https://api.anthropic.com/v1",
+        apiKeyEnv: "ANTHROPIC_API_KEY",
+        enabled: true,
+        createdAt: "2026-06-08T00:00:00.000Z",
+        updatedAt: "2026-06-08T00:00:00.000Z"
+      }
+    ];
+    const api = {
+      listProviders: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce(providersAfterCreate),
+      createProvider: vi.fn().mockResolvedValue(providersAfterCreate[0]),
+      saveApiKey: vi.fn(),
+      deleteProvider: vi.fn()
+    };
+
+    renderWithNotifications(<ProvidersPage api={api} />);
+
+    await userEvent.type(screen.getByLabelText("名称"), "Claude");
+    await userEvent.selectOptions(screen.getByLabelText("API 协议格式"), "claude-messages");
+    await userEvent.type(screen.getByLabelText("Base URL"), "https://api.anthropic.com/v1");
+    await userEvent.type(screen.getByLabelText("API Key 环境变量"), "ANTHROPIC_API_KEY");
+    await userEvent.click(screen.getByRole("button", { name: "添加 Provider" }));
+
+    await waitFor(() =>
+      expect(api.createProvider).toHaveBeenCalledWith(expect.objectContaining({
+        name: "Claude",
+        apiFormat: "claude-messages",
+        baseUrl: "https://api.anthropic.com/v1",
+        apiKeyEnv: "ANTHROPIC_API_KEY"
+      }))
+    );
+  });
+
+  it("saves an optional API key before creating a provider", async () => {
+    const providersAfterCreate = [
+      {
+        id: "provider-1",
+        name: "DeepSeek",
+        type: "openai-compatible" as const,
+        apiFormat: "openai-chat-completions" as const,
+        baseUrl: "https://api.deepseek.com/v1",
+        apiKeyEnv: "DEEPSEEK_API_KEY",
+        enabled: true,
+        createdAt: "2026-06-08T00:00:00.000Z",
+        updatedAt: "2026-06-08T00:00:00.000Z"
+      }
+    ];
+    const api = {
+      listProviders: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce(providersAfterCreate),
+      createProvider: vi.fn().mockResolvedValue(providersAfterCreate[0]),
+      saveApiKey: vi.fn().mockResolvedValue(undefined),
+      deleteProvider: vi.fn()
+    };
+
+    renderWithNotifications(<ProvidersPage api={api} />);
+
+    await userEvent.type(screen.getByLabelText("名称"), "DeepSeek");
+    await userEvent.type(screen.getByLabelText("Base URL"), "https://api.deepseek.com/v1");
+    await userEvent.type(screen.getByLabelText("API Key 环境变量"), "DEEPSEEK_API_KEY");
+    await userEvent.type(screen.getByLabelText("API Key（可选，会写入本地 .env）"), "sk-test");
+    await userEvent.click(screen.getByRole("button", { name: "添加 Provider" }));
+
+    await waitFor(() =>
+      expect(api.saveApiKey).toHaveBeenCalledWith({
+        apiKeyEnv: "DEEPSEEK_API_KEY",
+        apiKey: "sk-test"
+      })
+    );
+    expect(api.createProvider).toHaveBeenCalled();
+    expect((await screen.findAllByText("API Key 已写入本地 .env：DEEPSEEK_API_KEY")).length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows provider creation errors", async () => {
     const api = {
       listProviders: vi.fn().mockResolvedValue([]),
       createProvider: vi.fn().mockRejectedValue(new Error("Invalid provider base URL")),
+      saveApiKey: vi.fn(),
       deleteProvider: vi.fn()
     };
 
-    render(<ProvidersPage api={api} />);
+    renderWithNotifications(<ProvidersPage api={api} />);
 
     await userEvent.type(screen.getByLabelText("名称"), "Broken");
     await userEvent.type(screen.getByLabelText("Base URL"), "https://example.com/v1");
     await userEvent.type(screen.getByLabelText("API Key 环境变量"), "BROKEN_API_KEY");
     await userEvent.click(screen.getByRole("button", { name: "添加 Provider" }));
 
-    expect(await screen.findByText("Invalid provider base URL")).toBeInTheDocument();
+    expect((await screen.findAllByText("Invalid provider base URL")).length).toBeGreaterThanOrEqual(1);
   });
 
   it("rejects raw API keys before creating a provider", async () => {
     const api = {
       listProviders: vi.fn().mockResolvedValue([]),
       createProvider: vi.fn(),
+      saveApiKey: vi.fn(),
       deleteProvider: vi.fn()
     };
 
-    render(<ProvidersPage api={api} />);
+    renderWithNotifications(<ProvidersPage api={api} />);
 
     await userEvent.type(screen.getByLabelText("名称"), "DeepSeek");
     await userEvent.type(screen.getByLabelText("Base URL"), "https://api.deepseek.com/v1");
@@ -89,8 +176,8 @@ describe("ProvidersPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "添加 Provider" }));
 
     expect(
-      await screen.findByText("API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。")
-    ).toBeInTheDocument();
+      (await screen.findAllByText("API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。")).length
+    ).toBeGreaterThanOrEqual(1);
     expect(api.createProvider).not.toHaveBeenCalled();
   });
 
@@ -109,16 +196,17 @@ describe("ProvidersPage", () => {
     const api = {
       listProviders: vi.fn().mockResolvedValueOnce([provider]).mockResolvedValueOnce([]),
       createProvider: vi.fn(),
+      saveApiKey: vi.fn(),
       deleteProvider: vi.fn().mockResolvedValue(undefined)
     };
 
-    render(<ProvidersPage api={api} />);
+    renderWithNotifications(<ProvidersPage api={api} />);
 
     expect(await screen.findByText("DeepSeek")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "删除 DeepSeek" }));
 
     await waitFor(() => expect(api.deleteProvider).toHaveBeenCalledWith("provider-1"));
-    expect(await screen.findByText("供应商已删除：DeepSeek")).toBeInTheDocument();
+    expect((await screen.findAllByText("供应商已删除：DeepSeek")).length).toBeGreaterThanOrEqual(1);
     expect(api.listProviders).toHaveBeenCalledTimes(2);
   });
 
@@ -137,14 +225,15 @@ describe("ProvidersPage", () => {
     const api = {
       listProviders: vi.fn().mockResolvedValue([provider]),
       createProvider: vi.fn(),
+      saveApiKey: vi.fn(),
       deleteProvider: vi.fn().mockRejectedValue(new Error("Provider delete failed"))
     };
 
-    render(<ProvidersPage api={api} />);
+    renderWithNotifications(<ProvidersPage api={api} />);
 
     expect(await screen.findByText("DeepSeek")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "删除 DeepSeek" }));
 
-    expect(await screen.findByText("Provider delete failed")).toBeInTheDocument();
+    expect((await screen.findAllByText("Provider delete failed")).length).toBeGreaterThanOrEqual(1);
   });
 });

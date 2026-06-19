@@ -6,6 +6,7 @@ import { ZodError } from "zod";
 import { ProviderError } from "./errors/providerError.js";
 import { createAdapterRegistry } from "./adapters/registry.js";
 import type { AdapterRegistry } from "./adapters/types.js";
+import { createApiKeysRouter } from "./routes/apiKeys.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createModelsRouter } from "./routes/models.js";
 import { createProvidersRouter } from "./routes/providers.js";
@@ -15,6 +16,7 @@ import { createWorkflowsRouter } from "./routes/workflows.js";
 export interface AppDependencies {
   db: AppDatabase;
   env?: NodeJS.ProcessEnv;
+  envPath?: string;
   adapterRegistry?: AdapterRegistry;
 }
 
@@ -22,11 +24,13 @@ export function createApp(dependencies: AppDependencies) {
   const app = express();
   const { db } = dependencies;
   const env = dependencies.env ?? process.env;
+  const envPath = dependencies.envPath ?? ".env";
   const adapterRegistry = dependencies.adapterRegistry ?? createAdapterRegistry();
 
   app.use(cors({ origin: "http://127.0.0.1:5173" }));
   app.use(express.json({ limit: "2mb" }));
   app.use("/api/health", createHealthRouter());
+  app.use("/api/api-keys", createApiKeysRouter({ envPath, env }));
   app.use("/api/providers", createProvidersRouter(db, {
     env,
     adapterRegistry
