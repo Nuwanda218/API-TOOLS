@@ -753,7 +753,7 @@ git commit -m "fix: validate llm chat bridge input"
 - Modify: `server/src/workflows/runner.ts`
 - Modify: `server/src/workflows/runner.test.ts`
 
-- [ ] **Step 1: Write failing runner test for failed adapter invocation trace**
+- [x] **Step 1: Write failing runner test for failed adapter invocation trace**
 
 Append this test inside the existing `describe("workflowRunner", () => { ... })` block in `server/src/workflows/runner.test.ts`:
 
@@ -868,7 +868,7 @@ Append this test inside the existing `describe("workflowRunner", () => { ... })`
   });
 ```
 
-- [ ] **Step 2: Run runner test to verify it fails**
+- [x] **Step 2: Run runner test to verify it fails**
 
 Run:
 
@@ -878,7 +878,7 @@ npm run test --workspace server -- src/workflows/runner.test.ts
 
 Expected: FAIL because failed adapter invocations currently throw before a `run_step` is written.
 
-- [ ] **Step 3: Add helper interfaces and functions to runner**
+- [x] **Step 3: Add helper interfaces and functions to runner**
 
 In `server/src/workflows/runner.ts`, add these interfaces near the existing `LlmChatStepResult` interface:
 
@@ -1042,7 +1042,7 @@ Inside `createWorkflowRunner()`, add these persistence helpers before the return
   }
 ```
 
-- [ ] **Step 4: Refactor `runLlmChatStep()` to use resolved target**
+- [x] **Step 4: Refactor `runLlmChatStep()` to use resolved target**
 
 Replace the existing `runLlmChatStep()` function in `server/src/workflows/runner.ts` with this version:
 
@@ -1087,7 +1087,7 @@ Replace the existing `runLlmChatStep()` function in `server/src/workflows/runner
   }
 ```
 
-- [ ] **Step 5: Refactor the workflow loop to insert running step before invoking adapter**
+- [x] **Step 5: Refactor the workflow loop to insert running step before invoking adapter**
 
 In `server/src/workflows/runner.ts`, replace the body of the `for (const [stepIndex, step] of input.steps.entries()) { ... }` loop with this body:
 
@@ -1154,7 +1154,7 @@ function getErrorLatencyMs(error: ProviderError): number | undefined {
 }
 ```
 
-- [ ] **Step 6: Remove old inline successful `run_steps` insert**
+- [x] **Step 6: Remove old inline successful `run_steps` insert**
 
 In `server/src/workflows/runner.ts`, delete the old inline block inside the workflow loop that starts with:
 
@@ -1166,7 +1166,7 @@ In `server/src/workflows/runner.ts`, delete the old inline block inside the work
 
 and ends after its `.run({ ... })` call. The new `insertRunningRunStep()` plus `markRunStepSucceeded()` calls replace it.
 
-- [ ] **Step 7: Run runner tests**
+- [x] **Step 7: Run runner tests**
 
 Run:
 
@@ -1176,7 +1176,7 @@ npm run test --workspace server -- src/workflows/runner.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 8: Run workflow route tests**
+- [x] **Step 8: Run workflow route tests**
 
 Run:
 
@@ -1186,7 +1186,7 @@ npm run test --workspace server -- src/routes/workflows.test.ts src/routes/usage
 
 Expected: PASS.
 
-- [ ] **Step 9: Run server typecheck**
+- [x] **Step 9: Run server typecheck**
 
 Run:
 
@@ -1196,7 +1196,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add server/src/workflows/runner.ts server/src/workflows/runner.test.ts
