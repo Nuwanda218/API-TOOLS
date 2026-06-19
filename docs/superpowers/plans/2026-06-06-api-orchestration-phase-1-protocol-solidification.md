@@ -563,7 +563,7 @@ git commit -m "feat: add llm chat operation contract"
 - Modify: `server/src/adapters/modelApiBridge.ts`
 - Modify: `server/src/adapters/modelApiBridge.test.ts`
 
-- [ ] **Step 1: Add failing bridge validation tests**
+- [x] **Step 1: Add failing bridge validation tests**
 
 Append these tests inside the existing `describe("modelApiBridge", () => { ... })` block in `server/src/adapters/modelApiBridge.test.ts`:
 
@@ -619,7 +619,7 @@ Append these tests inside the existing `describe("modelApiBridge", () => { ... }
 
 If `provider`, `model`, `ModelAdapter`, `vi`, or `createModelApiBridge` are not already imported or declared in the file, keep the existing file-level declarations and add only the missing imports from existing neighboring tests.
 
-- [ ] **Step 2: Run bridge tests to verify they fail**
+- [x] **Step 2: Run bridge tests to verify they fail**
 
 Run:
 
@@ -629,7 +629,7 @@ npm run test --workspace server -- src/adapters/modelApiBridge.test.ts
 
 Expected: FAIL because `createModelApiBridge()` currently accepts any array as `messages` and casts it.
 
-- [ ] **Step 3: Update model API bridge to use the parser**
+- [x] **Step 3: Update model API bridge to use the parser**
 
 Modify `server/src/adapters/modelApiBridge.ts` to this complete file:
 
@@ -710,7 +710,7 @@ export function createModelApiBridge(id: string, modelAdapter: ModelAdapter): Ap
 }
 ```
 
-- [ ] **Step 4: Run bridge tests**
+- [x] **Step 4: Run bridge tests**
 
 Run:
 
@@ -720,7 +720,7 @@ npm run test --workspace server -- src/adapters/modelApiBridge.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Run all adapter and protocol tests**
+- [x] **Step 5: Run all adapter and protocol tests**
 
 Run:
 
@@ -730,7 +730,7 @@ npm run test --workspace server -- src/apiProtocol src/adapters
 
 Expected: PASS.
 
-- [ ] **Step 6: Run server typecheck**
+- [x] **Step 6: Run server typecheck**
 
 Run:
 
@@ -740,7 +740,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/adapters/modelApiBridge.ts server/src/adapters/modelApiBridge.test.ts
