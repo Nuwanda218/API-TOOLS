@@ -1210,7 +1210,7 @@ git commit -m "fix: record failed workflow run steps"
 - Create: `docs/superpowers/specs/operations/2026-06-06-models-list-operation.md`
 - Create: `docs/superpowers/specs/operations/2026-06-06-http-request-reserved-operation.md`
 
-- [ ] **Step 1: Create operation docs directory and `llm.chat` contract doc**
+- [x] **Step 1: Create operation docs directory and `llm.chat` contract doc**
 
 Create `docs/superpowers/specs/operations/2026-06-06-llm-chat-operation.md`:
 
@@ -1307,7 +1307,7 @@ Every `llm.chat` invocation must write one `run_step` with:
 - token usage when available
 ```
 
-- [ ] **Step 2: Create `models.list` contract doc**
+- [x] **Step 2: Create `models.list` contract doc**
 
 Create `docs/superpowers/specs/operations/2026-06-06-models-list-operation.md`:
 
@@ -1380,7 +1380,7 @@ The adapter may return or throw standardized provider errors including:
 `models.list` must not be accepted as a workflow step in Phase 1. If a workflow tries to execute it, the runner or route must reject it with `unsupported_workflow_step` or validation failure.
 ```
 
-- [ ] **Step 3: Create reserved `http.request` contract doc**
+- [x] **Step 3: Create reserved `http.request` contract doc**
 
 Create `docs/superpowers/specs/operations/2026-06-06-http-request-reserved-operation.md`:
 
@@ -1442,7 +1442,7 @@ Before implementing this operation, a later spec or plan must decide:
 - How errors are mapped to the standard provider error model.
 ```
 
-- [ ] **Step 4: Verify operation docs contain no placeholders**
+- [x] **Step 4: Verify operation docs contain no placeholders**
 
 Run:
 
@@ -1452,7 +1452,7 @@ rg -n -e "TB[D]" -e "TO[D]O" -e "PLACEHOLD[ER]" -e "待[定]" -e "未[定]" docs
 
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/superpowers/specs/operations/2026-06-06-llm-chat-operation.md docs/superpowers/specs/operations/2026-06-06-models-list-operation.md docs/superpowers/specs/operations/2026-06-06-http-request-reserved-operation.md
