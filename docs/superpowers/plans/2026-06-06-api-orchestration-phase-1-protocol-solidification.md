@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Solidify the Phase 1 API orchestration protocol by making operation contracts explicit, tightening `llm.chat` validation, and guaranteeing failed invocations create traceable `run_step` records.
+**Goal:** Solidify the post-v0.1 API orchestration protocol by making operation contracts explicit, tightening `llm.chat` validation, and guaranteeing failed invocations create traceable `run_step` records.
 
-**Architecture:** Keep the backend-first direction from `docs/superpowers/specs/2026-06-06-api-orchestration-framework-design.md`. Add a small operation catalog and operation-specific input validation under `server/src/apiProtocol/`, keep adapters focused on provider mapping, and refactor workflow execution only enough to satisfy the trace invariant: no invocation without a run step.
+**Architecture:** Keep the backend-first direction from `docs/superpowers/specs/2026-06-06-api-orchestration-framework-design.md`, while treating the completed v0.1 workbench UI and provider/model workflow as the current baseline. Add a small operation catalog and operation-specific input validation under `server/src/apiProtocol/`, keep adapters focused on provider mapping, and refactor workflow execution only enough to satisfy the trace invariant: no attempted workflow invocation without a `run_step`.
 
 **Tech Stack:** TypeScript, Express, sql.js, Vitest, Supertest, Zod, npm workspaces.
 
@@ -12,7 +12,7 @@
 
 ## Scope check
 
-This plan implements only Phase 1 from the new direction spec:
+This plan implements only Phase 1 from the new direction spec, starting from the v0.1 workbench baseline:
 
 - Solidify protocol-level operation metadata.
 - Keep `llm.chat` as the only workflow-executable operation.
@@ -21,10 +21,21 @@ This plan implements only Phase 1 from the new direction spec:
 - Tighten adapter bridge input validation.
 - Guarantee failed adapter invocations are written to `run_steps` and `runs`.
 - Add focused tests and documentation for these rules.
+- Preserve the existing frontend behavior and run full workspace verification at the end.
+
+Current workspace note:
+
+- `server/src/apiProtocol/types.ts`
+- `server/src/apiProtocol/types.test.ts`
+- `server/src/apiProtocol/llmChat.ts`
+- `server/src/apiProtocol/operationCatalog.ts`
+- `server/src/apiProtocol/operationCatalog.test.ts`
+
+These files may already exist locally as partial protocol-solidification work. Treat them as draft state, verify them against this plan, and replace or complete them as needed. Do not assume the current local content is already correct.
 
 This plan does not implement:
 
-- Frontend UI.
+- Frontend UI or frontend product behavior changes.
 - `image.generate`.
 - Executable `http.request`.
 - Visual workflow builder.
@@ -33,7 +44,7 @@ This plan does not implement:
 
 ## File structure
 
-Create these files:
+Create or complete these files:
 
 ```text
 server/src/apiProtocol/operationCatalog.ts
@@ -1462,7 +1473,17 @@ npm run test --workspace server
 
 Expected: all server tests pass.
 
-- [ ] **Step 2: Run backend typecheck**
+- [ ] **Step 2: Run frontend tests**
+
+Run:
+
+```bash
+npm run test --workspace client
+```
+
+Expected: all client tests pass.
+
+- [ ] **Step 3: Run backend typecheck**
 
 Run:
 
@@ -1472,7 +1493,17 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 3: Run backend build**
+- [ ] **Step 4: Run frontend typecheck**
+
+Run:
+
+```bash
+npm run typecheck --workspace client
+```
+
+Expected: PASS.
+
+- [ ] **Step 5: Run backend build**
 
 Run:
 
@@ -1482,19 +1513,29 @@ npm run build --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 4: Confirm workspace-level typecheck still fails only because client source is absent**
+- [ ] **Step 6: Run frontend build**
 
 Run:
 
 ```bash
-npm run typecheck
+npm run build --workspace client
 ```
 
-Expected: server typecheck passes, then client typecheck fails with TS18003 because `client/src`, `client/vite.config.ts`, and `client/vitest.config.ts` are not implemented yet.
+Expected: PASS.
 
-If it fails for a different reason, fix that reason before continuing.
+- [ ] **Step 7: Run workspace-level verification**
 
-- [ ] **Step 5: Inspect git status**
+Run:
+
+```bash
+npm run test
+npm run typecheck
+npm run build
+```
+
+Expected: all workspace commands pass. This project now has both server and client source trees, so workspace-level typecheck must not rely on the old missing-client-source failure.
+
+- [ ] **Step 8: Inspect git status**
 
 Run:
 
@@ -1504,7 +1545,7 @@ git status --short
 
 Expected: clean working tree.
 
-- [ ] **Step 6: Commit any verification fixes**
+- [ ] **Step 9: Commit any verification fixes**
 
 If verification required fixes, stage only relevant files and commit:
 
@@ -1526,7 +1567,7 @@ This plan maps to the Phase 1 requirements in `docs/superpowers/specs/2026-06-06
 - Workflow step/run trace stability: Task 4.
 - Error model stability: Tasks 3 and 4.
 - Testing strategy: Tasks 1 through 4 and Task 6.
-- No frontend scope: explicitly excluded in the scope check.
+- No frontend product changes: explicitly excluded in the scope check, while final verification still covers the existing client.
 - No `image.generate` or executable `http.request`: `http.request` is reserved and documented only.
 
 ### Placeholder scan
