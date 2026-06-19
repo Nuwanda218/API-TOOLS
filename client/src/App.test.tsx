@@ -18,6 +18,9 @@ describe("App", () => {
 
     render(<App />);
 
+    expect(screen.getByTestId("app-shell")).toHaveClass("console-shell");
+    expect(screen.getByLabelText("Workspace navigation")).toBeInTheDocument();
+    expect(screen.getByText("API operations console")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "工作台" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "API接入" })).toBeInTheDocument();
     expect(screen.getByText("单步工作流")).toBeInTheDocument();

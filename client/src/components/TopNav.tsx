@@ -88,7 +88,7 @@ export function TopNav({
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
 
   return (
-    <aside className={`side-nav ${collapsed ? "collapsed" : ""}`}>
+    <aside className={`side-nav ${collapsed ? "collapsed" : ""}`} aria-label="Workspace navigation">
       <div className="brand-block">
         <div className="brand-mark">AT</div>
         {!collapsed && (

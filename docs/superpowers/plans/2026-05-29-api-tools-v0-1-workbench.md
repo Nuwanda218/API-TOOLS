@@ -6440,7 +6440,7 @@ git commit -m "feat: auto-dismiss non-error notifications"
 - Modify: `client/src/App.test.tsx`
 - Modify: `docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md`
 
-- [ ] **Step 1: Write failing shell UI tests**
+- [x] **Step 1: Write failing shell UI tests**
 
 Extend `client/src/App.test.tsx` to assert:
 
@@ -6450,7 +6450,7 @@ expect(screen.getByLabelText("Workspace navigation")).toBeInTheDocument();
 expect(screen.getByText("API operations console")).toBeInTheDocument();
 ```
 
-- [ ] **Step 2: Run focused App tests and verify RED**
+- [x] **Step 2: Run focused App tests and verify RED**
 
 Run:
 
@@ -6460,7 +6460,7 @@ npm run test --workspace client -- src/App.test.tsx --reporter=verbose
 
 Expected: FAIL because the new console shell class, navigation label, and console eyebrow text are not present.
 
-- [ ] **Step 3: Update shell markup**
+- [x] **Step 3: Update shell markup**
 
 In `App.tsx`, change the root shell class to include `console-shell`, and change the workspace header copy to include a compact console eyebrow:
 
@@ -6480,7 +6480,7 @@ In `TopNav.tsx`, set:
 <aside className={`side-nav ${collapsed ? "collapsed" : ""}`} aria-label="Workspace navigation">
 ```
 
-- [ ] **Step 4: Replace visual system CSS**
+- [x] **Step 4: Replace visual system CSS**
 
 Update `client/src/styles.css` to:
 
@@ -6494,7 +6494,7 @@ Update `client/src/styles.css` to:
 - preserve collapsed sidebar and mobile behavior
 ```
 
-- [ ] **Step 5: Run frontend verification**
+- [x] **Step 5: Run frontend verification**
 
 Run:
 
@@ -6505,7 +6505,7 @@ npm run typecheck --workspace client
 npm run build --workspace client
 ```
 
-- [ ] **Step 6: Commit Task 18**
+- [x] **Step 6: Commit Task 18**
 
 ```bash
 git add client/src/App.tsx client/src/components/TopNav.tsx client/src/styles.css client/src/App.test.tsx docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md

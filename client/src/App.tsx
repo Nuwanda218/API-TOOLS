@@ -234,6 +234,7 @@ function ModulePage({ language, page }: { language: LanguageKey; page: PageKey }
     <main className="workspace">
       <div className="workspace-header">
         <div>
+          <span className="workspace-eyebrow">API operations console</span>
           <span className="module-badge">{view.badge}</span>
           <h1>{view.title}</h1>
         </div>
@@ -297,7 +298,7 @@ export function App() {
 
   return (
     <NotificationProvider>
-      <div className={`app-shell ${collapsed ? "nav-collapsed" : ""}`} data-testid="app-shell">
+      <div className={`app-shell console-shell ${collapsed ? "nav-collapsed" : ""}`} data-testid="app-shell">
         <TopNav
           collapsed={collapsed}
           currentPage={currentPage}
@@ -306,7 +307,12 @@ export function App() {
           onLanguageChange={setLanguage}
           onPageChange={setCurrentPage}
         />
-        {content}
+        <div className="content-shell">
+          <div className="console-topline">
+            <span className="workspace-eyebrow">API operations console</span>
+          </div>
+          {content}
+        </div>
       </div>
     </NotificationProvider>
   );
