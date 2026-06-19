@@ -1464,7 +1464,7 @@ git commit -m "docs: add api operation contracts"
 **Files:**
 - No new files unless verification reveals a necessary fix.
 
-- [ ] **Step 1: Run backend tests**
+- [x] **Step 1: Run backend tests**
 
 Run:
 
@@ -1474,7 +1474,7 @@ npm run test --workspace server
 
 Expected: all server tests pass.
 
-- [ ] **Step 2: Run frontend tests**
+- [x] **Step 2: Run frontend tests**
 
 Run:
 
@@ -1484,7 +1484,7 @@ npm run test --workspace client
 
 Expected: all client tests pass.
 
-- [ ] **Step 3: Run backend typecheck**
+- [x] **Step 3: Run backend typecheck**
 
 Run:
 
@@ -1494,7 +1494,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 4: Run frontend typecheck**
+- [x] **Step 4: Run frontend typecheck**
 
 Run:
 
@@ -1504,7 +1504,7 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 5: Run backend build**
+- [x] **Step 5: Run backend build**
 
 Run:
 
@@ -1514,7 +1514,7 @@ npm run build --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 6: Run frontend build**
+- [x] **Step 6: Run frontend build**
 
 Run:
 
@@ -1524,7 +1524,7 @@ npm run build --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 7: Run workspace-level verification**
+- [x] **Step 7: Run workspace-level verification**
 
 Run:
 
@@ -1536,7 +1536,7 @@ npm run build
 
 Expected: all workspace commands pass. This project now has both server and client source trees, so workspace-level typecheck must not rely on the old missing-client-source failure.
 
-- [ ] **Step 8: Inspect git status**
+- [x] **Step 8: Inspect git status**
 
 Run:
 
@@ -1546,7 +1546,7 @@ git status --short
 
 Expected: clean working tree.
 
-- [ ] **Step 9: Commit any verification fixes**
+- [x] **Step 9: Commit any verification fixes**
 
 If verification required fixes, stage only relevant files and commit:
 
