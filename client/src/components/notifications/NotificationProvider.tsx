@@ -21,6 +21,7 @@ interface NotificationContextValue {
 }
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
+const AUTO_DISMISS_MS = 5000;
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
@@ -28,6 +29,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   function push(tone: NotificationTone, input: NotificationInput) {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setNotifications((current) => [{ id, tone, ...input }, ...current].slice(0, 4));
+    if (tone !== "error") {
+      window.setTimeout(() => dismiss(id), AUTO_DISMISS_MS);
+    }
   }
 
   function dismiss(id: string) {
@@ -58,6 +62,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             <button type="button" aria-label={`关闭 ${notification.title}`} onClick={() => dismiss(notification.id)}>
               x
             </button>
+            {notification.tone !== "error" && (
+              <span
+                aria-label={`${notification.title} 消失进度`}
+                className="notification-progress"
+                role="progressbar"
+              />
+            )}
           </article>
         ))}
       </section>

@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NotificationProvider, useNotifications } from "./NotificationProvider";
 
 function TriggerButtons() {
@@ -27,6 +27,10 @@ function TriggerButtons() {
 }
 
 describe("NotificationProvider", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders success, error, warning, and info messages with code and detail", async () => {
     render(
       <NotificationProvider>
@@ -56,5 +60,59 @@ describe("NotificationProvider", () => {
     await userEvent.click(screen.getByRole("button", { name: "关闭 请求失败" }));
 
     await waitFor(() => expect(screen.queryByText("请求失败")).not.toBeInTheDocument());
+  });
+
+  it("auto-dismisses non-error notifications", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <NotificationProvider>
+        <TriggerButtons />
+      </NotificationProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "success" }));
+
+    expect(screen.getByText("保存成功")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(screen.queryByText("保存成功")).not.toBeInTheDocument();
+  });
+
+  it("shows a dismissal progress bar only for timed notifications", () => {
+    render(
+      <NotificationProvider>
+        <TriggerButtons />
+      </NotificationProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "success" }));
+    fireEvent.click(screen.getByRole("button", { name: "error" }));
+
+    expect(screen.getByLabelText("保存成功 消失进度")).toBeInTheDocument();
+    expect(screen.queryByLabelText("请求失败 消失进度")).not.toBeInTheDocument();
+  });
+
+  it("keeps error notifications visible until users dismiss them", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <NotificationProvider>
+        <TriggerButtons />
+      </NotificationProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "error" }));
+
+    expect(screen.getByText("请求失败")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(screen.getByText("请求失败")).toBeInTheDocument();
   });
 });

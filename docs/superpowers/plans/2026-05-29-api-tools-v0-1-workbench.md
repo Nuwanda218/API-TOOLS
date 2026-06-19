@@ -6362,3 +6362,152 @@ git commit -m "feat: add claude messages adapter"
 - Spec coverage: this plan covers scaffold, API接入, 模型管理, OpenAI-compatible chat, model testing, generic workflow execution with a first `llm.chat` step, run/run_step records, a workflow workbench, minimal usage summary, frontend operation feedback, structured frontend errors, and global notifications for manual provider/model/workbench operations. It intentionally defers image2, arbitrary HTTP/API step execution, advanced usage analytics, full visual workflow editing, and Claude Messages API adapter to later plans.
 - Placeholder scan: no TBD/TODO/fill-in placeholders remain. Deferred scope is explicitly named as later plans.
 - Type consistency: provider/model/session/run/run_step names match the design spec and remain consistent across repositories, routes, runner, workflow step types, and frontend API types.
+
+## Task 17: Timed notifications with persistent errors
+
+**Goal:** Make non-error notifications disappear automatically while error notifications remain visible until dismissed.
+
+**Architecture:** Keep the existing `NotificationProvider` API unchanged. Add an internal timeout only for `success`, `info`, and `warning` to dismiss after a short duration. Leave `error` persistent so backend error codes and compact logs remain available for manual inspection.
+
+**Files:**
+- Modify: `client/src/components/notifications/NotificationProvider.tsx`
+- Modify: `client/src/components/notifications/NotificationProvider.test.tsx`
+- Modify: `docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md`
+
+- [x] **Step 1: Write failing notification lifetime tests**
+
+Add tests that use fake timers:
+
+```tsx
+vi.useFakeTimers();
+await userEvent.click(screen.getByRole("button", { name: "success" }));
+expect(screen.getByText("保存成功")).toBeInTheDocument();
+vi.advanceTimersByTime(5000);
+await waitFor(() => expect(screen.queryByText("保存成功")).not.toBeInTheDocument());
+```
+
+Also verify error notifications stay visible after the same timer window.
+
+- [x] **Step 2: Run focused notification tests and verify RED**
+
+Run:
+
+```bash
+npm run test --workspace client -- src/components/notifications/NotificationProvider.test.tsx --reporter=verbose
+```
+
+Expected: FAIL because notifications do not auto-dismiss yet.
+
+- [x] **Step 3: Implement notification timeout behavior**
+
+In `NotificationProvider.tsx`, after adding a notification, set a timer only when tone is not `error`:
+
+```ts
+const AUTO_DISMISS_MS = 5000;
+if (tone !== "error") {
+  window.setTimeout(() => dismiss(id), AUTO_DISMISS_MS);
+}
+```
+
+- [x] **Step 4: Run focused and client verification**
+
+Run:
+
+```bash
+npm run test --workspace client -- src/components/notifications/NotificationProvider.test.tsx --reporter=verbose
+npm run test --workspace client
+npm run typecheck --workspace client
+npm run build --workspace client
+```
+
+- [x] **Step 5: Commit Task 17**
+
+```bash
+git add client/src/components/notifications/NotificationProvider.tsx client/src/components/notifications/NotificationProvider.test.tsx docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md
+git commit -m "feat: auto-dismiss non-error notifications"
+```
+
+## Task 18: Stripe/Vercel-style API console UI pass
+
+**Goal:** Redesign the frontend into a more professional API console while preserving current workflows and backend behavior.
+
+**Architecture:** Use a restrained dashboard layout inspired by widely used developer consoles such as Stripe and Vercel: stable left sidebar, compact content header, resource management panels, clear forms, table-like record rows, and low-noise status colors. This task is visual and structural CSS/markup only; it must not change provider/model/workflow API behavior.
+
+**Files:**
+- Modify: `client/src/App.tsx`
+- Modify: `client/src/components/TopNav.tsx`
+- Modify: `client/src/styles.css`
+- Modify: `client/src/App.test.tsx`
+- Modify: `docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md`
+
+- [ ] **Step 1: Write failing shell UI tests**
+
+Extend `client/src/App.test.tsx` to assert:
+
+```tsx
+expect(screen.getByTestId("app-shell")).toHaveClass("console-shell");
+expect(screen.getByLabelText("Workspace navigation")).toBeInTheDocument();
+expect(screen.getByText("API operations console")).toBeInTheDocument();
+```
+
+- [ ] **Step 2: Run focused App tests and verify RED**
+
+Run:
+
+```bash
+npm run test --workspace client -- src/App.test.tsx --reporter=verbose
+```
+
+Expected: FAIL because the new console shell class, navigation label, and console eyebrow text are not present.
+
+- [ ] **Step 3: Update shell markup**
+
+In `App.tsx`, change the root shell class to include `console-shell`, and change the workspace header copy to include a compact console eyebrow:
+
+```tsx
+<div className={`app-shell console-shell ${collapsed ? "nav-collapsed" : ""}`} data-testid="app-shell">
+```
+
+Add:
+
+```tsx
+<span className="workspace-eyebrow">API operations console</span>
+```
+
+In `TopNav.tsx`, set:
+
+```tsx
+<aside className={`side-nav ${collapsed ? "collapsed" : ""}`} aria-label="Workspace navigation">
+```
+
+- [ ] **Step 4: Replace visual system CSS**
+
+Update `client/src/styles.css` to:
+
+```text
+- use a light neutral app background
+- make sidebar a fixed-width console navigation column
+- reduce large decorative headers
+- style page forms and panels as clear resource-management surfaces
+- make record rows table-like and scan-friendly
+- keep cards at 8px radius or less
+- preserve collapsed sidebar and mobile behavior
+```
+
+- [ ] **Step 5: Run frontend verification**
+
+Run:
+
+```bash
+npm run test --workspace client -- src/App.test.tsx --reporter=verbose
+npm run test --workspace client
+npm run typecheck --workspace client
+npm run build --workspace client
+```
+
+- [ ] **Step 6: Commit Task 18**
+
+```bash
+git add client/src/App.tsx client/src/components/TopNav.tsx client/src/styles.css client/src/App.test.tsx docs/superpowers/plans/2026-05-29-api-tools-v0-1-workbench.md
+git commit -m "style: refine api console interface"
+```
