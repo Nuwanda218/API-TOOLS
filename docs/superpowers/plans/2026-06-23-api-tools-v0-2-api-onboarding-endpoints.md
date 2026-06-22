@@ -62,7 +62,7 @@ This phase does not implement:
 - Create: `docs/superpowers/specs/2026-06-23-conversation-memory-strategy-backlog.md`
 - Modify: `docs/superpowers/plans/2026-06-23-api-tools-v0-2-api-onboarding-endpoints.md`
 
-- [ ] **Step 1: Create the backlog document**
+- [x] **Step 1: Create the backlog document**
 
 Create `docs/superpowers/specs/2026-06-23-conversation-memory-strategy-backlog.md` with these sections:
 
@@ -112,7 +112,7 @@ The system embeds and retrieves relevant conversation fragments.
 API Tools v0.2 may store ordinary messages and run traces, but it must not implement long-term memory, vector retrieval, summary memory, or provider-specific remote thread behavior.
 ```
 
-- [ ] **Step 2: Run placeholder scan**
+- [x] **Step 2: Run placeholder scan**
 
 Run:
 
@@ -122,7 +122,7 @@ rg -n -e "TB[D]" -e "TO[D]O" -e "PLACEHOLD[ER]" -e "待[定]" -e "未[定]" docs
 
 Expected: no output.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/superpowers/specs/2026-06-23-conversation-memory-strategy-backlog.md docs/superpowers/plans/2026-06-23-api-tools-v0-2-api-onboarding-endpoints.md
