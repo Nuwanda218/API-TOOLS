@@ -9,9 +9,21 @@ export interface ProviderRecord {
   apiFormat: ProviderApiFormat;
   baseUrl: string;
   apiKeyEnv: string;
+  capabilities: ProviderCapabilities;
   enabled: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface ProviderCapabilities {
+  supportsChat: boolean;
+  supportsModelListing: boolean;
+  supportsManualModelImport: boolean;
+  supportsStreaming: boolean;
+  supportsToolCalling: boolean;
+  supportsVision: boolean;
+  supportsRemoteConversation: boolean;
+  requiresManualModelImport: boolean;
 }
 
 export interface CreateProviderInput {
@@ -20,6 +32,7 @@ export interface CreateProviderInput {
   apiFormat: ProviderApiFormat;
   baseUrl: string;
   apiKeyEnv: string;
+  capabilities?: Partial<ProviderCapabilities>;
   enabled: boolean;
 }
 

@@ -9,6 +9,7 @@ export function applySchema(db: AppDatabase) {
       api_format text not null default 'openai-chat-completions' check (api_format in ('openai-chat-completions', 'openai-responses', 'claude-messages')),
       base_url text not null,
       api_key_env text not null,
+      capabilities_json text not null default '{}',
       enabled integer not null default 1,
       created_at text not null,
       updated_at text not null
@@ -77,4 +78,13 @@ export function applySchema(db: AppDatabase) {
       updated_at text not null
     );
   `);
+
+  addColumnIfMissing(db, "providers", "capabilities_json", "text not null default '{}'");
+}
+
+function addColumnIfMissing(db: AppDatabase, table: string, column: string, definition: string) {
+  const columns = db.prepare(`pragma table_info(${table})`).all<{ name: string }>();
+  if (columns.some((entry) => entry.name === column)) return;
+
+  db.prepare(`alter table ${table} add column ${column} ${definition}`).run();
 }

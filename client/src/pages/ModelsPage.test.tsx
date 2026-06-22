@@ -17,6 +17,16 @@ const provider: ProviderRecord = {
   apiFormat: "openai-chat-completions",
   baseUrl: "https://api.deepseek.com/v1",
   apiKeyEnv: "DEEPSEEK_API_KEY",
+  capabilities: {
+    supportsChat: true,
+    supportsModelListing: true,
+    supportsManualModelImport: true,
+    supportsStreaming: false,
+    supportsToolCalling: false,
+    supportsVision: false,
+    supportsRemoteConversation: false,
+    requiresManualModelImport: false
+  },
   enabled: true
 };
 

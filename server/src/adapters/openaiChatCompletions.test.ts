@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Model } from "../providers/modelRepository.js";
-import type { Provider } from "../providers/providerRepository.js";
+import { DEFAULT_PROVIDER_CAPABILITIES, type Provider } from "../providers/providerRepository.js";
 import { createOpenAIChatCompletionsAdapter } from "./openaiChatCompletions.js";
 
 const provider: Provider = {
@@ -10,6 +10,7 @@ const provider: Provider = {
   apiFormat: "openai-chat-completions",
   baseUrl: "https://example.test/v1",
   apiKeyEnv: "CUSTOM_KEY",
+  capabilities: DEFAULT_PROVIDER_CAPABILITIES,
   enabled: true,
   createdAt: "now",
   updatedAt: "now"

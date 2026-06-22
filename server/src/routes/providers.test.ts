@@ -24,7 +24,17 @@ describe("provider routes", () => {
       apiFormat: "openai-chat-completions",
       baseUrl: "https://api.deepseek.com/v1",
       apiKeyEnv: "DEEPSEEK_API_KEY",
-      enabled: true
+      enabled: true,
+      capabilities: {
+        supportsChat: true,
+        supportsModelListing: true,
+        supportsManualModelImport: true,
+        supportsStreaming: false,
+        supportsToolCalling: false,
+        supportsVision: false,
+        supportsRemoteConversation: false,
+        requiresManualModelImport: false
+      }
     });
 
     const listResponse = await request(app).get("/api/providers");
@@ -82,6 +92,41 @@ describe("provider routes", () => {
       baseUrl: "https://api.anthropic.com/v1",
       apiKeyEnv: "ANTHROPIC_API_KEY",
       enabled: true
+    });
+
+    db.close();
+  });
+
+  it("creates providers with capability overrides", async () => {
+    const db = createTestDatabase();
+    const app = createApp({ db });
+
+    const response = await request(app).post("/api/providers").send({
+      name: "TJU",
+      type: "openai-compatible",
+      apiFormat: "openai-chat-completions",
+      baseUrl: "https://ai.tju.edu.cn/api/v3",
+      apiKeyEnv: "TJU_API_KEY",
+      enabled: true,
+      capabilities: {
+        supportsModelListing: false,
+        requiresManualModelImport: true
+      }
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      name: "TJU",
+      capabilities: {
+        supportsChat: true,
+        supportsModelListing: false,
+        supportsManualModelImport: true,
+        supportsStreaming: false,
+        supportsToolCalling: false,
+        supportsVision: false,
+        supportsRemoteConversation: false,
+        requiresManualModelImport: true
+      }
     });
 
     db.close();

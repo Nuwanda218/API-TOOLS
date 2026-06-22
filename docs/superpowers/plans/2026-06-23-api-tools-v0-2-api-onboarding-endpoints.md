@@ -140,7 +140,7 @@ git commit -m "docs: add conversation memory strategy backlog"
 - Modify: `server/src/routes/providers.test.ts`
 - Modify: `client/src/api/client.ts`
 
-- [ ] **Step 1: Add failing repository test**
+- [x] **Step 1: Add failing repository test**
 
 Add a test that creates a provider and expects capability defaults:
 
@@ -165,13 +165,13 @@ npm run test --workspace server -- src/providers/providerRepository.test.ts
 
 Expected: FAIL because `capabilities` is not returned.
 
-- [ ] **Step 2: Add schema column**
+- [x] **Step 2: Add schema column**
 
 Add `capabilities_json text not null default '{}'` to `providers`.
 
 Store provider capabilities as JSON to avoid repeated migrations while the capability matrix evolves.
 
-- [ ] **Step 3: Add provider capability types and defaults**
+- [x] **Step 3: Add provider capability types and defaults**
 
 Add `ProviderCapabilities` and `DEFAULT_PROVIDER_CAPABILITIES` in `providerRepository.ts`.
 
@@ -190,19 +190,19 @@ Default values:
 }
 ```
 
-- [ ] **Step 4: Map capabilities in create/list/get**
+- [x] **Step 4: Map capabilities in create/list/get**
 
 Ensure provider create input accepts optional `capabilities`, persists it, and row mapping merges stored values over defaults.
 
-- [ ] **Step 5: Update route tests**
+- [x] **Step 5: Update route tests**
 
 Update provider route tests to assert returned JSON includes `capabilities`.
 
-- [ ] **Step 6: Update client API type**
+- [x] **Step 6: Update client API type**
 
 Update the frontend provider type to include the capability object.
 
-- [ ] **Step 7: Verify**
+- [x] **Step 7: Verify**
 
 Run:
 
@@ -214,7 +214,7 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add server/src/db/schema.ts server/src/providers/providerRepository.ts server/src/providers/providerRepository.test.ts server/src/routes/providers.test.ts client/src/api/client.ts
