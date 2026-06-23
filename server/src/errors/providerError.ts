@@ -11,6 +11,7 @@ export type ProviderErrorCode =
   | "unsupported_operation"
   | "unsupported_workflow_step"
   | "invalid_api_resource"
+  | "unexpected_response_shape"
   | "provider_error"
   | "network_error";
 

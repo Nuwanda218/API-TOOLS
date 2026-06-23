@@ -2,6 +2,7 @@ import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import type { AdapterRegistry, ModelAdapter } from "../adapters/types.js";
 import { createApp } from "../app.js";
+import { ProviderError } from "../errors/providerError.js";
 import { createTestDatabase } from "../test/testDb.js";
 
 describe("provider remote model routes", () => {
@@ -79,6 +80,50 @@ describe("provider remote model routes", () => {
       message: "Missing API key env var: OPENAI_API_KEY"
     });
     expect(JSON.stringify(response.body)).not.toContain("sk-should-not-leak");
+
+    db.close();
+  });
+
+  it("returns standardized remote model listing shape errors", async () => {
+    const db = createTestDatabase();
+    const adapter = {
+      listModels: vi.fn().mockRejectedValue(
+        new ProviderError("unexpected_response_shape", "Remote model list response was not usable", {
+          providerMessage: "Remote model list response was not valid JSON",
+          statusCode: 502,
+          suggestion: "Use manual model import with a known model ID."
+        })
+      ),
+      testModel: vi.fn(),
+      runChat: vi.fn()
+    } satisfies ModelAdapter;
+    const app = createApp({
+      db,
+      env: { OPENAI_API_KEY: "sk-test" },
+      adapterRegistry: {
+        getModelAdapter: vi.fn(() => adapter),
+        invoke: vi.fn()
+      }
+    });
+
+    const providerResponse = await request(app).post("/api/providers").send({
+      name: "Horizon",
+      type: "openai-official",
+      apiFormat: "openai-responses",
+      baseUrl: "https://api.openai.com/v1",
+      apiKeyEnv: "OPENAI_API_KEY",
+      enabled: true
+    });
+
+    const response = await request(app).get(`/api/providers/${providerResponse.body.id}/remote-models`);
+
+    expect(response.status).toBe(502);
+    expect(response.body).toMatchObject({
+      code: "unexpected_response_shape",
+      message: "Remote model list response was not usable",
+      providerMessage: "Remote model list response was not valid JSON",
+      suggestion: "Use manual model import with a known model ID."
+    });
 
     db.close();
   });

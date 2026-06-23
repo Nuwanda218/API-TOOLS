@@ -188,4 +188,42 @@ describe("openaiChatCompletionsAdapter", () => {
       providerMessage: "invalid key"
     });
   });
+
+  it("standardizes non-JSON remote model listing responses", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError("Unexpected token < in JSON");
+      }
+    });
+    const adapter = createOpenAIChatCompletionsAdapter({ fetch: fetchMock });
+
+    await expect(adapter.listModels({
+      provider,
+      apiKey: "secret"
+    })).rejects.toMatchObject({
+      code: "unexpected_response_shape",
+      providerMessage: "Remote model list response was not valid JSON",
+      suggestion: expect.stringContaining("manual")
+    });
+  });
+
+  it("standardizes remote model listing responses without data arrays", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ object: "html-fallback" })
+    });
+    const adapter = createOpenAIChatCompletionsAdapter({ fetch: fetchMock });
+
+    await expect(adapter.listModels({
+      provider,
+      apiKey: "secret"
+    })).rejects.toMatchObject({
+      code: "unexpected_response_shape",
+      providerMessage: "Remote model list response did not include a data array",
+      suggestion: expect.stringContaining("manual")
+    });
+  });
 });

@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
-import type { ApiClient } from "../api/client";
+import { ApiClientError, type ApiClient } from "../api/client";
 import { formatErrorNotification, formatErrorTitle } from "../api/errors";
 import type { ModelCapability, ModelRecord, ProviderRecord, RemoteModelRecord } from "../api/types";
 import { useNotifications } from "../components/notifications/NotificationProvider";
@@ -36,6 +36,7 @@ const copy = {
     fetchingRemote: "正在拉取远程模型...",
     fetchedRemote: "已拉取",
     remoteSuffix: "个远程模型",
+    remoteListingUnsupported: "远程模型列表不可用，可手动导入模型 ID。",
     importDone: "导入完成",
     createdCount: "新增",
     skippedCount: "跳过",
@@ -66,6 +67,7 @@ const copy = {
     fetchingRemote: "Fetching remote models...",
     fetchedRemote: "Fetched",
     remoteSuffix: "remote models",
+    remoteListingUnsupported: "Remote model listing is unavailable. You can import model IDs manually.",
     importDone: "Import complete",
     createdCount: "created",
     skippedCount: "skipped",
@@ -169,6 +171,16 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
       setStatus(successMessage);
       notify.success({ title: successMessage });
     } catch (error) {
+      if (error instanceof ApiClientError && error.code === "unexpected_response_shape") {
+        setRemoteModels([]);
+        setStatus(text.remoteListingUnsupported);
+        notify.warning({
+          title: text.remoteListingUnsupported,
+          detail: error.log
+        });
+        return;
+      }
+
       setStatus(formatErrorTitle(error, text.fetchRemote));
       notify.error(formatErrorNotification(error, text.fetchRemote));
     } finally {

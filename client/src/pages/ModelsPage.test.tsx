@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { ApiClientError } from "../api/client";
 import type { ModelRecord, ProviderRecord } from "../api/types";
 import { NotificationProvider } from "../components/notifications/NotificationProvider";
 import { ModelsPage } from "./ModelsPage";
@@ -94,6 +95,26 @@ describe("ModelsPage", () => {
 
     expect((await screen.findAllByText("已拉取 2 个远程模型")).length).toBeGreaterThanOrEqual(1);
     expect(await screen.findByText("deepseek-chat")).toBeInTheDocument();
+  });
+
+  it("shows manual import guidance when remote model listing is unsupported", async () => {
+    const api = createApi({
+      listRemoteModels: vi.fn().mockRejectedValue(
+        new ApiClientError({
+          code: "unexpected_response_shape",
+          message: "Remote model list response was not usable",
+          providerMessage: "Remote model list response was not valid JSON",
+          statusCode: 502
+        })
+      )
+    });
+
+    renderWithNotifications(<ModelsPage api={api} />);
+
+    await screen.findByText("DeepSeek");
+    await userEvent.click(screen.getByRole("button", { name: "拉取远程模型" }));
+
+    expect((await screen.findAllByText("远程模型列表不可用，可手动导入模型 ID。")).length).toBeGreaterThanOrEqual(1);
   });
 
   it("imports a remote model and reports created and skipped counts", async () => {

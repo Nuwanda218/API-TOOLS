@@ -293,23 +293,23 @@ git commit -m "feat: show provider connection status"
 - Modify: `client/src/pages/ModelsPage.tsx`
 - Modify: `client/src/pages/ModelsPage.test.tsx`
 
-- [ ] **Step 1: Add failing adapter test for HTML model-list response**
+- [x] **Step 1: Add failing adapter test for HTML model-list response**
 
 Mock `/models` returning `text/html` and assert the provider error code is `model_listing_unsupported` or `unexpected_response_shape`.
 
-- [ ] **Step 2: Add error code**
+- [x] **Step 2: Add error code**
 
 Add a standard provider error code for model listing shape failures.
 
-- [ ] **Step 3: Update model list parser**
+- [x] **Step 3: Update model list parser**
 
 When `/models` returns non-JSON or JSON without an array-like model list, return a standardized provider error with a suggestion to use manual model import.
 
-- [ ] **Step 4: Update frontend messaging**
+- [x] **Step 4: Update frontend messaging**
 
 When remote model listing fails with this code, show a non-blocking message that manual import is available.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -322,7 +322,7 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/src/adapters/openaiChatCompletions.ts server/src/adapters/openaiChatCompletions.test.ts server/src/errors/providerError.ts server/src/routes client/src/pages/ModelsPage.tsx client/src/pages/ModelsPage.test.tsx
