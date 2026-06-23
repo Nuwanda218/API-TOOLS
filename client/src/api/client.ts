@@ -1,6 +1,8 @@
 import type {
   CreateModelInput,
+  CreateEndpointInput,
   CreateProviderInput,
+  EndpointRecord,
   ModelRecord,
   ProviderRecord,
   RemoteModelRecord,
@@ -95,6 +97,29 @@ export const apiClient = {
 
   deleteProvider(providerId: string) {
     return requestJson<void>(`/api/providers/${providerId}`, { method: "DELETE" });
+  },
+
+  listEndpoints(providerId?: string) {
+    const search = providerId ? `?providerId=${encodeURIComponent(providerId)}` : "";
+    return requestJson<EndpointRecord[]>(`/api/endpoints${search}`);
+  },
+
+  createEndpoint(input: CreateEndpointInput) {
+    return requestJson<EndpointRecord>("/api/endpoints", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+
+  updateEndpoint(endpointId: string, input: Partial<CreateEndpointInput>) {
+    return requestJson<EndpointRecord>(`/api/endpoints/${endpointId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input)
+    });
+  },
+
+  deleteEndpoint(endpointId: string) {
+    return requestJson<void>(`/api/endpoints/${endpointId}`, { method: "DELETE" });
   },
 
   listRemoteModels(providerId: string) {

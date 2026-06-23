@@ -59,6 +59,35 @@ export interface ModelRecord {
   updatedAt?: string;
 }
 
+export type EndpointMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+export interface EndpointRecord {
+  id: string;
+  providerId: string;
+  name: string;
+  operationId: string;
+  method: EndpointMethod;
+  path: string;
+  queryTemplate: Record<string, unknown>;
+  headersTemplate: Record<string, unknown>;
+  bodyTemplate: unknown;
+  enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateEndpointInput {
+  providerId: string;
+  name: string;
+  operationId: string;
+  method: EndpointMethod;
+  path: string;
+  queryTemplate: Record<string, unknown>;
+  headersTemplate: Record<string, unknown>;
+  bodyTemplate?: unknown;
+  enabled: boolean;
+}
+
 export interface CreateModelInput {
   providerId: string;
   displayName: string;

@@ -613,7 +613,7 @@ git commit -m "feat: add endpoint repository"
 - Modify: `server/src/app.ts`
 - Modify: `client/src/api/client.ts`
 
-- [ ] **Step 1: Add failing route tests**
+- [x] **Step 1: Add failing route tests**
 
 Test:
 
@@ -625,7 +625,7 @@ Test:
 - reject missing provider
 - reject full URL path
 
-- [ ] **Step 2: Implement routes**
+- [x] **Step 2: Implement routes**
 
 Add:
 
@@ -637,15 +637,15 @@ PATCH /api/endpoints/:id
 DELETE /api/endpoints/:id
 ```
 
-- [ ] **Step 3: Register routes in app**
+- [x] **Step 3: Register routes in app**
 
 Mount endpoint routes under `/api/endpoints`.
 
-- [ ] **Step 4: Update client API**
+- [x] **Step 4: Update client API**
 
 Add endpoint types and functions.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -657,7 +657,7 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/src/routes/endpoints.ts server/src/routes/endpoints.test.ts server/src/app.ts client/src/api/client.ts
