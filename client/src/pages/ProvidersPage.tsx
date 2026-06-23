@@ -36,7 +36,18 @@ const copy = {
     apiKeyHelp: "如果填写，会由本地后端写入 .env；不会保存到数据库。",
     savingApiKey: "正在写入 API Key...",
     apiKeySaved: "API Key 已写入本地 .env",
-    invalidApiKeyEnv: "API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。"
+    invalidApiKeyEnv: "API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。",
+    disabled: "disabled",
+    apiKeyEnvDetail: "Key 变量",
+    capabilities: "能力",
+    chat: "聊天",
+    modelListing: "模型列表",
+    modelListingOff: "模型列表关闭",
+    manualImport: "手动导入",
+    streaming: "流式",
+    toolCalling: "工具调用",
+    vision: "视觉",
+    remoteConversation: "远端会话"
   },
   en: {
     title: "Providers",
@@ -63,11 +74,37 @@ const copy = {
     apiKeyHelp: "If filled, the local backend writes it to .env. It is not saved to the database.",
     savingApiKey: "Saving API key...",
     apiKeySaved: "API key saved to local .env",
-    invalidApiKeyEnv: "API key env var must be a variable name such as DEEPSEEK_API_KEY, not the real key."
+    invalidApiKeyEnv: "API key env var must be a variable name such as DEEPSEEK_API_KEY, not the real key.",
+    disabled: "disabled",
+    apiKeyEnvDetail: "Key env",
+    capabilities: "Capabilities",
+    chat: "chat",
+    modelListing: "model listing",
+    modelListingOff: "model listing off",
+    manualImport: "manual import",
+    streaming: "streaming",
+    toolCalling: "tool calling",
+    vision: "vision",
+    remoteConversation: "remote conversation"
   }
 } satisfies Record<LanguageKey, Record<string, string>>;
 
 const apiKeyEnvPattern = /^[A-Z][A-Z0-9_]*$/;
+
+function getCapabilityLabels(provider: ProviderRecord, text: Record<string, string>) {
+  const { capabilities } = provider;
+  const labels: string[] = [];
+
+  if (capabilities.supportsChat) labels.push(text.chat);
+  labels.push(capabilities.supportsModelListing ? text.modelListing : text.modelListingOff);
+  if (capabilities.requiresManualModelImport || capabilities.supportsManualModelImport) labels.push(text.manualImport);
+  if (capabilities.supportsStreaming) labels.push(text.streaming);
+  if (capabilities.supportsToolCalling) labels.push(text.toolCalling);
+  if (capabilities.supportsVision) labels.push(text.vision);
+  if (capabilities.supportsRemoteConversation) labels.push(text.remoteConversation);
+
+  return labels;
+}
 
 export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
   const text = copy[language];
@@ -246,10 +283,25 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
         <div className="record-list">
           {providers.map((provider) => (
             <div className="record-row provider-row" key={provider.id}>
-              <strong>{provider.name}</strong>
-              <span>{provider.apiFormat}</span>
-              <span>{provider.baseUrl}</span>
-              <em>{provider.enabled ? text.enabled : "disabled"}</em>
+              <div className="record-primary">
+                <strong>{provider.name}</strong>
+                <span>{provider.type}</span>
+              </div>
+              <div className="provider-details">
+                <span>{provider.apiFormat}</span>
+                <span>{provider.baseUrl}</span>
+                <span>
+                  {text.apiKeyEnvDetail}: <code>{provider.apiKeyEnv}</code>
+                </span>
+              </div>
+              <div className="capability-tags" aria-label={`${provider.name} ${text.capabilities}`}>
+                {getCapabilityLabels(provider, text).map((label) => (
+                  <span className="capability-tag" key={label}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+              <em>{provider.enabled ? text.enabled : text.disabled}</em>
               <button
                 aria-label={`${text.delete} ${provider.name}`}
                 className="inline-action danger-action"

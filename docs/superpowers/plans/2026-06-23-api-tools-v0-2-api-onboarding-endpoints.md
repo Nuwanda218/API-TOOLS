@@ -231,7 +231,7 @@ git commit -m "feat: add provider capability profile"
 - Modify: `client/src/pages/ProvidersPage.tsx`
 - Modify: `client/src/pages/ProvidersPage.test.tsx`
 
-- [ ] **Step 1: Add failing provider status tests**
+- [x] **Step 1: Add failing provider status tests**
 
 Add route tests for returned provider fields:
 
@@ -247,7 +247,7 @@ expect(provider).toMatchObject({
 });
 ```
 
-- [ ] **Step 2: Update provider page data rendering**
+- [x] **Step 2: Update provider page data rendering**
 
 Show provider connection details:
 
@@ -258,11 +258,11 @@ Show provider connection details:
 - Capability badges
 - Manual model import requirement when `requiresManualModelImport` is true
 
-- [ ] **Step 3: Add frontend test**
+- [x] **Step 3: Add frontend test**
 
 Assert provider details and capability badges render after loading `/api/providers`.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -274,7 +274,7 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/routes/providers.ts server/src/routes/providers.test.ts client/src/pages/ProvidersPage.tsx client/src/pages/ProvidersPage.test.tsx
