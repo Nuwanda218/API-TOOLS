@@ -1,55 +1,61 @@
-# http.request Reserved Operation Contract
+# http.request Operation Contract
 
 ## Status
 
-Reserved. Not implemented and not workflow-executable in Phase 1.
+Implemented for endpoint testing. Not workflow-executable in this phase.
 
 ## Purpose
 
-`http.request` is reserved for future generic HTTP API execution.
+`http.request` is the internal operation contract for generic HTTP API calls owned by endpoint resources.
 
-It exists in the operation catalog to prevent ad-hoc endpoint-specific behavior from being introduced under another name before the contract is designed.
+It prevents endpoint-specific behavior from leaking into workflow definitions or provider adapters. Endpoint testing may use this contract; workflow execution must still reject `http.request` until a later phase defines trace, secret redaction, and branching behavior for generic API steps.
 
-## Phase 1 rule
-
-Any attempt to execute `http.request` must be rejected.
-
-## Future input sketch
-
-The future contract may include:
+## Input Contract
 
 ```ts
 interface HttpRequestInput {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
+  query?: Record<string, string | number | boolean>;
   headers?: Record<string, string>;
   body?: unknown;
+  timeoutMs?: number;
 }
 ```
 
-This sketch is not an implementation contract.
+Rules:
 
-## Future output sketch
+- `method` is required.
+- `path` is required and must start with `/`.
+- `query` values must be strings, numbers, or booleans.
+- `headers` values must be strings.
+- `body` may be any JSON-compatible value.
+- `timeoutMs` must be a positive integer when provided.
 
-The future contract may include:
+## Output Contract
+
+Endpoint test execution should return a normalized result with:
 
 ```ts
 interface HttpRequestData {
   status: number;
   headers: Record<string, string>;
-  body: unknown;
+  bodyPreview: unknown;
+  latencyMs: number;
 }
 ```
 
-This sketch is not an implementation contract.
+Full response bodies must be size-limited before storage or UI rendering.
 
-## Design constraints before implementation
+## Workflow Rule
 
-Before implementing this operation, a later spec or plan must decide:
+`http.request` remains `workflowStep: false`.
 
-- How endpoint paths are configured without leaking provider-specific details into workflow definitions.
-- Whether the adapter is dedicated or config-driven.
-- Which headers are allowed.
-- How request and response bodies are size-limited.
-- How secrets are prevented from entering trace previews.
-- How errors are mapped to the standard provider error model.
+Any workflow step using `http.request` must be rejected until a later plan explicitly enables it.
+
+## Safety Constraints
+
+- Secrets must not be stored in run previews.
+- Request and response bodies must be bounded.
+- Endpoint paths are configured through endpoint resources, not arbitrary workflow step paths.
+- Errors must map into the standard provider error model.

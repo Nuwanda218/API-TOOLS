@@ -27,11 +27,11 @@ describe("operation catalog", () => {
     expect(isWorkflowExecutableOperation("http.request")).toBe(false);
   });
 
-  it("keeps http.request reserved so it cannot accidentally execute", () => {
+  it("defines http.request for endpoint testing without enabling workflow execution", () => {
     expect(getCoreOperationSpec("http.request")).toMatchObject({
       id: "http.request",
-      status: "reserved",
-      resourceKind: "none",
+      status: "implemented",
+      resourceKind: "endpoint",
       workflowStep: false
     });
   });

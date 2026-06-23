@@ -497,11 +497,11 @@ git commit -m "feat: add run history view"
 - Create: `server/src/apiProtocol/httpRequest.test.ts`
 - Modify: `docs/superpowers/specs/operations/2026-06-06-http-request-reserved-operation.md`
 
-- [ ] **Step 1: Add failing protocol parser tests**
+- [x] **Step 1: Add failing protocol parser tests**
 
 Test method, path, headers, query, body, and timeout parsing.
 
-- [ ] **Step 2: Implement `parseHttpRequestInput()`**
+- [x] **Step 2: Implement `parseHttpRequestInput()`**
 
 Accept:
 
@@ -514,15 +514,15 @@ body?: unknown;
 timeoutMs?: number;
 ```
 
-- [ ] **Step 3: Keep workflow execution disabled**
+- [x] **Step 3: Keep workflow execution disabled**
 
 The catalog status can move from reserved to implemented for endpoint testing, while `workflowStep` remains false in this phase.
 
-- [ ] **Step 4: Update operation doc**
+- [x] **Step 4: Update operation doc**
 
 Rename the status from reserved-only to endpoint-test implemented, workflow-execution disabled.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -533,7 +533,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/src/apiProtocol/operationCatalog.ts server/src/apiProtocol/httpRequest.ts server/src/apiProtocol/httpRequest.test.ts docs/superpowers/specs/operations/2026-06-06-http-request-reserved-operation.md

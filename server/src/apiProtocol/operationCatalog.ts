@@ -37,13 +37,13 @@ export const CORE_OPERATION_SPECS: Record<CoreOperationId, OperationSpec> = {
   },
   "http.request": {
     id: "http.request",
-    description: "Reserved operation for future generic HTTP execution.",
-    resourceKind: "none",
+    description: "Send a normalized HTTP request through an endpoint resource.",
+    resourceKind: "endpoint",
     workflowStep: false,
-    status: "reserved",
-    inputContract: "Reserved. Future contract will define method, path, headers, and body.",
-    outputContract: "Reserved. Future contract will define status, headers, and body.",
-    usageContract: "Reserved."
+    status: "implemented",
+    inputContract: "method, path, optional query, headers, body, timeoutMs.",
+    outputContract: "Endpoint test result with status, headers, body preview, latency, and error details.",
+    usageContract: "No token usage is expected."
   }
 };
 
