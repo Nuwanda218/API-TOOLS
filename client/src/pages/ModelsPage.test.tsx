@@ -182,6 +182,30 @@ describe("ModelsPage", () => {
     expect((await screen.findAllByText("成功: ok. (123ms, tokens 8/2)")).length).toBeGreaterThanOrEqual(1);
   });
 
+  it("tests a model with custom prompt and runtime params", async () => {
+    const api = createApi({ listModels: vi.fn().mockResolvedValue([model]) });
+
+    renderWithNotifications(<ModelsPage api={api} />);
+
+    await screen.findByRole("button", { name: "测试 deepseek-chat" });
+    await userEvent.clear(screen.getByLabelText("测试提示词"));
+    await userEvent.type(screen.getByLabelText("测试提示词"), "只回复 ok");
+    await userEvent.clear(screen.getByLabelText("Temperature"));
+    await userEvent.type(screen.getByLabelText("Temperature"), "0");
+    await userEvent.clear(screen.getByLabelText("Max tokens"));
+    await userEvent.type(screen.getByLabelText("Max tokens"), "20");
+    await userEvent.click(screen.getByRole("button", { name: "测试 deepseek-chat" }));
+
+    expect(api.testModel).toHaveBeenCalledWith("model-1", {
+      message: "只回复 ok",
+      params: {
+        temperature: 0,
+        maxTokens: 20
+      }
+    });
+    expect((await screen.findAllByText("成功: ok. (123ms, tokens 8/2)")).length).toBeGreaterThanOrEqual(1);
+  });
+
   it("deletes a model and refreshes the local list", async () => {
     const api = createApi({
       listModels: vi.fn().mockResolvedValueOnce([model]).mockResolvedValueOnce([])

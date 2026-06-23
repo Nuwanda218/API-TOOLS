@@ -7,6 +7,7 @@ import type {
   RunWorkflowRequest,
   RunWorkflowResponse,
   SaveApiKeyInput,
+  TestModelInput,
   TestModelResponse,
   UsageSummary
 } from "./types";
@@ -129,8 +130,11 @@ export const apiClient = {
     return requestJson<void>(`/api/models/${modelId}`, { method: "DELETE" });
   },
 
-  testModel(modelId: string) {
-    return requestJson<TestModelResponse>(`/api/models/${modelId}/test`, { method: "POST" });
+  testModel(modelId: string, input?: TestModelInput) {
+    return requestJson<TestModelResponse>(`/api/models/${modelId}/test`, {
+      method: "POST",
+      body: JSON.stringify(input ?? {})
+    });
   },
 
   getUsageSummary() {

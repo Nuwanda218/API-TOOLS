@@ -390,7 +390,7 @@ git commit -m "feat: add manual model import workflow"
 - Modify: `client/src/pages/ModelsPage.tsx`
 - Modify: `client/src/pages/ModelsPage.test.tsx`
 
-- [ ] **Step 1: Add failing route test for custom prompt**
+- [x] **Step 1: Add failing route test for custom prompt**
 
 Test `POST /api/models/:id/test` with body:
 
@@ -406,15 +406,15 @@ Test `POST /api/models/:id/test` with body:
 
 Expected response includes `ok`, `latencyMs`, `message`, and `usage`.
 
-- [ ] **Step 2: Extend model test request parser**
+- [x] **Step 2: Extend model test request parser**
 
 Accept optional message and params while preserving the current default test behavior.
 
-- [ ] **Step 3: Add frontend test console controls**
+- [x] **Step 3: Add frontend test console controls**
 
 Add prompt textarea, parameter fields, and response detail rendering.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -427,7 +427,7 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/routes/modelTest.ts server/src/routes/modelTest.test.ts client/src/pages/ModelsPage.tsx client/src/pages/ModelsPage.test.tsx

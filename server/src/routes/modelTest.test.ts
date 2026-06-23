@@ -140,4 +140,74 @@ describe("model test route", () => {
 
     db.close();
   });
+
+  it("tests a model with a custom prompt and runtime params", async () => {
+    const db = createTestDatabase();
+    const adapter: ModelAdapter = {
+      listModels: vi.fn(),
+      testModel: vi.fn(),
+      runChat: vi.fn().mockResolvedValue({
+        content: "ok",
+        latencyMs: 7,
+        usage: { inputTokens: 8, outputTokens: 1 }
+      })
+    };
+    const app = createApp({
+      db,
+      env: { CUSTOM_KEY: "secret" },
+      adapterRegistry: {
+        getModelAdapter: vi.fn(() => adapter),
+        invoke: vi.fn()
+      }
+    });
+
+    const providerResponse = await request(app).post("/api/providers").send({
+      name: "Custom",
+      type: "openai-compatible",
+      baseUrl: "https://example.test/v1",
+      apiKeyEnv: "CUSTOM_KEY",
+      enabled: true
+    });
+    const modelResponse = await request(app).post("/api/models").send({
+      providerId: providerResponse.body.id,
+      displayName: "Fast Chat",
+      modelId: "fast-chat",
+      capability: "chat",
+      enabled: true,
+      defaultParams: { temperature: 0.8 },
+      pricing: {}
+    });
+
+    const testResponse = await request(app)
+      .post(`/api/models/${modelResponse.body.id}/test`)
+      .send({
+        message: "只回复 ok",
+        params: {
+          temperature: 0,
+          maxTokens: 20
+        }
+      });
+
+    expect(testResponse.status).toBe(200);
+    expect(testResponse.body).toMatchObject({
+      ok: true,
+      latencyMs: 7,
+      message: "ok",
+      usage: { inputTokens: 8, outputTokens: 1 }
+    });
+    expect(adapter.runChat).toHaveBeenCalledWith({
+      provider: expect.objectContaining({ id: providerResponse.body.id }),
+      model: expect.objectContaining({
+        id: modelResponse.body.id,
+        defaultParams: {
+          temperature: 0,
+          maxTokens: 20
+        }
+      }),
+      apiKey: "secret",
+      messages: [{ role: "user", content: "只回复 ok" }]
+    });
+
+    db.close();
+  });
 });

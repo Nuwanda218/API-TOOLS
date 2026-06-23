@@ -30,6 +30,10 @@ const copy = {
     import: "导入",
     localTitle: "本地模型",
     test: "测试",
+    testConsole: "测试控制台",
+    testPrompt: "测试提示词",
+    temperature: "Temperature",
+    maxTokens: "Max tokens",
     success: "成功",
     empty: "还没有本地模型。",
     noProvider: "请先创建 Provider。",
@@ -63,6 +67,10 @@ const copy = {
     import: "Import",
     localTitle: "Local models",
     test: "Test",
+    testConsole: "Test console",
+    testPrompt: "Test prompt",
+    temperature: "Temperature",
+    maxTokens: "Max tokens",
     success: "Succeeded",
     empty: "No local models yet.",
     noProvider: "Create a provider first.",
@@ -95,6 +103,9 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
   const [enabled, setEnabled] = useState(true);
   const [status, setStatus] = useState("");
   const [testResult, setTestResult] = useState("");
+  const [testMessage, setTestMessage] = useState("Reply with ok.");
+  const [testTemperature, setTestTemperature] = useState("");
+  const [testMaxTokens, setTestMaxTokens] = useState("");
   const [creating, setCreating] = useState(false);
   const [fetchingRemote, setFetchingRemote] = useState(false);
   const [importingId, setImportingId] = useState("");
@@ -268,7 +279,15 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
   async function handleTest(id: string) {
     notify.info({ title: text.test });
     try {
-      const result = await api.testModel(id);
+      const params: { temperature?: number; maxTokens?: number } = {};
+      const temperature = Number(testTemperature);
+      const maxTokens = Number(testMaxTokens);
+      if (testTemperature.trim() && Number.isFinite(temperature)) params.temperature = temperature;
+      if (testMaxTokens.trim() && Number.isFinite(maxTokens)) params.maxTokens = maxTokens;
+      const result = await api.testModel(id, {
+        message: testMessage,
+        params
+      });
       const usage =
         result.usage?.inputTokens !== undefined || result.usage?.outputTokens !== undefined
           ? `, tokens ${result.usage?.inputTokens ?? 0}/${result.usage?.outputTokens ?? 0}`
@@ -390,6 +409,35 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
         {status && <p className="panel-status">{status}</p>}
         {testResult && <p className="panel-status success">{testResult}</p>}
         {models.length === 0 && !status && <p className="panel-status">{text.empty}</p>}
+        <div className="test-console" aria-label={text.testConsole}>
+          <label>
+            {text.testPrompt}
+            <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} />
+          </label>
+          <label>
+            {text.temperature}
+            <input
+              aria-label={text.temperature}
+              min="0"
+              max="2"
+              step="0.1"
+              type="number"
+              value={testTemperature}
+              onChange={(event) => setTestTemperature(event.target.value)}
+            />
+          </label>
+          <label>
+            {text.maxTokens}
+            <input
+              aria-label={text.maxTokens}
+              min="1"
+              step="1"
+              type="number"
+              value={testMaxTokens}
+              onChange={(event) => setTestMaxTokens(event.target.value)}
+            />
+          </label>
+        </div>
         <div className="record-list">
           {models.map((model) => (
             <div className="record-row model-row" key={model.id}>

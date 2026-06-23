@@ -774,6 +774,40 @@ button {
   min-height: 48px;
 }
 
+.test-console {
+  border-bottom: 1px solid #edf1f5;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) minmax(90px, 0.4fr) minmax(90px, 0.4fr);
+  padding: 14px 16px;
+}
+
+.test-console label {
+  color: #526174;
+  display: grid;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+}
+
+.test-console input,
+.test-console textarea {
+  background: #fbfcfd;
+  border: 1px solid #cfd8e2;
+  border-radius: 8px;
+  color: #111827;
+  min-height: 34px;
+  padding: 0 10px;
+  width: 100%;
+}
+
+.test-console textarea {
+  line-height: 1.45;
+  min-height: 68px;
+  padding: 9px 10px;
+  resize: vertical;
+}
+
 .workbench-page {
   grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.18fr);
 }
@@ -935,6 +969,10 @@ button {
   .provider-row,
   .model-row,
   .usage-row {
+    grid-template-columns: 1fr;
+  }
+
+  .test-console {
     grid-template-columns: 1fr;
   }
 }

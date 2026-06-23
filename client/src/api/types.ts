@@ -79,6 +79,14 @@ export interface TestModelResponse {
   };
 }
 
+export interface TestModelInput {
+  message?: string;
+  params?: {
+    temperature?: number;
+    maxTokens?: number;
+  };
+}
+
 export interface UsageSummary {
   requestCount: number;
   inputTokens: number;
