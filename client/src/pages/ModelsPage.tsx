@@ -22,7 +22,9 @@ const copy = {
     displayName: "显示名称",
     modelId: "Model ID",
     capability: "能力",
+    enabled: "启用",
     submit: "添加模型",
+    manualImport: "手动导入模型",
     remoteTitle: "远程模型",
     fetchRemote: "拉取远程模型",
     import: "导入",
@@ -53,7 +55,9 @@ const copy = {
     displayName: "Display name",
     modelId: "Model ID",
     capability: "Capability",
+    enabled: "Enabled",
     submit: "Add model",
+    manualImport: "Manual import model",
     remoteTitle: "Remote models",
     fetchRemote: "Fetch remote models",
     import: "Import",
@@ -88,6 +92,7 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
   const [displayName, setDisplayName] = useState("");
   const [modelId, setModelId] = useState("");
   const [capability, setCapability] = useState<ModelCapability>("chat");
+  const [enabled, setEnabled] = useState(true);
   const [status, setStatus] = useState("");
   const [testResult, setTestResult] = useState("");
   const [creating, setCreating] = useState(false);
@@ -133,7 +138,7 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
         displayName,
         modelId,
         capability,
-        enabled: true,
+        enabled,
         defaultParams: {},
         pricing: {}
       });
@@ -149,6 +154,46 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
       notify.error(formatErrorNotification(error, text.created));
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleManualImport() {
+    if (!providerId) {
+      setStatus(text.noProvider);
+      notify.warning({ title: text.noProvider });
+      return;
+    }
+
+    setImportingId("__manual__");
+    setStatus(text.import);
+    setTestResult("");
+    notify.info({ title: text.import, detail: modelId });
+
+    try {
+      const result = await api.importModels(providerId, [
+        {
+          providerId,
+          displayName: displayName || modelId,
+          modelId,
+          capability,
+          enabled,
+          defaultParams: {},
+          pricing: {}
+        }
+      ]);
+
+      await refreshModels();
+      const successMessage =
+        `${text.importDone}：${text.createdCount} ${result.created.length} ${text.countSuffix}，${text.skippedCount} ${result.skipped.length} ${text.countSuffix}`.trim();
+      setStatus(successMessage);
+      notify.success({ title: successMessage });
+      setDisplayName("");
+      setModelId("");
+    } catch (error) {
+      setStatus(formatErrorTitle(error, text.importDone));
+      notify.error(formatErrorNotification(error, text.importDone));
+    } finally {
+      setImportingId("");
     }
   }
 
@@ -294,8 +339,20 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
               <option value="multimodal">multimodal</option>
             </select>
           </label>
+          <label className="checkbox-row">
+            <input checked={enabled} type="checkbox" onChange={(event) => setEnabled(event.target.checked)} />
+            {text.enabled}
+          </label>
           <button type="submit" disabled={!providerId || creating}>
             {creating ? text.creating : text.submit}
+          </button>
+          <button
+            className="secondary-action"
+            disabled={!providerId || !modelId || importingId === "__manual__"}
+            type="button"
+            onClick={handleManualImport}
+          >
+            {importingId === "__manual__" ? text.importDone : text.manualImport}
           </button>
         </form>
 

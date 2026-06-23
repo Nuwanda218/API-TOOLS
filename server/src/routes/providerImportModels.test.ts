@@ -32,6 +32,7 @@ describe("provider model import routes", () => {
           modelId: "gpt-5.4-mini",
           displayName: "GPT-5.4 Mini",
           capability: "chat",
+          enabled: false,
           defaultParams: { temperature: 0.2 },
           pricing: { inputTokenPrice: 0.1 }
         }
@@ -52,6 +53,7 @@ describe("provider model import routes", () => {
         providerId: provider.id,
         modelId: "gpt-5.4-mini",
         displayName: "GPT-5.4 Mini",
+        enabled: false,
         defaultParams: { temperature: 0.2 },
         pricing: { inputTokenPrice: 0.1 }
       })

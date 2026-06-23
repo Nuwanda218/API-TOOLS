@@ -536,6 +536,17 @@ button {
   resize: vertical;
 }
 
+.card-form .checkbox-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.card-form .checkbox-row input {
+  min-height: auto;
+  width: auto;
+}
+
 .card-form button,
 .secondary-action,
 .inline-action {

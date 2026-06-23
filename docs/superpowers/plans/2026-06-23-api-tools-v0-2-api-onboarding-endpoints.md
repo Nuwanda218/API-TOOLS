@@ -338,11 +338,11 @@ git commit -m "fix: standardize remote model listing errors"
 - Modify: `client/src/pages/ModelsPage.test.tsx`
 - Modify: `server/src/routes/providerImportModels.test.ts`
 
-- [ ] **Step 1: Add failing frontend test**
+- [x] **Step 1: Add failing frontend test**
 
 Test that a user can select a provider, enter `modelId`, submit manual import, and see the model in the local list.
 
-- [ ] **Step 2: Add manual import UI**
+- [x] **Step 2: Add manual import UI**
 
 Add a form with:
 
@@ -353,15 +353,15 @@ Add a form with:
 - enabled checkbox
 - import button
 
-- [ ] **Step 3: Add automatic refresh**
+- [x] **Step 3: Add automatic refresh**
 
 After successful import, refresh local models and show success notification.
 
-- [ ] **Step 4: Verify backend import still accepts direct input**
+- [x] **Step 4: Verify backend import still accepts direct input**
 
 Run existing import route tests and add one assertion that importing a model without prior remote list lookup succeeds.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -373,7 +373,7 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add client/src/pages/ModelsPage.tsx client/src/pages/ModelsPage.test.tsx server/src/routes/providerImportModels.test.ts

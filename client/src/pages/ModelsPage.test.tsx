@@ -68,6 +68,44 @@ function createApi(overrides: Partial<Parameters<typeof ModelsPage>[0]["api"]> =
 }
 
 describe("ModelsPage", () => {
+  it("manually imports a model by ID and refreshes the local list", async () => {
+    const importedModel = {
+      ...model,
+      id: "model-tju",
+      displayName: "tju-llm",
+      modelId: "tju-llm"
+    };
+    const api = createApi({
+      listModels: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([importedModel]),
+      importModels: vi.fn().mockResolvedValue({ created: [importedModel], skipped: [] })
+    });
+
+    renderWithNotifications(<ModelsPage api={api} />);
+
+    await screen.findByText("DeepSeek");
+    await userEvent.clear(screen.getByLabelText("显示名称"));
+    await userEvent.type(screen.getByLabelText("显示名称"), "tju-llm");
+    await userEvent.clear(screen.getByLabelText("Model ID"));
+    await userEvent.type(screen.getByLabelText("Model ID"), "tju-llm");
+    await userEvent.click(screen.getByRole("button", { name: "手动导入模型" }));
+
+    await waitFor(() =>
+      expect(api.importModels).toHaveBeenCalledWith("provider-1", [
+        {
+          providerId: "provider-1",
+          displayName: "tju-llm",
+          modelId: "tju-llm",
+          capability: "chat",
+          enabled: true,
+          defaultParams: {},
+          pricing: {}
+        }
+      ])
+    );
+    expect((await screen.findAllByText("导入完成：新增 1 个，跳过 0 个")).length).toBeGreaterThanOrEqual(1);
+    expect((await screen.findAllByText("tju-llm")).length).toBeGreaterThanOrEqual(1);
+  });
+
   it("creates a model and refreshes the local list", async () => {
     const api = createApi({
       listModels: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([model])
