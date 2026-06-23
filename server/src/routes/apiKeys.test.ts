@@ -51,4 +51,20 @@ describe("api key routes", () => {
 
     db.close();
   });
+
+  it("rejects secret-like env var names", async () => {
+    const db = createTestDatabase();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "api-tools-env-"));
+    const app = createApp({ db, envPath: path.join(tmpDir, ".env") });
+
+    const response = await request(app).post("/api/api-keys").send({
+      apiKeyEnv: "SKREALKEYVALUE12345678901234567890",
+      apiKey: "sk-test"
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("invalid_request");
+
+    db.close();
+  });
 });

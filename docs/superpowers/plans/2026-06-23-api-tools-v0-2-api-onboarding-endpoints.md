@@ -765,33 +765,35 @@ git commit -m "feat: add endpoint management page"
 **Files:**
 - Modify: `server/src/config/dotenvFile.ts`
 - Modify: `server/src/config/dotenvFile.test.ts`
+- Modify: `server/src/routes/apiKeys.ts`
+- Modify: `server/src/routes/apiKeys.test.ts`
 - Modify: `server/src/routes/providers.ts`
 - Modify: `server/src/routes/providers.test.ts`
 - Modify: `client/src/pages/ProvidersPage.tsx`
 - Modify: `client/src/pages/ProvidersPage.test.tsx`
 
-- [ ] **Step 1: Add failing dotenv format tests**
+- [x] **Step 1: Add failing dotenv format tests**
 
 Assert saved values are written without leading spaces and quoted only when required.
 
-- [ ] **Step 2: Add raw key rejection tests**
+- [x] **Step 2: Add raw key rejection tests**
 
 Provider `apiKeyEnv` must reject values starting with `sk-`, `tk-`, or containing long secret-like strings.
 
-- [ ] **Step 3: Implement validation**
+- [x] **Step 3: Implement validation**
 
 Reject raw key in `apiKeyEnv` and keep existing optional API key save flow.
 
-- [ ] **Step 4: Update frontend copy and validation**
+- [x] **Step 4: Update frontend copy and validation**
 
 Make provider form distinguish API key env variable from actual API key.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
 ```bash
-npm run test --workspace server -- src/config/dotenvFile.test.ts src/routes/providers.test.ts
+npm run test --workspace server -- src/config/dotenvFile.test.ts src/routes/providers.test.ts src/routes/apiKeys.test.ts
 npm run test --workspace client -- src/pages/ProvidersPage.test.tsx
 npm run typecheck --workspace server
 npm run typecheck --workspace client
@@ -799,10 +801,10 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
-git add server/src/config/dotenvFile.ts server/src/config/dotenvFile.test.ts server/src/routes/providers.ts server/src/routes/providers.test.ts client/src/pages/ProvidersPage.tsx client/src/pages/ProvidersPage.test.tsx
+git add server/src/config/dotenvFile.ts server/src/config/dotenvFile.test.ts server/src/routes/apiKeys.ts server/src/routes/apiKeys.test.ts server/src/routes/providers.ts server/src/routes/providers.test.ts client/src/pages/ProvidersPage.tsx client/src/pages/ProvidersPage.test.tsx docs/superpowers/plans/2026-06-23-api-tools-v0-2-api-onboarding-endpoints.md
 git commit -m "fix: harden api key handling"
 ```
 

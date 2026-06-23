@@ -10,7 +10,8 @@ import { createProviderRepository } from "../providers/providerRepository.js";
 
 const apiKeyEnvSchema = z
   .string()
-  .regex(/^[A-Z][A-Z0-9_]*$/, "API key env var must be an environment variable name");
+  .regex(/^[A-Z][A-Z0-9_]*$/, "API key env var must be an environment variable name")
+  .refine((value) => !looksLikeRawApiKey(value), "API key env var must be an environment variable name");
 
 const providerCapabilitiesSchema = z.object({
   supportsChat: z.boolean().optional(),
@@ -146,4 +147,8 @@ export function createProvidersRouter(db: AppDatabase, dependencies: ProvidersRo
   });
 
   return router;
+}
+
+function looksLikeRawApiKey(value: string) {
+  return /^(sk|tk)-/i.test(value) || /[A-Z0-9]{32,}/.test(value);
 }

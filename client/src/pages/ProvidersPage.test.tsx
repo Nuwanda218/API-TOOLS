@@ -196,6 +196,27 @@ describe("ProvidersPage", () => {
     expect(api.createProvider).not.toHaveBeenCalled();
   });
 
+  it("rejects secret-like values in API key env var names", async () => {
+    const api = {
+      listProviders: vi.fn().mockResolvedValue([]),
+      createProvider: vi.fn(),
+      saveApiKey: vi.fn(),
+      deleteProvider: vi.fn()
+    };
+
+    renderWithNotifications(<ProvidersPage api={api} />);
+
+    await userEvent.type(screen.getByLabelText("名称"), "Long secret");
+    await userEvent.type(screen.getByLabelText("Base URL"), "https://api.deepseek.com/v1");
+    await userEvent.type(screen.getByLabelText("API Key 环境变量"), "SKREALKEYVALUE12345678901234567890");
+    await userEvent.click(screen.getByRole("button", { name: "添加 Provider" }));
+
+    expect(
+      (await screen.findAllByText("API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。")).length
+    ).toBeGreaterThanOrEqual(1);
+    expect(api.createProvider).not.toHaveBeenCalled();
+  });
+
   it("deletes a provider and refreshes the list", async () => {
     const provider = {
       id: "provider-1",

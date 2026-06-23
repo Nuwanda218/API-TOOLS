@@ -91,6 +91,14 @@ const copy = {
 
 const apiKeyEnvPattern = /^[A-Z][A-Z0-9_]*$/;
 
+function looksLikeRawApiKey(value: string) {
+  return /^(sk|tk)-/i.test(value) || /[A-Z0-9]{32,}/.test(value);
+}
+
+function isValidApiKeyEnv(value: string) {
+  return apiKeyEnvPattern.test(value) && !looksLikeRawApiKey(value);
+}
+
 function getCapabilityLabels(provider: ProviderRecord, text: Record<string, string>) {
   const { capabilities } = provider;
   const labels: string[] = [];
@@ -148,7 +156,7 @@ export function ProvidersPage({ api, language = "zh-CN" }: ProvidersPageProps) {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
-    if (!apiKeyEnvPattern.test(apiKeyEnv)) {
+    if (!isValidApiKeyEnv(apiKeyEnv)) {
       setStatus(text.invalidApiKeyEnv);
       notify.warning({ title: text.invalidApiKeyEnv });
       return;

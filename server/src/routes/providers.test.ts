@@ -202,6 +202,24 @@ describe("provider routes", () => {
     expect(response.body.error).toBe("invalid_request");
     expect(response.body.issues[0].message).toBe("API key env var must be an environment variable name");
 
+    const tokenResponse = await request(app).post("/api/providers").send({
+      name: "Token",
+      type: "openai-compatible",
+      baseUrl: "https://api.deepseek.com/v1",
+      apiKeyEnv: "tk-real-key",
+      enabled: true
+    });
+    const longSecretResponse = await request(app).post("/api/providers").send({
+      name: "Long Secret",
+      type: "openai-compatible",
+      baseUrl: "https://api.deepseek.com/v1",
+      apiKeyEnv: "SKREALKEYVALUE12345678901234567890",
+      enabled: true
+    });
+
+    expect(tokenResponse.status).toBe(400);
+    expect(longSecretResponse.status).toBe(400);
+
     db.close();
   });
 });
