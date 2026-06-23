@@ -718,11 +718,11 @@ git commit -m "feat: add endpoint test runner"
 - Modify: `client/src/App.tsx`
 - Modify: `client/src/styles.css` or current app stylesheet
 
-- [ ] **Step 1: Add failing frontend test**
+- [x] **Step 1: Add failing frontend test**
 
 Mock endpoint and provider API calls. Test create endpoint, list endpoint, and run endpoint test.
 
-- [ ] **Step 2: Implement page**
+- [x] **Step 2: Implement page**
 
 Render:
 
@@ -736,11 +736,11 @@ Render:
 - test input textarea
 - test result panel
 
-- [ ] **Step 3: Add navigation**
+- [x] **Step 3: Add navigation**
 
 Add the endpoint page to the existing app navigation.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -751,7 +751,7 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add client/src/pages/EndpointsPage.tsx client/src/pages/EndpointsPage.test.tsx client/src/App.tsx client/src/styles.css

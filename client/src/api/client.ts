@@ -10,6 +10,7 @@ import type {
   RunWorkflowResponse,
   RunRecord,
   SaveApiKeyInput,
+  TestEndpointResponse,
   TestModelInput,
   TestModelResponse,
   UsageSummary
@@ -120,6 +121,13 @@ export const apiClient = {
 
   deleteEndpoint(endpointId: string) {
     return requestJson<void>(`/api/endpoints/${endpointId}`, { method: "DELETE" });
+  },
+
+  testEndpoint(endpointId: string, input: Record<string, unknown>) {
+    return requestJson<TestEndpointResponse>(`/api/endpoints/${endpointId}/test`, {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
   },
 
   listRemoteModels(providerId: string) {

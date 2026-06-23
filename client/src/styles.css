@@ -774,6 +774,31 @@ button {
   grid-template-columns: minmax(150px, 1fr) minmax(110px, 0.7fr) minmax(180px, 1fr) 90px 90px;
 }
 
+.endpoint-row {
+  grid-template-columns: minmax(140px, 1fr) 70px minmax(140px, 1fr) 90px 74px 74px;
+}
+
+.panel-editor {
+  border-bottom: 1px solid #edf1f5;
+  color: #526174;
+  display: grid;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  padding: 14px 16px;
+}
+
+.panel-editor textarea {
+  background: #fbfcfd;
+  border: 1px solid #cfd8e2;
+  border-radius: 8px;
+  color: #111827;
+  min-height: 74px;
+  padding: 9px 10px;
+  resize: vertical;
+  width: 100%;
+}
+
 .trace-step {
   border-bottom: 1px solid #edf1f5;
   display: grid;
@@ -1011,7 +1036,8 @@ button {
   .provider-row,
   .model-row,
   .usage-row,
-  .run-row {
+  .run-row,
+  .endpoint-row {
     grid-template-columns: 1fr;
   }
 

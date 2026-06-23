@@ -88,6 +88,14 @@ export interface CreateEndpointInput {
   enabled: boolean;
 }
 
+export interface TestEndpointResponse {
+  ok: boolean;
+  status: number;
+  headers: Record<string, string>;
+  bodyPreview: unknown;
+  latencyMs: number;
+}
+
 export interface CreateModelInput {
   providerId: string;
   displayName: string;

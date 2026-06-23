@@ -23,6 +23,7 @@ describe("App", () => {
     expect(screen.getByText("API operations console")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "工作台" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "API接入" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Endpoint" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "运行历史" })).toBeInTheDocument();
     expect(screen.getByText("单步工作流")).toBeInTheDocument();
     expect(screen.getByLabelText("消息")).toBeInTheDocument();
@@ -34,6 +35,10 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("button", { name: "运行历史" }));
 
     expect(screen.getByRole("heading", { name: "运行历史" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Endpoint" }));
+
+    expect(screen.getByRole("heading", { name: "Endpoint 管理" })).toBeInTheDocument();
   });
 
   it("collapses the sidebar and switches between Chinese and English", async () => {
@@ -56,6 +61,7 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "Workbench" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Providers" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Endpoints" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Runs" })).toBeInTheDocument();
   });
 });

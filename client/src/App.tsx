@@ -2,6 +2,7 @@ import { useState } from "react";
 import { apiClient } from "./api/client";
 import { NotificationProvider } from "./components/notifications/NotificationProvider";
 import { TopNav, type LanguageKey, type PageKey } from "./components/TopNav";
+import { EndpointsPage } from "./pages/EndpointsPage";
 import { ModelsPage } from "./pages/ModelsPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { RunsPage } from "./pages/RunsPage";
@@ -85,6 +86,17 @@ const localizedCopy: Record<LanguageKey, LocalizedCopy> = {
           { name: "deepseek-v4-flash", primary: "DeepSeek", secondary: "chat", state: "enabled" },
           { name: "codex-auto-review", primary: "SharedChat", secondary: "chat", state: "enabled" }
         ]
+      },
+      endpoints: {
+        title: "Endpoint",
+        badge: "http.request",
+        metrics: [
+          { label: "操作", value: "http.request", tone: "good" },
+          { label: "测试", value: "enabled", tone: "good" },
+          { label: "模板", value: "JSON", tone: "idle" },
+          { label: "工作流", value: "disabled", tone: "warn" }
+        ],
+        records: [{ name: "Generic endpoint", primary: "provider + path", secondary: "query / headers / body", state: "ready" }]
       },
       usage: {
         title: "用量检测",
@@ -187,6 +199,17 @@ const localizedCopy: Record<LanguageKey, LocalizedCopy> = {
           { name: "deepseek-v4-flash", primary: "DeepSeek", secondary: "chat", state: "enabled" },
           { name: "codex-auto-review", primary: "SharedChat", secondary: "chat", state: "enabled" }
         ]
+      },
+      endpoints: {
+        title: "Endpoints",
+        badge: "http.request",
+        metrics: [
+          { label: "Operation", value: "http.request", tone: "good" },
+          { label: "Testing", value: "enabled", tone: "good" },
+          { label: "Templates", value: "JSON", tone: "idle" },
+          { label: "Workflow", value: "disabled", tone: "warn" }
+        ],
+        records: [{ name: "Generic endpoint", primary: "provider + path", secondary: "query / headers / body", state: "ready" }]
       },
       usage: {
         title: "Usage",
@@ -309,6 +332,8 @@ export function App() {
       <ProvidersPage api={apiClient} language={language} />
     ) : currentPage === "models" ? (
       <ModelsPage api={apiClient} language={language} />
+    ) : currentPage === "endpoints" ? (
+      <EndpointsPage api={apiClient} language={language} />
     ) : currentPage === "usage" ? (
       <UsagePage api={apiClient} language={language} />
     ) : currentPage === "runs" ? (
