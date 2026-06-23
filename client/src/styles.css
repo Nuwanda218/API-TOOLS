@@ -770,6 +770,48 @@ button {
   grid-template-columns: minmax(150px, 1fr) minmax(120px, 1fr) minmax(70px, 0.5fr) 80px;
 }
 
+.run-row {
+  grid-template-columns: minmax(150px, 1fr) minmax(110px, 0.7fr) minmax(180px, 1fr) 90px 90px;
+}
+
+.trace-step {
+  border-bottom: 1px solid #edf1f5;
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.trace-step:last-child {
+  border-bottom: 0;
+}
+
+.trace-step header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.trace-step p {
+  color: #405166;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.trace-step code {
+  background: #fff4f2;
+  border: 1px solid #f2ccc5;
+  border-radius: 6px;
+  color: #9a3412;
+  justify-self: start;
+  padding: 3px 6px;
+}
+
+.trace-step small {
+  color: #66778a;
+}
+
 .compact-list .record-row {
   min-height: 48px;
 }
@@ -968,7 +1010,8 @@ button {
 
   .provider-row,
   .model-row,
-  .usage-row {
+  .usage-row,
+  .run-row {
     grid-template-columns: 1fr;
   }
 

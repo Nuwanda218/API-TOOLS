@@ -10,6 +10,7 @@ import { createApiKeysRouter } from "./routes/apiKeys.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createModelsRouter } from "./routes/models.js";
 import { createProvidersRouter } from "./routes/providers.js";
+import { createRunsRouter } from "./routes/runs.js";
 import { createUsageRouter } from "./routes/usage.js";
 import { createWorkflowsRouter } from "./routes/workflows.js";
 
@@ -36,6 +37,7 @@ export function createApp(dependencies: AppDependencies) {
     adapterRegistry
   }));
   app.use("/api/models", createModelsRouter(db, { env, adapterRegistry }));
+  app.use("/api/runs", createRunsRouter(db));
   app.use("/api/workflows", createWorkflowsRouter(db, {
     env,
     adapterRegistry

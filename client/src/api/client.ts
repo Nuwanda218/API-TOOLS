@@ -6,6 +6,7 @@ import type {
   RemoteModelRecord,
   RunWorkflowRequest,
   RunWorkflowResponse,
+  RunRecord,
   SaveApiKeyInput,
   TestModelInput,
   TestModelResponse,
@@ -139,6 +140,14 @@ export const apiClient = {
 
   getUsageSummary() {
     return requestJson<UsageSummary>("/api/usage/summary");
+  },
+
+  listRuns() {
+    return requestJson<RunRecord[]>("/api/runs");
+  },
+
+  getRun(runId: string) {
+    return requestJson<RunRecord>(`/api/runs/${runId}`);
   },
 
   runWorkflow(input: RunWorkflowRequest) {

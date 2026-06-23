@@ -95,6 +95,40 @@ export interface UsageSummary {
   errorCount: number;
 }
 
+export interface RunStepRecord {
+  id: string;
+  runId: string;
+  stepIndex: number;
+  stepType: string;
+  providerId: string;
+  modelId: string;
+  status: "running" | "succeeded" | "failed";
+  inputPreview: string;
+  outputPreview: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  latencyMs: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  costEstimate: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RunRecord {
+  id: string;
+  sessionId: string;
+  sessionTitle: string;
+  workflowType: string;
+  status: "running" | "succeeded" | "failed";
+  startedAt: string;
+  endedAt: string | null;
+  totalInputTokens: number | null;
+  totalOutputTokens: number | null;
+  totalCostEstimate: number | null;
+  steps: RunStepRecord[];
+}
+
 export type WorkflowStepType = "llm.chat";
 
 export interface WorkflowStepDefinition {

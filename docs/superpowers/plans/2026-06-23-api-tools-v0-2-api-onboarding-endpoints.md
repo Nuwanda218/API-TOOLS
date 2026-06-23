@@ -446,11 +446,11 @@ git commit -m "feat: improve model test console"
 - Create: `client/src/pages/RunsPage.test.tsx`
 - Modify: `client/src/App.tsx`
 
-- [ ] **Step 1: Add failing backend test for run list**
+- [x] **Step 1: Add failing backend test for run list**
 
 Seed `runs` and `run_steps`, then assert route output includes run status, model/provider IDs, latency, error code, and previews.
 
-- [ ] **Step 2: Add run routes**
+- [x] **Step 2: Add run routes**
 
 Add:
 
@@ -459,15 +459,15 @@ GET /api/runs
 GET /api/runs/:id
 ```
 
-- [ ] **Step 3: Add frontend page**
+- [x] **Step 3: Add frontend page**
 
 Render a run table and selected run detail panel.
 
-- [ ] **Step 4: Add navigation item**
+- [x] **Step 4: Add navigation item**
 
 Add a Runs or History nav item in the existing app navigation.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -480,7 +480,7 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add server/src/routes/runs.ts server/src/routes/runs.test.ts server/src/app.ts client/src/pages/RunsPage.tsx client/src/pages/RunsPage.test.tsx client/src/App.tsx

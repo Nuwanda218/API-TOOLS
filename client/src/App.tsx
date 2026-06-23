@@ -4,6 +4,7 @@ import { NotificationProvider } from "./components/notifications/NotificationPro
 import { TopNav, type LanguageKey, type PageKey } from "./components/TopNav";
 import { ModelsPage } from "./pages/ModelsPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
+import { RunsPage } from "./pages/RunsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UsagePage } from "./pages/UsagePage";
 import { WorkbenchPage } from "./pages/WorkbenchPage";
@@ -96,6 +97,17 @@ const localizedCopy: Record<LanguageKey, LocalizedCopy> = {
         ],
         records: [{ name: "汇总", primary: "requestCount", secondary: "tokens / cost / errors", state: "available" }]
       },
+      runs: {
+        title: "运行历史",
+        badge: "runs",
+        metrics: [
+          { label: "状态", value: "trace", tone: "good" },
+          { label: "步骤", value: "run_steps", tone: "idle" },
+          { label: "错误码", value: "visible", tone: "good" },
+          { label: "延迟", value: "latency", tone: "idle" }
+        ],
+        records: [{ name: "Run trace", primary: "GET /api/runs", secondary: "steps / previews / errors", state: "ready" }]
+      },
       workflows: {
         title: "工作流模板",
         badge: "templates",
@@ -186,6 +198,17 @@ const localizedCopy: Record<LanguageKey, LocalizedCopy> = {
           { label: "Errors", value: "0", tone: "good" }
         ],
         records: [{ name: "Summary", primary: "requestCount", secondary: "tokens / cost / errors", state: "available" }]
+      },
+      runs: {
+        title: "Run History",
+        badge: "runs",
+        metrics: [
+          { label: "State", value: "trace", tone: "good" },
+          { label: "Steps", value: "run_steps", tone: "idle" },
+          { label: "Errors", value: "visible", tone: "good" },
+          { label: "Latency", value: "latency", tone: "idle" }
+        ],
+        records: [{ name: "Run trace", primary: "GET /api/runs", secondary: "steps / previews / errors", state: "ready" }]
       },
       workflows: {
         title: "Workflows",
@@ -288,6 +311,8 @@ export function App() {
       <ModelsPage api={apiClient} language={language} />
     ) : currentPage === "usage" ? (
       <UsagePage api={apiClient} language={language} />
+    ) : currentPage === "runs" ? (
+      <RunsPage api={apiClient} language={language} />
     ) : currentPage === "workflows" ? (
       <WorkflowTemplatesPage language={language} />
     ) : currentPage === "settings" ? (
