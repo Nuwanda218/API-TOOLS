@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { createEndpointRepository } from "../endpoints/endpointRepository.js";
+import { testEndpoint } from "../endpoints/endpointTester.js";
+import { getRequiredApiKey } from "../config/env.js";
 import { ProviderError } from "../errors/providerError.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
 import type { AppDatabase } from "../db/client.js";
@@ -21,7 +23,12 @@ const endpointSchema = z.object({
 
 const updateEndpointSchema = endpointSchema.partial();
 
-export function createEndpointsRouter(db: AppDatabase) {
+interface EndpointsRouterDependencies {
+  env: NodeJS.ProcessEnv;
+  fetch?: typeof fetch;
+}
+
+export function createEndpointsRouter(db: AppDatabase, dependencies: EndpointsRouterDependencies) {
   const router = Router();
   const endpoints = createEndpointRepository(db);
   const providers = createProviderRepository(db);
@@ -67,6 +74,33 @@ export function createEndpointsRouter(db: AppDatabase) {
     }
   });
 
+  router.post("/:id/test", async (req, res, next) => {
+    try {
+      const endpoint = endpoints.getById(req.params.id);
+      if (!endpoint) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+
+      const provider = providers.getById(endpoint.providerId);
+      if (!provider) {
+        throw new ProviderError("provider_not_found", "Provider not found", { statusCode: 404 });
+      }
+
+      const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
+      const result = await testEndpoint({
+        provider,
+        endpoint,
+        apiKey,
+        input: isRecord(req.body) ? req.body : {},
+        fetch: dependencies.fetch
+      });
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.delete("/:id", (req, res) => {
     const deleted = endpoints.delete(req.params.id);
     if (!deleted) {
@@ -84,4 +118,8 @@ function ensureProviderExists(providers: ReturnType<typeof createProviderReposit
   if (!providers.getById(providerId)) {
     throw new ProviderError("provider_not_found", "Provider not found", { statusCode: 404 });
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

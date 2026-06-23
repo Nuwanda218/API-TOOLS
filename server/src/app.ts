@@ -20,6 +20,7 @@ export interface AppDependencies {
   env?: NodeJS.ProcessEnv;
   envPath?: string;
   adapterRegistry?: AdapterRegistry;
+  endpointFetch?: typeof fetch;
 }
 
 export function createApp(dependencies: AppDependencies) {
@@ -33,7 +34,7 @@ export function createApp(dependencies: AppDependencies) {
   app.use(express.json({ limit: "2mb" }));
   app.use("/api/health", createHealthRouter());
   app.use("/api/api-keys", createApiKeysRouter({ envPath, env }));
-  app.use("/api/endpoints", createEndpointsRouter(db));
+  app.use("/api/endpoints", createEndpointsRouter(db, { env, fetch: dependencies.endpointFetch }));
   app.use("/api/providers", createProvidersRouter(db, {
     env,
     adapterRegistry

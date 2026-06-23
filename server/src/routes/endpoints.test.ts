@@ -1,5 +1,5 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import { createTestDatabase } from "../test/testDb.js";
 
@@ -103,6 +103,53 @@ describe("endpoint routes", () => {
     });
     expect(fullUrlResponse.status).toBe(400);
     expect(fullUrlResponse.body.error).toBe("invalid_request");
+
+    db.close();
+  });
+
+  it("tests an endpoint using provider credentials", async () => {
+    const db = createTestDatabase();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: async () => ({ data: [{ id: "model-1" }] }),
+      text: async () => JSON.stringify({ data: [{ id: "model-1" }] })
+    });
+    const app = createApp({
+      db,
+      env: { EXAMPLE_KEY: "secret" },
+      endpointFetch: fetchMock
+    });
+    const provider = await createProvider(app);
+    const createResponse = await request(app).post("/api/endpoints").send({
+      providerId: provider.id,
+      name: "List models",
+      operationId: "http.request",
+      method: "GET",
+      path: "/models",
+      queryTemplate: { q: "{{input.query}}" }
+    });
+
+    const response = await request(app)
+      .post(`/api/endpoints/${createResponse.body.id}/test`)
+      .send({ query: "chat" });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      ok: true,
+      status: 200,
+      bodyPreview: { data: [{ id: "model-1" }] }
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.test/v1/models?q=chat",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          authorization: "Bearer secret"
+        })
+      })
+    );
 
     db.close();
   });

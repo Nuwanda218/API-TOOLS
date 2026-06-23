@@ -674,15 +674,15 @@ git commit -m "feat: add endpoint routes"
 - Modify: `server/src/routes/endpoints.ts`
 - Modify: `server/src/routes/endpoints.test.ts`
 
-- [ ] **Step 1: Add failing endpoint tester tests**
+- [x] **Step 1: Add failing endpoint tester tests**
 
 Mock fetch and assert URL construction, auth header handling, query serialization, body serialization, response parsing, and provider error mapping.
 
-- [ ] **Step 2: Implement endpoint tester**
+- [x] **Step 2: Implement endpoint tester**
 
 Use provider `baseUrl`, endpoint `path`, templates, and input object to send an HTTP request.
 
-- [ ] **Step 3: Add test route**
+- [x] **Step 3: Add test route**
 
 Add:
 
@@ -690,7 +690,7 @@ Add:
 POST /api/endpoints/:id/test
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -701,7 +701,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/endpoints/endpointTester.ts server/src/endpoints/endpointTester.test.ts server/src/routes/endpoints.ts server/src/routes/endpoints.test.ts
