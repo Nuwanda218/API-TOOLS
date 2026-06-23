@@ -549,11 +549,11 @@ git commit -m "feat: define http request operation contract"
 - Create: `server/src/endpoints/endpointRepository.ts`
 - Create: `server/src/endpoints/endpointRepository.test.ts`
 
-- [ ] **Step 1: Add failing repository tests**
+- [x] **Step 1: Add failing repository tests**
 
 Test create, list, get, update, delete, and provider cascade behavior.
 
-- [ ] **Step 2: Add `endpoints` table**
+- [x] **Step 2: Add `endpoints` table**
 
 Fields:
 
@@ -572,7 +572,7 @@ created_at
 updated_at
 ```
 
-- [ ] **Step 3: Implement endpoint repository**
+- [x] **Step 3: Implement endpoint repository**
 
 Functions:
 
@@ -585,7 +585,7 @@ update(id, input)
 delete(id)
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -596,7 +596,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/db/schema.ts server/src/endpoints/endpointRepository.ts server/src/endpoints/endpointRepository.test.ts

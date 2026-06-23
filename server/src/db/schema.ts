@@ -28,6 +28,21 @@ export function applySchema(db: AppDatabase) {
       updated_at text not null
     );
 
+    create table if not exists endpoints (
+      id text primary key,
+      provider_id text not null references providers(id) on delete cascade,
+      name text not null,
+      operation_id text not null,
+      method text not null check (method in ('GET', 'POST', 'PUT', 'PATCH', 'DELETE')),
+      path text not null,
+      query_template_json text not null default '{}',
+      headers_template_json text not null default '{}',
+      body_template_json text,
+      enabled integer not null default 1,
+      created_at text not null,
+      updated_at text not null
+    );
+
     create table if not exists sessions (
       id text primary key,
       title text not null,

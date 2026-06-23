@@ -28,6 +28,7 @@ describe("schema", () => {
       .all<{ name: string }>();
 
     expect(rows.map((row) => row.name)).toEqual([
+      "endpoints",
       "messages",
       "models",
       "providers",
