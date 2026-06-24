@@ -1,6 +1,7 @@
 import {
   Activity,
   Cpu,
+  FileJson,
   Globe2,
   Languages,
   LayoutDashboard,
@@ -13,7 +14,16 @@ import {
   type LucideIcon
 } from "lucide-react";
 
-export type PageKey = "workbench" | "providers" | "models" | "endpoints" | "usage" | "runs" | "workflows" | "settings";
+export type PageKey =
+  | "workbench"
+  | "providers"
+  | "models"
+  | "endpoints"
+  | "configuration"
+  | "usage"
+  | "runs"
+  | "workflows"
+  | "settings";
 export type LanguageKey = "zh-CN" | "en";
 
 interface TopNavProps {
@@ -36,6 +46,7 @@ const navItems: NavItem[] = [
   { key: "providers", labels: { "zh-CN": "API接入", en: "Providers" }, Icon: PlugZap },
   { key: "models", labels: { "zh-CN": "模型管理", en: "Models" }, Icon: Cpu },
   { key: "endpoints", labels: { "zh-CN": "Endpoint", en: "Endpoints" }, Icon: Globe2 },
+  { key: "configuration", labels: { "zh-CN": "配置迁移", en: "Configuration" }, Icon: FileJson },
   { key: "usage", labels: { "zh-CN": "用量检测", en: "Usage" }, Icon: Activity },
   { key: "runs", labels: { "zh-CN": "运行历史", en: "Runs" }, Icon: ScrollText },
   { key: "workflows", labels: { "zh-CN": "工作流模板", en: "Workflows" }, Icon: Workflow },

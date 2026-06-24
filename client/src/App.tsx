@@ -2,6 +2,7 @@ import { useState } from "react";
 import { apiClient } from "./api/client";
 import { NotificationProvider } from "./components/notifications/NotificationProvider";
 import { TopNav, type LanguageKey, type PageKey } from "./components/TopNav";
+import { ConfigurationPage } from "./pages/ConfigurationPage";
 import { EndpointsPage } from "./pages/EndpointsPage";
 import { ModelsPage } from "./pages/ModelsPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
@@ -97,6 +98,17 @@ const localizedCopy: Record<LanguageKey, LocalizedCopy> = {
           { label: "工作流", value: "disabled", tone: "warn" }
         ],
         records: [{ name: "Generic endpoint", primary: "provider + path", secondary: "query / headers / body", state: "ready" }]
+      },
+      configuration: {
+        title: "配置迁移",
+        badge: "config",
+        metrics: [
+          { label: "导出", value: "JSON", tone: "good" },
+          { label: "导入", value: "upsert", tone: "good" },
+          { label: "密钥", value: "excluded", tone: "idle" },
+          { label: "版本", value: "v1", tone: "idle" }
+        ],
+        records: [{ name: "Configuration v1", primary: "providers / models / endpoints", secondary: "no secret values", state: "ready" }]
       },
       usage: {
         title: "用量检测",
@@ -210,6 +222,17 @@ const localizedCopy: Record<LanguageKey, LocalizedCopy> = {
           { label: "Workflow", value: "disabled", tone: "warn" }
         ],
         records: [{ name: "Generic endpoint", primary: "provider + path", secondary: "query / headers / body", state: "ready" }]
+      },
+      configuration: {
+        title: "Configuration",
+        badge: "config",
+        metrics: [
+          { label: "Export", value: "JSON", tone: "good" },
+          { label: "Import", value: "upsert", tone: "good" },
+          { label: "Secrets", value: "excluded", tone: "idle" },
+          { label: "Version", value: "v1", tone: "idle" }
+        ],
+        records: [{ name: "Configuration v1", primary: "providers / models / endpoints", secondary: "no secret values", state: "ready" }]
       },
       usage: {
         title: "Usage",
@@ -334,6 +357,8 @@ export function App() {
       <ModelsPage api={apiClient} language={language} />
     ) : currentPage === "endpoints" ? (
       <EndpointsPage api={apiClient} language={language} />
+    ) : currentPage === "configuration" ? (
+      <ConfigurationPage api={apiClient} language={language} />
     ) : currentPage === "usage" ? (
       <UsagePage api={apiClient} language={language} />
     ) : currentPage === "runs" ? (

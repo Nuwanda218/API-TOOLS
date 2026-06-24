@@ -3,6 +3,8 @@ import type {
   CreateEndpointInput,
   CreateProviderInput,
   EndpointRecord,
+  ExportedConfiguration,
+  ImportConfigurationResponse,
   ModelRecord,
   ProviderRecord,
   RemoteModelRecord,
@@ -185,6 +187,17 @@ export const apiClient = {
 
   runWorkflow(input: RunWorkflowRequest) {
     return requestJson<RunWorkflowResponse>("/api/workflows/run", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+
+  exportConfiguration() {
+    return requestJson<ExportedConfiguration>("/api/configuration/export");
+  },
+
+  importConfiguration(input: ExportedConfiguration) {
+    return requestJson<ImportConfigurationResponse>("/api/configuration/import", {
       method: "POST",
       body: JSON.stringify(input)
     });

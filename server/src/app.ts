@@ -7,6 +7,7 @@ import { ProviderError } from "./errors/providerError.js";
 import { createAdapterRegistry } from "./adapters/registry.js";
 import type { AdapterRegistry } from "./adapters/types.js";
 import { createApiKeysRouter } from "./routes/apiKeys.js";
+import { createConfigurationRouter } from "./routes/configuration.js";
 import { createEndpointsRouter } from "./routes/endpoints.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createModelsRouter } from "./routes/models.js";
@@ -34,6 +35,7 @@ export function createApp(dependencies: AppDependencies) {
   app.use(express.json({ limit: "2mb" }));
   app.use("/api/health", createHealthRouter());
   app.use("/api/api-keys", createApiKeysRouter({ envPath, env }));
+  app.use("/api/configuration", createConfigurationRouter(db, { env }));
   app.use("/api/endpoints", createEndpointsRouter(db, { env, fetch: dependencies.endpointFetch }));
   app.use("/api/providers", createProvidersRouter(db, {
     env,

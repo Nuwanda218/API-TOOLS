@@ -187,3 +187,19 @@ export interface RunWorkflowResponse {
   run: { id: string; status: "running" | "succeeded" | "failed" };
   outputs: Record<string, Record<string, unknown>>;
 }
+
+export interface ExportedConfiguration {
+  version: 1;
+  providers: Array<Omit<ProviderRecord, "createdAt" | "updatedAt">>;
+  models: Array<Omit<ModelRecord, "createdAt" | "updatedAt">>;
+  endpoints: Array<Omit<EndpointRecord, "createdAt" | "updatedAt">>;
+  missingApiKeyEnvs: string[];
+}
+
+export interface ImportConfigurationResponse {
+  imported: {
+    providers: number;
+    models: number;
+    endpoints: number;
+  };
+}

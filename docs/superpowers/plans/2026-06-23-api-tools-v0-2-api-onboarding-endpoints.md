@@ -819,15 +819,17 @@ git commit -m "fix: harden api key handling"
 - Create: `server/src/routes/configuration.test.ts`
 - Modify: `server/src/app.ts`
 - Modify: `client/src/api/client.ts`
+- Modify: `client/src/api/types.ts`
 - Create: `client/src/pages/ConfigurationPage.tsx`
 - Create: `client/src/pages/ConfigurationPage.test.tsx`
 - Modify: `client/src/App.tsx`
+- Modify: `client/src/components/TopNav.tsx`
 
-- [ ] **Step 1: Add failing export tests**
+- [x] **Step 1: Add failing export tests**
 
 Assert exported config includes providers, models, and endpoints but excludes actual API key values.
 
-- [ ] **Step 2: Implement export builder**
+- [x] **Step 2: Implement export builder**
 
 Return:
 
@@ -841,7 +843,7 @@ Return:
 }
 ```
 
-- [ ] **Step 3: Add routes**
+- [x] **Step 3: Add routes**
 
 Add:
 
@@ -850,11 +852,11 @@ GET /api/configuration/export
 POST /api/configuration/import
 ```
 
-- [ ] **Step 4: Add frontend page**
+- [x] **Step 4: Add frontend page**
 
 Add export button, import textarea/file text input, and validation results.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -867,10 +869,10 @@ npm run typecheck --workspace client
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
-git add server/src/configuration server/src/routes/configuration.ts server/src/routes/configuration.test.ts server/src/app.ts client/src/api/client.ts client/src/pages/ConfigurationPage.tsx client/src/pages/ConfigurationPage.test.tsx client/src/App.tsx
+git add server/src/configuration server/src/routes/configuration.ts server/src/routes/configuration.test.ts server/src/app.ts client/src/api/client.ts client/src/api/types.ts client/src/pages/ConfigurationPage.tsx client/src/pages/ConfigurationPage.test.tsx client/src/App.tsx client/src/components/TopNav.tsx docs/superpowers/plans/2026-06-23-api-tools-v0-2-api-onboarding-endpoints.md
 git commit -m "feat: add configuration import export"
 ```
 
