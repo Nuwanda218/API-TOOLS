@@ -884,7 +884,7 @@ git commit -m "feat: add configuration import export"
 - Modify: `docs/superpowers/plans/2026-06-23-api-tools-v0-2-api-onboarding-endpoints.md`
 - Create: `docs/superpowers/specs/2026-06-23-api-onboarding-endpoints-user-guide.md`
 
-- [ ] **Step 1: Write user guide**
+- [x] **Step 1: Write user guide**
 
 Document:
 
@@ -897,7 +897,7 @@ Document:
 - Config import/export
 - API key safety
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -915,7 +915,7 @@ npm run build
 
 Expected: all commands pass.
 
-- [ ] **Step 3: Inspect git status**
+- [x] **Step 3: Inspect git status**
 
 Run:
 
@@ -925,7 +925,7 @@ git status --short
 
 Expected: only documentation updates are pending before final commit.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/superpowers/plans/2026-06-23-api-tools-v0-2-api-onboarding-endpoints.md docs/superpowers/specs/2026-06-23-api-onboarding-endpoints-user-guide.md
