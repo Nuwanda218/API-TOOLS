@@ -18,6 +18,7 @@ const copy = {
     estimatedCost: "预估成本",
     errorCount: "错误数",
     loading: "加载中",
+    empty: "运行一次工作流或测试一个模型后，这里会显示请求数、tokens 和估算成本。",
     summary: "运行汇总"
   },
   en: {
@@ -29,6 +30,7 @@ const copy = {
     estimatedCost: "Estimated cost",
     errorCount: "Errors",
     loading: "Loading",
+    empty: "Run a workflow or test a model, and usage stats will appear here.",
     summary: "Run summary"
   }
 } satisfies Record<LanguageKey, Record<string, string>>;
@@ -82,6 +84,10 @@ export function UsagePage({ api, language = "zh-CN" }: UsagePageProps) {
       </div>
 
       {status && <p className="panel-status">{status}</p>}
+
+      {summary.requestCount === 0 && !status && (
+        <p className="panel-status">{text.empty}</p>
+      )}
 
       <section className="metric-grid" aria-label={text.summary}>
         {metrics.map((metric) => (
