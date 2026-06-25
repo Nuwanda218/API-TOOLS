@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ApiInvocation } from "../apiProtocol/types.js";
 import type { AdapterRegistry, ModelAdapter } from "../adapters/types.js";
+import { createEndpointRepository } from "../endpoints/endpointRepository.js";
 import { createModelRepository } from "../providers/modelRepository.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
 import { createTestDatabase } from "../test/testDb.js";
@@ -192,6 +193,93 @@ describe("workflowRunner", () => {
         step_index: 1,
         input_preview: "Summarize weather keyword in English",
         output_preview: "final: Summarize weather keyword in English"
+      })
+    ]);
+
+    db.close();
+  });
+
+  it("runs an endpoint.call workflow step and records endpoint output", async () => {
+    const db = createTestDatabase();
+    const providers = createProviderRepository(db);
+    const endpoints = createEndpointRepository(db);
+    const provider = providers.create({
+      name: "Custom",
+      type: "openai-compatible",
+      baseUrl: "https://example.test/v1",
+      apiKeyEnv: "CUSTOM_KEY",
+      enabled: true
+    });
+    const endpoint = endpoints.create({
+      providerId: provider.id,
+      name: "Echo",
+      operationId: "http.request",
+      method: "POST",
+      path: "/echo",
+      bodyTemplate: { prompt: "{{input.prompt}}" }
+    });
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { prompt?: string };
+      return new Response(JSON.stringify({ received: body.prompt }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    });
+    const adapterRegistry: AdapterRegistry = {
+      getModelAdapter: vi.fn(() => ({
+        listModels: async () => [],
+        testModel: async () => ({ ok: true as const, latencyMs: 1, message: "ok", usage: {} }),
+        runChat: async () => ({ content: "unused", latencyMs: 1, usage: {} })
+      })),
+      invoke: vi.fn()
+    };
+    const runner = createWorkflowRunner(db, {
+      adapterRegistry,
+      env: { CUSTOM_KEY: "secret" },
+      endpointFetch: fetchMock
+    });
+
+    const result = await runner.runWorkflow({
+      workflowType: "api-workflow",
+      input: { message: "Hello endpoint" },
+      steps: [
+        {
+          id: "echo",
+          type: "endpoint.call",
+          endpointId: endpoint.id,
+          input: { prompt: "{{input.message}}" }
+        }
+      ]
+    });
+
+    expect(result.outputs.echo).toEqual({
+      body: { received: "Hello endpoint" },
+      statusCode: 200
+    });
+    expect(fetchMock).toHaveBeenCalledWith("https://example.test/v1/echo", expect.objectContaining({
+      method: "POST",
+      headers: expect.objectContaining({ authorization: "Bearer secret" }),
+      body: JSON.stringify({ prompt: "Hello endpoint" })
+    }));
+
+    const runSteps = db.prepare("select * from run_steps").all<{
+      step_type: string;
+      provider_id: string | null;
+      model_id: string | null;
+      endpoint_id: string | null;
+      status: string;
+      input_preview: string;
+      output_preview: string;
+    }>();
+    expect(runSteps).toEqual([
+      expect.objectContaining({
+        step_type: "endpoint.call",
+        provider_id: provider.id,
+        model_id: null,
+        endpoint_id: endpoint.id,
+        status: "succeeded",
+        input_preview: "{\"prompt\":\"Hello endpoint\"}",
+        output_preview: "{\"received\":\"Hello endpoint\"}"
       })
     ]);
 

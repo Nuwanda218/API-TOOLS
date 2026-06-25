@@ -5,6 +5,7 @@ export type ProviderErrorCode =
   | "invalid_base_url"
   | "invalid_workflow_step"
   | "model_not_found"
+  | "endpoint_not_found"
   | "rate_limited"
   | "quota_exceeded"
   | "unsupported_capability"

@@ -77,9 +77,10 @@ export function applySchema(db: AppDatabase) {
       id text primary key,
       run_id text not null references runs(id) on delete cascade,
       step_index integer not null,
-      step_type text not null check (step_type in ('llm.chat', 'chat-completion', 'image-generation', 'model-test', 'prompt-optimizer', 'reviewer', 'summarizer')),
-      provider_id text not null references providers(id),
-      model_id text not null references models(id),
+      step_type text not null check (step_type in ('llm.chat', 'endpoint.call', 'chat-completion', 'image-generation', 'model-test', 'prompt-optimizer', 'reviewer', 'summarizer')),
+      provider_id text references providers(id),
+      model_id text references models(id),
+      endpoint_id text references endpoints(id),
       status text not null check (status in ('running', 'succeeded', 'failed')),
       input_preview text not null,
       output_preview text,
@@ -95,6 +96,7 @@ export function applySchema(db: AppDatabase) {
   `);
 
   addColumnIfMissing(db, "providers", "capabilities_json", "text not null default '{}'");
+  addColumnIfMissing(db, "run_steps", "endpoint_id", "text references endpoints(id)");
 }
 
 function addColumnIfMissing(db: AppDatabase, table: string, column: string, definition: string) {

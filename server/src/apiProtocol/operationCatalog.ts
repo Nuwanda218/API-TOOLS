@@ -39,7 +39,7 @@ export const CORE_OPERATION_SPECS: Record<CoreOperationId, OperationSpec> = {
     id: "http.request",
     description: "Send a normalized HTTP request through an endpoint resource.",
     resourceKind: "endpoint",
-    workflowStep: false,
+    workflowStep: true,
     status: "implemented",
     inputContract: "method, path, optional query, headers, body, timeoutMs.",
     outputContract: "Endpoint test result with status, headers, body preview, latency, and error details.",

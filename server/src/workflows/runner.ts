@@ -3,6 +3,8 @@ import type { LlmChatData } from "../apiProtocol/types.js";
 import type { AdapterRegistry } from "../adapters/types.js";
 import { getRequiredApiKey } from "../config/env.js";
 import type { AppDatabase } from "../db/client.js";
+import { createEndpointRepository, type Endpoint } from "../endpoints/endpointRepository.js";
+import { testEndpoint } from "../endpoints/endpointTester.js";
 import { ProviderError } from "../errors/providerError.js";
 import { createModelRepository, type Model } from "../providers/modelRepository.js";
 import { createProviderRepository, type Provider } from "../providers/providerRepository.js";
@@ -11,12 +13,14 @@ import type {
   RunWorkflowInput,
   RunWorkflowResult,
   SessionRecord,
+  LlmChatStepDefinition,
   WorkflowStepDefinition
 } from "./types.js";
 
 interface WorkflowRunnerDependencies {
   adapterRegistry: AdapterRegistry;
   env: NodeJS.ProcessEnv;
+  endpointFetch?: typeof fetch;
 }
 
 interface LlmChatStepResult {
@@ -35,12 +39,27 @@ interface ResolvedLlmChatStepTarget {
   apiKey: string;
 }
 
+interface EndpointCallStepResult {
+  provider: Provider;
+  endpoint: Endpoint;
+  bodyPreview: unknown;
+  statusCode: number;
+  latencyMs: number;
+}
+
+interface ResolvedEndpointCallStepTarget {
+  provider: Provider;
+  endpoint: Endpoint;
+  apiKey: string;
+}
+
 interface RunningRunStepInput {
   runId: string;
   stepIndex: number;
   step: WorkflowStepDefinition;
-  providerId: string;
-  modelId: string;
+  providerId?: string;
+  modelId?: string;
+  endpointId?: string;
   inputPreview: string;
   startedAt: string;
 }
@@ -48,12 +67,9 @@ interface RunningRunStepInput {
 export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunnerDependencies) {
   const providers = createProviderRepository(db);
   const models = createModelRepository(db);
+  const endpoints = createEndpointRepository(db);
 
-  function resolveLlmChatStepTarget(step: WorkflowStepDefinition): ResolvedLlmChatStepTarget {
-    if (!step.modelId) {
-      throw new ProviderError("invalid_workflow_step", "llm.chat step requires modelId", { statusCode: 400 });
-    }
-
+  function resolveLlmChatStepTarget(step: LlmChatStepDefinition): ResolvedLlmChatStepTarget {
     const model = models.getById(step.modelId);
     if (!model) {
       throw new ProviderError("model_not_found", "Model not found", { statusCode: 404 });
@@ -71,6 +87,26 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
     const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
 
     return { provider, model, apiKey };
+  }
+
+  function resolveEndpointCallStepTarget(step: WorkflowStepDefinition): ResolvedEndpointCallStepTarget {
+    if (step.type !== "endpoint.call") {
+      throw new ProviderError("invalid_workflow_step", "endpoint.call step requires endpointId", { statusCode: 400 });
+    }
+
+    const endpoint = endpoints.getById(step.endpointId);
+    if (!endpoint) {
+      throw new ProviderError("endpoint_not_found", "Endpoint not found", { statusCode: 404 });
+    }
+
+    const provider = providers.getById(endpoint.providerId);
+    if (!provider) {
+      throw new ProviderError("provider_not_found", "Provider not found", { statusCode: 404 });
+    }
+
+    const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
+
+    return { provider, endpoint, apiKey };
   }
 
   async function runLlmChatStep(target: ResolvedLlmChatStepTarget, message: string): Promise<LlmChatStepResult> {
@@ -112,6 +148,27 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
     };
   }
 
+  async function runEndpointCallStep(
+    target: ResolvedEndpointCallStepTarget,
+    input: Record<string, unknown>
+  ): Promise<EndpointCallStepResult> {
+    const result = await testEndpoint({
+      provider: target.provider,
+      endpoint: target.endpoint,
+      apiKey: target.apiKey,
+      input,
+      fetch: dependencies.endpointFetch
+    });
+
+    return {
+      provider: target.provider,
+      endpoint: target.endpoint,
+      bodyPreview: result.bodyPreview,
+      statusCode: result.status,
+      latencyMs: result.latencyMs
+    };
+  }
+
   function insertRunningRunStep(input: RunningRunStepInput): string {
     const stepId = nanoid();
 
@@ -123,6 +180,7 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
         step_type,
         provider_id,
         model_id,
+        endpoint_id,
         status,
         input_preview,
         created_at,
@@ -135,6 +193,7 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
         @stepType,
         @providerId,
         @modelId,
+        @endpointId,
         'running',
         @inputPreview,
         @createdAt,
@@ -145,8 +204,9 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
       runId: input.runId,
       stepIndex: input.stepIndex,
       stepType: input.step.type,
-      providerId: input.providerId,
-      modelId: input.modelId,
+      providerId: input.providerId ?? null,
+      modelId: input.modelId ?? null,
+      endpointId: input.endpointId ?? null,
       inputPreview: input.inputPreview,
       createdAt: input.startedAt,
       updatedAt: input.startedAt
@@ -274,57 +334,109 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
       let finalContent = "";
 
       for (const [stepIndex, step] of input.steps.entries()) {
-        if (step.type !== "llm.chat") {
-          throw new ProviderError("unsupported_workflow_step", `Unsupported workflow step type: ${step.type}`, { statusCode: 400 });
-        }
-
-        const stepMessage = resolveStepMessage(step, input.input, outputs);
-        const target = resolveLlmChatStepTarget(step);
-        const stepId = insertRunningRunStep({
-          runId,
-          stepIndex,
-          step,
-          providerId: target.provider.id,
-          modelId: target.model.id,
-          inputPreview: stepMessage.slice(0, 200),
-          startedAt
-        });
-
-        try {
-          const stepResult = await runLlmChatStep(target, stepMessage);
-          const stepEndedAt = nextIso(startedAt, stepIndex + 1);
-
-          totalInputTokens += stepResult.inputTokens ?? 0;
-          totalOutputTokens += stepResult.outputTokens ?? 0;
-          totalCostEstimate += stepResult.costEstimate;
-          finalModelId = stepResult.model.id;
-          finalContent = stepResult.content;
-          outputs[step.id] = { content: stepResult.content };
-
-          markRunStepSucceeded({
-            stepId,
-            outputPreview: stepResult.content.slice(0, 200),
-            latencyMs: stepResult.latencyMs,
-            inputTokens: stepResult.inputTokens,
-            outputTokens: stepResult.outputTokens,
-            costEstimate: stepResult.costEstimate,
-            updatedAt: stepEndedAt
+        if (step.type === "llm.chat") {
+          const stepMessage = resolveStepMessage(step, input.input, outputs);
+          const target = resolveLlmChatStepTarget(step);
+          const stepId = insertRunningRunStep({
+            runId,
+            stepIndex,
+            step,
+            providerId: target.provider.id,
+            modelId: target.model.id,
+            inputPreview: stepMessage.slice(0, 200),
+            startedAt
           });
-        } catch (error) {
-          const failedAt = nextIso(startedAt, stepIndex + 1);
 
-          if (error instanceof ProviderError) {
-            markRunStepFailed({
+          try {
+            const stepResult = await runLlmChatStep(target, stepMessage);
+            const stepEndedAt = nextIso(startedAt, stepIndex + 1);
+
+            totalInputTokens += stepResult.inputTokens ?? 0;
+            totalOutputTokens += stepResult.outputTokens ?? 0;
+            totalCostEstimate += stepResult.costEstimate;
+            finalModelId = stepResult.model.id;
+            finalContent = stepResult.content;
+            outputs[step.id] = { content: stepResult.content };
+
+            markRunStepSucceeded({
               stepId,
-              error,
-              latencyMs: getErrorLatencyMs(error),
-              updatedAt: failedAt
+              outputPreview: stepResult.content.slice(0, 200),
+              latencyMs: stepResult.latencyMs,
+              inputTokens: stepResult.inputTokens,
+              outputTokens: stepResult.outputTokens,
+              costEstimate: stepResult.costEstimate,
+              updatedAt: stepEndedAt
             });
-            markRunFailed({ runId, endedAt: failedAt });
+          } catch (error) {
+            const failedAt = nextIso(startedAt, stepIndex + 1);
+
+            if (error instanceof ProviderError) {
+              markRunStepFailed({
+                stepId,
+                error,
+                latencyMs: getErrorLatencyMs(error),
+                updatedAt: failedAt
+              });
+              markRunFailed({ runId, endedAt: failedAt });
+            }
+
+            throw error;
           }
 
-          throw error;
+          continue;
         }
+
+        if (step.type === "endpoint.call") {
+          const resolvedInput = resolveStepInput(step.input, input.input, outputs);
+          const target = resolveEndpointCallStepTarget(step);
+          const stepId = insertRunningRunStep({
+            runId,
+            stepIndex,
+            step,
+            providerId: target.provider.id,
+            endpointId: target.endpoint.id,
+            inputPreview: stringifyPreview(resolvedInput).slice(0, 200),
+            startedAt
+          });
+
+          try {
+            const stepResult = await runEndpointCallStep(target, resolvedInput);
+            const stepEndedAt = nextIso(startedAt, stepIndex + 1);
+            const outputPreview = stringifyPreview(stepResult.bodyPreview);
+
+            finalContent = outputPreview;
+            outputs[step.id] = {
+              body: stepResult.bodyPreview,
+              statusCode: stepResult.statusCode
+            };
+
+            markRunStepSucceeded({
+              stepId,
+              outputPreview: outputPreview.slice(0, 200),
+              latencyMs: stepResult.latencyMs,
+              costEstimate: 0,
+              updatedAt: stepEndedAt
+            });
+          } catch (error) {
+            const failedAt = nextIso(startedAt, stepIndex + 1);
+
+            if (error instanceof ProviderError) {
+              markRunStepFailed({
+                stepId,
+                error,
+                latencyMs: getErrorLatencyMs(error),
+                updatedAt: failedAt
+              });
+              markRunFailed({ runId, endedAt: failedAt });
+            }
+
+            throw error;
+          }
+
+          continue;
+        }
+
+        throw new ProviderError("unsupported_workflow_step", `Unsupported workflow step type: ${(step as WorkflowStepDefinition).type}`, { statusCode: 400 });
       }
 
       const endedAt = nextIso(startedAt, input.steps.length + 1);
@@ -503,6 +615,10 @@ function stringifyPlaceholderValue(value: unknown): string {
     return "";
   }
 
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function stringifyPreview(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 

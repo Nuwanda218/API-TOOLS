@@ -148,7 +148,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
   - 验证：`npm run test --workspace server -- src/workflows/runner.test.ts`。
   - Commit：`feat: add workflow step input resolution`。
 
-- [ ] **Task A2: endpoint.call 后端执行**
+- [x] **Task A2: endpoint.call 后端执行**
   - 目标：让 workflow 能执行已注册 Endpoint，并把结果写入 `outputs[stepId]`。
   - 修改：`server/src/workflows/types.ts`、`server/src/workflows/runner.ts`、`server/src/db/schema.ts`、`server/src/apiProtocol/operationCatalog.ts`。
   - 验证：`npm run test --workspace server -- src/workflows/runner.test.ts`。

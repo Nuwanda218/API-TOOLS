@@ -15,7 +15,7 @@ describe("operation catalog", () => {
     ]);
   });
 
-  it("marks llm.chat as the only workflow-executable implemented operation", () => {
+  it("marks implemented workflow operations as executable", () => {
     expect(getCoreOperationSpec("llm.chat")).toMatchObject({
       id: "llm.chat",
       status: "implemented",
@@ -24,15 +24,15 @@ describe("operation catalog", () => {
     });
     expect(isWorkflowExecutableOperation("llm.chat")).toBe(true);
     expect(isWorkflowExecutableOperation("models.list")).toBe(false);
-    expect(isWorkflowExecutableOperation("http.request")).toBe(false);
+    expect(isWorkflowExecutableOperation("http.request")).toBe(true);
   });
 
-  it("defines http.request for endpoint testing without enabling workflow execution", () => {
+  it("defines http.request for endpoint testing and workflow execution", () => {
     expect(getCoreOperationSpec("http.request")).toMatchObject({
       id: "http.request",
       status: "implemented",
       resourceKind: "endpoint",
-      workflowStep: false
+      workflowStep: true
     });
   });
 

@@ -5,12 +5,24 @@ import type { AdapterRegistry } from "../adapters/types.js";
 import type { AppDatabase } from "../db/client.js";
 import { createWorkflowRunner } from "../workflows/runner.js";
 
-const workflowStepSchema = z.object({
+const llmChatStepSchema = z.object({
   id: z.string().min(1),
   type: z.literal("llm.chat"),
-  modelId: z.string().min(1).optional(),
+  modelId: z.string().min(1),
   input: z.record(z.unknown()).default({})
 });
+
+const endpointCallStepSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("endpoint.call"),
+  endpointId: z.string().min(1),
+  input: z.record(z.unknown()).default({})
+});
+
+const workflowStepSchema = z.discriminatedUnion("type", [
+  llmChatStepSchema,
+  endpointCallStepSchema
+]);
 
 const runWorkflowSchema = z.object({
   sessionId: z.string().optional(),
