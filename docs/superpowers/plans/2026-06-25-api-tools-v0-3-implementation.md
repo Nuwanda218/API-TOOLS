@@ -4,7 +4,7 @@
 
 > **架构：** 在 V0.2 的 provider/model/endpoint/runner 基础上，新增 MCP Client 模块、`endpoint.call` / `mcp.call` 工作流步骤、Skill 模板系统、工作流构建器前端。对话记忆作为设计轨道暂不实现。
 
-> **技术栈：** TypeScript, Express, better-sqlite3, MCP SDK (@modelcontextprotocol/sdk), Vite, React, Vitest, React Testing Library, Zod.
+> **技术栈：** TypeScript, Express, better-sqlite3, @modelcontextprotocol/sdk, Vite, React, Vitest, React Testing Library, Zod.
 
 ---
 
@@ -14,7 +14,7 @@
 
 - `endpoint.call` 步骤——工作流中调用已注册的 Endpoint
 - `mcp.call` 步骤——工作流中调用 MCP Server 的工具
-- MCP Client 模块（stdio + Streamable HTTP transport）
+- MCP Client 模块（stdio transport）
 - MCP Server 管理 CRUD
 - Skill 模板系统（预定义工作流模板 + 用户自定义模板）
 - 工作流构建器前端（可视化编排多步骤）
@@ -32,16 +32,212 @@
 
 ---
 
+## 核心机制：步骤间数据传递
+
+这是贯穿 V0.3 所有 Task 的核心机制。
+
+### 数据流定义
+
+每个步骤执行后产生 `outputs[stepId]`，是一个键值对对象。其他步骤可以通过 `{{steps.<stepId>.outputs.<field>}}` 引用。
+
+```ts
+// 工作流输入
+input: { query: "北京的天气", targetLang: "en" }
+
+// 步骤执行后
+outputs = {
+  "extract": { content: "北京 天气" },
+  "search": { content: [{ type: "text", text: "晴, 25°C" }] },
+  "summarize": { content: "Beijing: sunny, 25°C" }
+}
+
+// 步骤 input 中的占位符解析
+{
+  messages: [{
+    role: "user",
+    content: "{{steps.search.outputs.content}}"  // → "[{ type: 'text', text: '晴, 25°C' }]"
+  }]
+}
+```
+
+### 解析函数
+
+在 `runner.ts` 中新增 `resolveStepInput` 函数：
+
+```ts
+interface StepOutputs {
+  [stepId: string]: Record<string, unknown>;
+}
+
+function resolveStepInput(
+  input: Record<string, unknown>,
+  workflowInput: Record<string, unknown>,
+  outputs: StepOutputs
+): Record<string, unknown> {
+  const resolved: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(input)) {
+    if (typeof value === "string") {
+      resolved[key] = resolvePlaceholders(value, workflowInput, outputs);
+    } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      resolved[key] = resolveStepInput(value as Record<string, unknown>, workflowInput, outputs);
+    } else {
+      resolved[key] = value;
+    }
+  }
+
+  return resolved;
+}
+
+function resolvePlaceholders(
+  value: string,
+  workflowInput: Record<string, unknown>,
+  outputs: StepOutputs
+): string {
+  // 先解析 {{steps.X.outputs.Y}}
+  const stepRef = value.match(/^\{\{steps\.([^.]+)\.outputs\.([^.]+)\}\}$/);
+  if (stepRef) {
+    const [, stepId, field] = stepRef;
+    const stepOutput = outputs[stepId]?.[field];
+    if (stepOutput === undefined) return "";
+    return typeof stepOutput === "string" ? stepOutput : JSON.stringify(stepOutput);
+  }
+
+  // 再解析 {{input.x}}
+  const inputRef = value.match(/^\{\{input\.([A-Za-z0-9_]+)\}\}$/);
+  if (inputRef) {
+    return String(workflowInput[inputRef[1]] ?? "");
+  }
+
+  // 最后做通用替换（{{input.x}} 在字符串中间）
+  return value.replace(/\{\{(input|steps\.[^.]+\.outputs\.[^}]+)\}\}/g, (match) => {
+    // ... 通用替换逻辑
+    return "";
+  });
+}
+```
+
+### 在 runner 主循环中使用
+
+```ts
+for (const [stepIndex, step] of input.steps.entries()) {
+  // 解析步骤输入（替换占位符）
+  const resolvedInput = resolveStepInput(step.input, input.input, outputs);
+
+  if (step.type === "llm.chat") {
+    // ... 现有逻辑，使用 resolvedInput
+  } else if (step.type === "endpoint.call") {
+    // ... endpoint.call 逻辑
+  } else if (step.type === "mcp.call") {
+    // ... mcp.call 逻辑
+  }
+}
+```
+
+---
+
 ## 依赖顺序
 
-1. `endpoint.call` 步骤（复用 endpointTester）
-2. MCP Client 模块（stdio + HTTP transport）
-3. `mcp.call` 步骤
-4. MCP Server 管理
-5. Skill 模板系统
-6. 工作流构建器前端
-7. 配置导入导出升级
-8. 文档和全量验证
+V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果执行。每个子任务完成后都要本地 commit；push 时机由用户确认。
+
+### Milestone A: Workflow 基础能力
+
+- [ ] **Task A1: 步骤输入解析器**
+  - 目标：实现 `resolveStepInput` / `resolvePlaceholders`，支持 `{{input.x}}` 与 `{{steps.<id>.outputs.<field>}}`。
+  - 修改：`server/src/workflows/runner.ts`、`server/src/workflows/runner.test.ts`。
+  - 验证：`npm run test --workspace server -- src/workflows/runner.test.ts`。
+  - Commit：`feat: add workflow step input resolution`。
+
+- [ ] **Task A2: endpoint.call 后端执行**
+  - 目标：让 workflow 能执行已注册 Endpoint，并把结果写入 `outputs[stepId]`。
+  - 修改：`server/src/workflows/types.ts`、`server/src/workflows/runner.ts`、`server/src/db/schema.ts`、`server/src/apiProtocol/operationCatalog.ts`。
+  - 验证：`npm run test --workspace server -- src/workflows/runner.test.ts`。
+  - Commit：`feat: add endpoint.call workflow step`。
+
+- [ ] **Task A3: endpoint.call 路由校验与 trace**
+  - 目标：让 `POST /api/workflows/run` 接受 `endpoint.call`，并在 run steps 中保存成功/失败 trace。
+  - 修改：`server/src/routes/workflows.ts`、`server/src/routes/workflows.test.ts`、`server/src/routes/runs.ts`、`server/src/routes/runs.test.ts`。
+  - 验证：`npm run test --workspace server -- src/routes/workflows.test.ts src/routes/runs.test.ts`。
+  - Commit：`feat: expose endpoint.call workflow traces`。
+
+### Milestone B: MCP 后端能力
+
+- [ ] **Task B1: MCP Server schema 与 repository**
+  - 目标：新增 `mcp_servers` 表和 repository，先完成纯数据 CRUD，不接入前端。
+  - 修改：`server/src/db/schema.ts`。
+  - 创建：`server/src/mcp/types.ts`、`server/src/mcp/mcpServerRepository.ts`、`server/src/mcp/mcpServerRepository.test.ts`。
+  - 验证：`npm run test --workspace server -- src/mcp/mcpServerRepository.test.ts src/db/schema.test.ts`。
+  - Commit：`feat: add MCP server repository`。
+
+- [ ] **Task B2: MCP Client stdio 模块**
+  - 目标：封装 `@modelcontextprotocol/sdk` stdio client，支持连接、列工具、调用工具、断开。
+  - 修改：`server/package.json`。
+  - 创建：`server/src/mcp/client.ts`、`server/src/mcp/client.test.ts`。
+  - 验证：`npm run test --workspace server -- src/mcp/client.test.ts`。
+  - Commit：`feat: add MCP stdio client`。
+
+- [ ] **Task B3: MCP Server 管理 API**
+  - 目标：提供 MCP Server CRUD、工具拉取、连接测试 API，并加入 command 白名单校验。
+  - 创建：`server/src/routes/mcpServers.ts`、`server/src/routes/mcpServers.test.ts`。
+  - 修改：`server/src/app.ts`、`server/src/config/env.ts`、`.env.example`。
+  - 验证：`npm run test --workspace server -- src/routes/mcpServers.test.ts`。
+  - Commit：`feat: add MCP server management API`。
+
+- [ ] **Task B4: mcp.call 工作流步骤**
+  - 目标：workflow runner 支持调用 MCP 工具，并把 content blocks 写入 `outputs[stepId]` 与 run trace。
+  - 修改：`server/src/workflows/types.ts`、`server/src/workflows/runner.ts`、`server/src/workflows/runner.test.ts`、`server/src/routes/workflows.ts`、`server/src/routes/workflows.test.ts`。
+  - 验证：`npm run test --workspace server -- src/workflows/runner.test.ts src/routes/workflows.test.ts`。
+  - Commit：`feat: add mcp.call workflow step`。
+
+### Milestone C: 前端与产品化
+
+- [ ] **Task C1: MCP Server 管理前端**
+  - 目标：用户能在前端新增、删除、测试 MCP Server，并查看工具列表。
+  - 创建：`client/src/pages/McpServersPage.tsx`、`client/src/pages/McpServersPage.test.tsx`。
+  - 修改：`client/src/api/client.ts`、`client/src/api/types.ts`、`client/src/components/TopNav.tsx`、`client/src/App.tsx`。
+  - 验证：`npm run test --workspace client -- src/pages/McpServersPage.test.tsx`。
+  - Commit：`feat: add MCP server management page`。
+
+- [ ] **Task C2: Skill 模板后端**
+  - 目标：提供内置 Skill 模板、用户自定义模板存储、模板参数解析和模板运行 API。
+  - 创建：`server/src/skills/templateRegistry.ts`、`server/src/skills/templateRegistry.test.ts`、`server/src/skills/skillRepository.ts`、`server/src/skills/skillRepository.test.ts`、`server/src/routes/skills.ts`、`server/src/routes/skills.test.ts`。
+  - 修改：`server/src/db/schema.ts`、`server/src/app.ts`。
+  - 验证：`npm run test --workspace server -- src/skills/templateRegistry.test.ts src/skills/skillRepository.test.ts src/routes/skills.test.ts`。
+  - Commit：`feat: add workflow skill template API`。
+
+- [ ] **Task C3: Skill 模板前端**
+  - 目标：`WorkflowTemplatesPage` 接入真实 API，支持查看模板、填写参数、运行模板。
+  - 修改：`client/src/pages/WorkflowTemplatesPage.tsx`、`client/src/pages/WorkflowTemplatesPage.test.tsx`、`client/src/api/client.ts`、`client/src/api/types.ts`。
+  - 验证：`npm run test --workspace client -- src/pages/WorkflowTemplatesPage.test.tsx`。
+  - Commit：`feat: connect workflow templates page`。
+
+- [ ] **Task C4: 工作流构建器前端**
+  - 目标：提供表单式多步骤 workflow builder，支持 `llm.chat`、`endpoint.call`、`mcp.call`。
+  - 创建：`client/src/pages/WorkflowBuilderPage.tsx`、`client/src/pages/WorkflowBuilderPage.test.tsx`。
+  - 修改：`client/src/api/client.ts`、`client/src/api/types.ts`、`client/src/components/TopNav.tsx`、`client/src/App.tsx`、`client/src/styles.css`。
+  - 验证：`npm run test --workspace client -- src/pages/WorkflowBuilderPage.test.tsx`。
+  - Commit：`feat: add workflow builder page`。
+
+- [ ] **Task C5: 配置导入导出与运行历史增强**
+  - 目标：配置导出升级到 version 2，包含 MCP Server 和 Skill；运行历史按 step 类型展示细节。
+  - 修改：`server/src/configuration/configExport.ts`、`server/src/configuration/configExport.test.ts`、`server/src/routes/configuration.test.ts`、`client/src/pages/ConfigurationPage.tsx`、`client/src/pages/RunsPage.tsx`、`client/src/pages/RunsPage.test.tsx`。
+  - 验证：`npm run test --workspace server -- src/configuration/configExport.test.ts src/routes/configuration.test.ts`；`npm run test --workspace client -- src/pages/RunsPage.test.tsx src/pages/ConfigurationPage.test.tsx`。
+  - Commit：`feat: export v0.3 configuration and step traces`。
+
+- [ ] **Task C6: 文档与全量验证**
+  - 目标：补齐用户指南、标记本计划完成，并跑完整测试/构建。
+  - 创建：`docs/api-tools-v0-3-user-guide.md`。
+  - 修改：`docs/superpowers/plans/2026-06-25-api-tools-v0-3-implementation.md`。
+  - 验证：`npm run test --workspace server`、`npm run test --workspace client`、`npm run typecheck --workspace server`、`npm run typecheck --workspace client`、`npm run build --workspace server`、`npm run build --workspace client`。
+  - Commit：`docs: complete API Tools v0.3 implementation guide`。
+
+### 执行规则
+
+- 每个子任务完成后必须 commit，一次 commit 只包含该子任务相关文件。
+- 每个子任务 commit 前至少运行对应测试；涉及类型变更时加跑对应 workspace 的 `typecheck`。
+- 不主动 push；用户明确说 push 后再推送远程。
+- 如果 schema 变更导致旧本地数据库不兼容，先记录错误并说明是否需要删除开发数据库；不静默删除数据。
+- MCP 只实现 stdio transport；Streamable HTTP transport 留到后续版本。
 
 ---
 
@@ -60,15 +256,10 @@
 
 **步骤 1: 扩展 schema 和类型**
 
-在 `run_steps.step_type` 枚举中增加 `endpoint.call`。
-
 修改 `server/src/workflows/types.ts`：
 
 ```ts
-export type WorkflowStepType =
-  | "llm.chat"
-  | "endpoint.call"
-  | "mcp.call";
+export type WorkflowStepType = "llm.chat" | "endpoint.call" | "mcp.call";
 
 export interface LlmChatStepDefinition {
   id: string;
@@ -98,59 +289,64 @@ export type WorkflowStepDefinition =
   | McpCallStepDefinition;
 ```
 
+修改 `server/src/db/schema.ts`，在 `run_steps.step_type` CHECK 约束中增加 `'endpoint.call'`。
+
 **步骤 2: 在 runner 中增加 endpoint.call 处理**
 
-修改 `server/src/workflows/runner.ts`，在 `runLlmChatStep` 旁边增加 `runEndpointCallStep`：
+修改 `server/src/workflows/runner.ts`：
+
+- 在 `WorkflowRunnerDependencies` 中增加 `endpointTester` 依赖
+- 新增 `runEndpointCallStep` 函数，复用 `endpointTester.testEndpoint()`
+- 在循环中 `step.type === "endpoint.call"` 分支
 
 ```ts
 async function runEndpointCallStep(
   endpointId: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  dependencies: {
+    endpoints: ReturnType<typeof createEndpointRepository>;
+    providers: ReturnType<typeof createProviderRepository>;
+    endpointTester: EndpointTester;
+    env: NodeJS.ProcessEnv;
+  }
 ): Promise<EndpointCallStepResult> {
-  const endpoint = endpoints.getById(endpointId);
+  const endpoint = dependencies.endpoints.getById(endpointId);
   if (!endpoint) {
     throw new ProviderError("endpoint_not_found", "Endpoint not found", { statusCode: 404 });
   }
-  const provider = providers.getById(endpoint.providerId);
+  const provider = dependencies.providers.getById(endpoint.providerId);
   if (!provider) {
     throw new ProviderError("provider_not_found", "Provider not found", { statusCode: 404 });
   }
-
   const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
 
   const result = await dependencies.endpointTester.testEndpoint({
-    endpoint,
-    provider,
-    apiKey,
-    input
+    endpoint, provider, apiKey, input
   });
 
   return {
     status: result.ok ? "succeeded" : "failed",
     statusCode: result.status,
     bodyPreview: result.bodyPreview,
-    latencyMs: result.latencyMs,
-    error: result.ok ? undefined : { code: "endpoint_error", message: "Endpoint test failed" }
+    latencyMs: result.latencyMs
   };
 }
 ```
 
-**步骤 3: 在 workflow 循环中增加 endpoint.call 分支**
-
-修改 runner 的主循环，在 `step.type !== "llm.chat"` 的判断中增加：
+**步骤 3: 在循环中增加 endpoint.call 分支**
 
 ```ts
 if (step.type === "endpoint.call") {
-  const result = await runEndpointCallStep(step.endpointId, resolvedInput);
-  // ... 写入 run_step, 更新 run
-  outputs[step.id] = { body: result.bodyPreview };
-  continue;
+  const resolvedInput = resolveStepInput(step.input, input.input, outputs);
+  const stepResult = await runEndpointCallStep(step.endpointId, resolvedInput, {
+    endpoints, providers, endpointTester: dependencies.endpointTester, env: dependencies.env
+  });
+  outputs[step.id] = { body: stepResult.bodyPreview };
+  // ... 写入 run_step
 }
 ```
 
 **步骤 4: 扩展 route schema**
-
-修改 `server/src/routes/workflows.ts` 中的 `workflowStepSchema`：
 
 ```ts
 const endpointCallStepSchema = z.object({
@@ -159,13 +355,10 @@ const endpointCallStepSchema = z.object({
   endpointId: z.string().min(1),
   input: z.record(z.unknown())
 });
-
 const workflowStepSchema = llmChatStepSchema.or(endpointCallStepSchema);
 ```
 
 **步骤 5: 添加测试**
-
-在 `runner.test.ts` 中增加：
 
 ```ts
 it("runs an endpoint.call step and records trace", async () => {
@@ -175,9 +368,9 @@ it("runs an endpoint.call step and records trace", async () => {
   // Assert run_step has step_type "endpoint.call", status "succeeded"
 });
 
-it("records failed endpoint.call step", async () => {
-  // Mock endpointTester to return error
-  // Assert run_step has status "failed", error_code, error_message
+it("records failed endpoint.call step with error details", async () => {
+  // Mock endpointTester to return HTTP 500
+  // Assert run_step has status "failed", error_code "provider_error"
 });
 ```
 
@@ -201,23 +394,21 @@ git commit -m "feat: add endpoint.call workflow step"
 
 ## Task 2: MCP Client 模块
 
-**目标：** 实现 MCP Client，支持 stdio 和 Streamable HTTP transport，能连接 MCP Server 并调用工具。
+**目标：** 实现 MCP Client，支持 stdio transport，能连接 MCP Server 并调用工具。
 
 **文件：**
 - 创建: `server/src/mcp/client.ts`
 - 创建: `server/src/mcp/client.test.ts`
 - 创建: `server/src/mcp/types.ts`
-- 修改: `server/src/db/schema.ts`
-- 修改: `server/package.json`（添加 `@modelcontextprotocol/sdk` 依赖）
+- 修改: `server/package.json`
 
 **步骤 1: 添加依赖**
 
 ```bash
 npm install @modelcontextprotocol/sdk
-npm install -D @types/node @types/cross-spawn
 ```
 
-**步骤 2: 定义 MCP Client 类型**
+**步骤 2: 定义类型**
 
 创建 `server/src/mcp/types.ts`：
 
@@ -225,11 +416,10 @@ npm install -D @types/node @types/cross-spawn
 export interface McpServerRecord {
   id: string;
   name: string;
-  transport: "stdio" | "streamable-http";
-  command?: string;
+  transport: "stdio";
+  command: string;
   args?: string[];
   env?: Record<string, string>;
-  url?: string;
   enabled: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -240,13 +430,11 @@ export interface McpTool {
   title?: string;
   description?: string;
   inputSchema: Record<string, unknown>;
-  outputSchema?: Record<string, unknown>;
 }
 
 export interface McpCallResult {
   ok: boolean;
   content: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
-  structuredContent?: Record<string, unknown>;
   isError?: boolean;
   latencyMs: number;
 }
@@ -264,27 +452,18 @@ import type { McpCallResult, McpServerRecord, McpTool } from "./types.js";
 import { ProviderError } from "../errors/providerError.js";
 
 export class McpClientManager {
-  private clients: Map<string, Client> = new Map();
+  private clients: Map<string, { client: Client; server: McpServerRecord }> = new Map();
 
   async connect(server: McpServerRecord): Promise<void> {
     if (this.clients.has(server.id)) {
       await this.disconnect(server.id);
     }
 
-    let transport: StdioClientTransport | null = null;
-
-    if (server.transport === "stdio") {
-      const { spawn } = await import("child_process");
-      transport = new StdioClientTransport({
-        command: server.command!,
-        args: server.args,
-        env: { ...process.env, ...server.env }
-      });
-    } else {
-      throw new ProviderError("unsupported_transport", "Only stdio transport is supported in V0.3", {
-        suggestion: "Use a local MCP server with stdio transport."
-      });
-    }
+    const transport = new StdioClientTransport({
+      command: server.command,
+      args: server.args,
+      env: { ...getDefaultEnvironment(), ...server.env }
+    });
 
     const client = new Client(
       { name: "api-tools", version: "0.3.0" },
@@ -292,46 +471,36 @@ export class McpClientManager {
     );
 
     await client.connect(transport);
-    this.clients.set(server.id, client);
+    this.clients.set(server.id, { client, server });
   }
 
   async listTools(serverId: string): Promise<McpTool[]> {
-    const client = this.clients.get(serverId);
-    if (!client) {
+    const entry = this.clients.get(serverId);
+    if (!entry) {
       throw new ProviderError("mcp_server_not_connected", "MCP Server not connected", { statusCode: 400 });
     }
-
-    const result = await client.listTools();
+    const result = await entry.client.listTools();
     return result.tools.map((tool) => ({
       name: tool.name,
       title: tool.title,
       description: tool.description,
-      inputSchema: tool.inputSchema as Record<string, unknown>,
-      outputSchema: tool.outputSchema as Record<string, unknown> | undefined
+      inputSchema: tool.inputSchema as Record<string, unknown>
     }));
   }
 
   async callTool(serverId: string, toolName: string, args: Record<string, unknown>): Promise<McpCallResult> {
-    const client = this.clients.get(serverId);
-    if (!client) {
+    const entry = this.clients.get(serverId);
+    if (!entry) {
       throw new ProviderError("mcp_server_not_connected", "MCP Server not connected", { statusCode: 400 });
     }
 
     const startedAt = Date.now();
-
     try {
-      const result = await client.callTool({ name: toolName, arguments: args });
-
+      const result = await entry.client.callTool({ name: toolName, arguments: args });
       const content = Array.isArray(result.content) ? result.content : [];
-      const textContent = content
-        .filter((c: { type: string }) => c.type === "text")
-        .map((c: { text: string }) => c.text)
-        .join("\n");
-
       return {
         ok: !(result as { isError?: boolean }).isError,
         content,
-        structuredContent: (result as { structuredContent?: Record<string, unknown> }).structuredContent,
         isError: (result as { isError?: boolean }).isError,
         latencyMs: Date.now() - startedAt
       };
@@ -346,9 +515,9 @@ export class McpClientManager {
   }
 
   async disconnect(serverId: string): Promise<void> {
-    const client = this.clients.get(serverId);
-    if (client) {
-      await client.close();
+    const entry = this.clients.get(serverId);
+    if (entry) {
+      await entry.client.close();
       this.clients.delete(serverId);
     }
   }
@@ -366,37 +535,77 @@ export class McpClientManager {
 创建 `server/src/mcp/client.test.ts`：
 
 ```ts
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { McpClientManager } from "./client.js";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { McpError } from "@modelcontextprotocol/sdk/types.js";
 
+// Mock the entire SDK module
+vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
+  Client: vi.fn().mockImplementation(() => ({
+    connect: vi.fn().mockResolvedValue(undefined),
+    listTools: vi.fn().mockResolvedValue({ tools: [] }),
+    callTool: vi.fn().mockResolvedValue({ content: [{ type: "text", text: "ok" }] }),
+    close: vi.fn().mockResolvedValue(undefined)
+  }))
+}));
+
+vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
+  StdioClientTransport: vi.fn().mockImplementation(() => ({}))
+}));
+
 describe("McpClientManager", () => {
+  let manager: McpClientManager;
+
+  beforeEach(() => {
+    manager = new McpClientManager();
+  });
+
   it("throws when calling tool on disconnected server", async () => {
-    const manager = new McpClientManager();
     await expect(manager.callTool("nonexistent", "test", {})).rejects.toThrow("MCP Server not connected");
   });
 
-  it("maps McpError to ProviderError", async () => {
-    // Mock the Client class
+  it("disconnects and cleans up client", async () => {
+    // Mock connected client
     const mockClient = {
       connect: vi.fn().mockResolvedValue(undefined),
-      listTools: vi.fn().mockResolvedValue({ tools: [] }),
-      callTool: vi.fn().mockRejectedValue(new McpError("METHOD_NOT_FOUND", "Tool not found")),
       close: vi.fn().mockResolvedValue(undefined)
     };
-    // ... test integration
+    // ... test lifecycle
   });
 });
 ```
 
-**步骤 5: 验证**
+**步骤 5: 安全考虑**
+
+MCP Server 的 `command` 由用户配置，会被直接 `spawn`。需要：
+
+- 在 route 层对 `command` 做白名单校验：只允许已知路径（如 `npx`、`node`、绝对路径的可执行文件）
+- 不允许 shell 元字符（`;`、`|`、`&&`、`||`、`$()`、`` ` ``）
+- 在 `.env` 中加一个 `ALLOW_MCP_COMMANDS` 环境变量，逗号分隔允许的 command 名
+
+```ts
+// server/src/routes/mcpServers.ts
+const ALLOWED_MCP_COMMANDS = (process.env.ALLOW_MCP_COMMANDS ?? "npx,node").split(",");
+
+function validateCommand(command: string) {
+  if (!ALLOWED_MCP_COMMANDS.includes(command)) {
+    throw new ProviderError("invalid_mcp_command", `Command '${command}' is not allowed. Allowed: ${ALLOWED_MCP_COMMANDS.join(", ")}`);
+  }
+  if (/[\;|\&\$`]/.test(command)) {
+    throw new ProviderError("invalid_mcp_command", "Command contains dangerous characters");
+  }
+}
+```
+
+**步骤 6: 验证**
 
 ```bash
 npm run test --workspace server -- src/mcp/client.test.ts
 npm run typecheck --workspace server
 ```
 
-**步骤 6: Commit**
+**步骤 7: Commit**
 
 ```bash
 git add server/package.json server/src/mcp/client.ts server/src/mcp/client.test.ts server/src/mcp/types.ts
@@ -426,11 +635,10 @@ git commit -m "feat: add MCP client module"
 create table if not exists mcp_servers (
   id text primary key,
   name text not null,
-  transport text not null check (transport in ('stdio', 'streamable-http')),
-  command text,
+  transport text not null default 'stdio',
+  command text not null,
   args_json text default '[]',
   env_json text default '{}',
-  url text,
   enabled integer not null default 1,
   created_at text not null,
   updated_at text not null
@@ -439,53 +647,48 @@ create table if not exists mcp_servers (
 
 **步骤 2: 新增 mcpServerRepository**
 
-创建 `server/src/mcp/mcpServerRepository.ts`：
-
-```ts
-import type Database from "better-sqlite3";
-import { nanoid } from "nanoid";
-import type { McpServerRecord } from "./types.js";
-
-export function createMcpServerRepository(db: Database.Database) {
-  return {
-    create(input: Omit<McpServerRecord, "id" | "createdAt" | "updatedAt">): McpServerRecord {
-      const now = new Date().toISOString();
-      const record = {
-        id: nanoid(),
-        ...input,
-        args: JSON.parse(input.args_json || "[]"),
-        env: JSON.parse(input.env_json || "{}"),
-        createdAt: now,
-        updatedAt: now
-      };
-      // ... insert and return
-    },
-    list(): McpServerRecord[] { /* ... */ },
-    getById(id: string): McpServerRecord | null { /* ... */ },
-    delete(id: string): void { /* ... */ }
-  };
-}
-```
+创建 `server/src/mcp/mcpServerRepository.ts`，遵循现有 repository 模式（CRUD + JSON 字段序列化）。
 
 **步骤 3: 在 runner 中增加 mcp.call 处理**
 
-修改 `server/src/workflows/runner.ts`，在 workflow 循环中增加：
+修改 `server/src/workflows/runner.ts`：
+
+- `WorkflowRunnerDependencies` 增加 `mcpManager: McpClientManager`
+- 新增 `runMcpCallStep` 函数
+- 在循环中 `step.type === "mcp.call"` 分支
 
 ```ts
-if (step.type === "mcp.call") {
-  const result = await runMcpCallStep(step, resolvedInput);
-  // ... 写入 run_step
-  outputs[step.id] = {
+async function runMcpCallStep(
+  step: McpCallStepDefinition,
+  resolvedInput: Record<string, unknown>,
+  dependencies: {
+    mcpServers: ReturnType<typeof createMcpServerRepository>;
+    mcpManager: McpClientManager;
+  }
+): Promise<McpCallStepResult> {
+  const server = dependencies.mcpServers.getById(step.mcpServerId);
+  if (!server) {
+    throw new ProviderError("mcp_server_not_found", "MCP Server not found", { statusCode: 404 });
+  }
+
+  // 自动连接（如果还没连）
+  try {
+    await dependencies.mcpManager.connect(server);
+  } catch {
+    // 已连接或连接失败，connect 内部处理了重复连接
+  }
+
+  const result = await dependencies.mcpManager.callTool(step.mcpServerId, step.toolName, resolvedInput);
+
+  return {
     content: result.content,
-    structuredContent: result.structuredContent
+    isError: result.isError,
+    latencyMs: result.latencyMs
   };
-  continue;
 }
 ```
 
 **步骤 4: 修改 app.ts 注入 McpClientManager**
-
-修改 `server/src/app.ts`：
 
 ```ts
 import { McpClientManager } from "./mcp/client.js";
@@ -499,7 +702,9 @@ export interface AppDependencies {
 
 export function createApp(dependencies: AppDependencies) {
   const mcpManager = dependencies.mcpManager ?? new McpClientManager();
-  // ... mount /api/mcp-servers route with mcpManager
+  // ...
+  app.use("/api/mcp-servers", createMcpServersRouter(db, { mcpManager }));
+  // ...
 }
 ```
 
@@ -507,10 +712,15 @@ export function createApp(dependencies: AppDependencies) {
 
 ```ts
 it("runs an mcp.call step and records trace", async () => {
-  // Seed MCP server + provider
+  // Seed MCP server
   // Mock McpClientManager.callTool to return success
   // Call runWorkflow with mcp.call step
   // Assert run_step has step_type "mcp.call", status "succeeded"
+});
+
+it("records failed mcp.call step with error details", async () => {
+  // Mock McpClientManager.callTool to throw McpError
+  // Assert run_step has status "failed", error_code "mcp_tool_error"
 });
 ```
 
@@ -527,7 +737,7 @@ git commit -m "feat: add mcp.call workflow step"
 
 ## Task 4: MCP Server 管理 API + 前端
 
-**目标：** 用户能创建/管理 MCP Server，查看可用工具。
+**目标：** 用户能创建/管理 MCP Server，查看可用工具，测试连接。
 
 **文件：**
 - 创建: `server/src/routes/mcpServers.ts`
@@ -545,52 +755,47 @@ git commit -m "feat: add mcp.call workflow step"
 创建 `server/src/routes/mcpServers.ts`：
 
 ```ts
-router.get("/", (_req, res) => {
-  res.json(servers.list());
-});
-
-router.post("/", (req, res) => {
-  const input = createMcpServerSchema.parse(req.body);
-  const created = servers.create(input);
-  res.status(201).json(created);
-});
-
-router.get("/:id/tools", async (req, res, next) => {
-  try {
-    const server = servers.getById(req.params.id);
-    if (!server) { throw new ProviderError("not_found", "MCP Server not found", { statusCode: 404 }); }
-    const tools = await mcpManager.listTools(server.id);
-    res.json(tools);
-  } catch (error) { next(error); }
-});
-
-router.delete("/:id", (req, res) => {
-  servers.delete(req.params.id);
-  res.status(204).end();
-});
+// GET /api/mcp-servers - 列出所有 MCP Server
+// POST /api/mcp-servers - 创建 MCP Server（含 command 白名单校验）
+// GET /api/mcp-servers/:id/tools - 连接并列出工具
+// DELETE /api/mcp-servers/:id - 删除（断开连接）
 ```
 
-**步骤 2: 前端页面**
-
-创建 `client/src/pages/McpServersPage.tsx`：
+**步骤 2: 前端页面结构**
 
 ```tsx
 export function McpServersPage({ api }: { api: McpServersApi }) {
   const [servers, setServers] = useState<McpServerRecord[]>([]);
   const [selectedServer, setSelectedServer] = useState<McpServerRecord | null>(null);
   const [tools, setTools] = useState<McpTool[]>([]);
+  const [testing, setTesting] = useState(false);
 
-  // Form: name, transport (stdio), command, args
-  // List: server cards with tools dropdown
-  // Show tool inputSchema when expanded
+  // 左侧：MCP Server 列表 + 创建表单
+  // 右侧：选中 Server 的工具列表（可展开查看 inputSchema）
 }
 ```
 
-**步骤 3: 更新导航**
+**步骤 3: 创建表单字段**
+
+- 名称输入框
+- 命令输入框（如 `npx -y @modelcontextprotocol/server-filesystem`）
+- 参数输入框（JSON 数组，如 `["/path/to/dir"]`）
+- 环境变量输入框（JSON 对象，如 `{ "MY_VAR": "value" }`）
+- 启用开关
+- "测试连接"按钮 → 调用 `GET /:id/tools`
+
+**步骤 4: 工具列表展示**
+
+选中 Server 后：
+- 加载工具列表
+- 每个工具显示：名称、描述、inputSchema（可展开）
+- 工具列表下方显示"此 Server 可用于 mcp.call 工作流步骤"
+
+**步骤 5: 更新导航**
 
 在 TopNav 的"管理"组中增加 MCP Server 入口。
 
-**步骤 4: Commit**
+**步骤 6: Commit**
 
 ```bash
 git add server/src/routes/mcpServers.ts client/src/pages/McpServersPage.tsx \
@@ -615,7 +820,35 @@ git commit -m "feat: add MCP Server management"
 - 修改: `client/src/pages/WorkflowTemplatesPage.tsx`
 - 修改: `client/src/api/client.ts`
 
-**步骤 1: 内置模板**
+**步骤 1: 模板类型定义**
+
+```ts
+export interface SkillTemplate {
+  id: string;
+  name: Record<"zh-CN" | "en", string>;
+  description: Record<"zh-CN" | "en", string>;
+  // 模板中的占位符声明
+  parameters: Array<{
+    key: string;           // 如 "model", "mcpServer", "query"
+    label: Record<"zh-CN" | "en", string>;
+    required: boolean;
+    type: "model" | "mcpServer" | "endpoint" | "text";
+  }>;
+  // 模板步骤（含占位符）
+  steps: Array<{
+    id: string;
+    type: "llm.chat" | "endpoint.call" | "mcp.call";
+    modelId?: string;      // 可以是 "{{model}}" 占位符
+    endpointId?: string;   // 可以是 "{{endpoint}}" 占位符
+    mcpServerId?: string;  // 可以是 "{{mcpServer}}" 占位符
+    toolName?: string;     // 可以是 "{{tool}}" 占位符
+    input: Record<string, unknown>;
+  }>;
+  builtin: boolean;
+}
+```
+
+**步骤 2: 内置模板**
 
 创建 `server/src/skills/templateRegistry.ts`：
 
@@ -628,17 +861,43 @@ export const BUILTIN_SKILLS: SkillTemplate[] = [
       "zh-CN": "先用 LLM 提取关键词，再调搜索工具，最后让 LLM 生成总结。",
       en: "Extract keywords with LLM, search with MCP tool, summarize with LLM."
     },
+    parameters: [
+      { key: "model", label: { "zh-CN": "模型", en: "Model" }, required: true, type: "model" },
+      { key: "mcpServer", label: { "zh-CN": "搜索 MCP Server", en: "Search MCP Server" }, required: true, type: "mcpServer" },
+      { key: "query", label: { "zh-CN": "搜索查询", en: "Search Query" }, required: true, type: "text" }
+    ],
     steps: [
-      { id: "extract", type: "llm.chat", modelId: "{{model}}", input: {
-        messages: [{ role: "system", content: "Extract search keywords from the input. Reply with only the keywords." }, { role: "user", content: "{{input.query}}" }]
-      }},
-      { id: "search", type: "mcp.call", mcpServerId: "{{mcpServer}}", toolName: "web_search", input: {
-        query: "{{steps.extract.outputs.content}}"
-      }},
-      { id: "summarize", type: "llm.chat", modelId: "{{model}}", input: {
-        messages: [{ role: "system", content: "Summarize the search results in a clear response." }, { role: "user", content: "{{steps.search.outputs.content}}" }]
-      }}
-    ]
+      {
+        id: "extract",
+        type: "llm.chat",
+        modelId: "{{model}}",
+        input: {
+          messages: [
+            { role: "system", content: "Extract search keywords from the input. Reply with only the keywords." },
+            { role: "user", content: "{{input.query}}" }
+          ]
+        }
+      },
+      {
+        id: "search",
+        type: "mcp.call",
+        mcpServerId: "{{mcpServer}}",
+        toolName: "web_search",
+        input: { query: "{{steps.extract.outputs.content}}" }
+      },
+      {
+        id: "summarize",
+        type: "llm.chat",
+        modelId: "{{model}}",
+        input: {
+          messages: [
+            { role: "system", content: "Summarize the search results in a clear response." },
+            { role: "user", content: "{{steps.search.outputs.content}}" }
+          ]
+        }
+      }
+    ],
+    builtin: true
   },
   {
     id: "llm-translate-polish",
@@ -647,14 +906,14 @@ export const BUILTIN_SKILLS: SkillTemplate[] = [
       "zh-CN": "先用快速模型翻译，再用高质量模型校对。",
       en: "Translate with fast model, polish with quality model."
     },
-    steps: [
-      { id: "translate", type: "llm.chat", modelId: "{{fastModel}}", input: {
-        messages: [{ role: "system", content: "Translate the input to {{targetLang}}." }, { role: "user", content: "{{input.text}}" }]
-      }},
-      { id: "polish", type: "llm.chat", modelId: "{{qualityModel}}", input: {
-        messages: [{ role: "system", content: "Polish the translation for fluency and accuracy." }, { role: "user", content: "{{steps.translate.outputs.content}}" }]
-      }}
-    ]
+    parameters: [
+      { key: "fastModel", label: { "zh-CN": "快速模型", en: "Fast Model" }, required: true, type: "model" },
+      { key: "qualityModel", label: { "zh-CN": "高质量模型", en: "Quality Model" }, required: true, type: "model" },
+      { key: "targetLang", label: { "zh-CN": "目标语言", en: "Target Language" }, required: false, type: "text" },
+      { key: "text", label: { "zh-CN": "待翻译文本", en: "Text to Translate" }, required: true, type: "text" }
+    ],
+    steps: [ /* ... */ ],
+    builtin: true
   },
   {
     id: "endpoint-data-pipeline",
@@ -663,23 +922,74 @@ export const BUILTIN_SKILLS: SkillTemplate[] = [
       "zh-CN": "LLM 处理数据 → 调 API 存储 → 返回确认。",
       en: "Process data with LLM, store via API, confirm."
     },
-    steps: [
-      { id: "process", type: "llm.chat", modelId: "{{model}}", input: {
-        messages: [{ role: "user", content: "{{input.data}}" }]
-      }},
-      { id: "store", type: "endpoint.call", endpointId: "{{endpoint}}", input: {
-        body: "{{steps.process.outputs.content}}"
-      }}
-    ]
+    parameters: [
+      { key: "model", label: { "zh-CN": "模型", en: "Model" }, required: true, type: "model" },
+      { key: "endpoint", label: { "zh-CN": "存储 Endpoint", en: "Storage Endpoint" }, required: true, type: "endpoint" },
+      { key: "data", label: { "zh-CN": "输入数据", en: "Input Data" }, required: true, type: "text" }
+    ],
+    steps: [ /* ... */ ],
+    builtin: true
   }
 ];
 ```
 
-**步骤 2: 用户自定义 Skill 存储**
+**步骤 3: 模板参数解析**
 
-创建 `server/src/skills/skillRepository.ts`，存储用户自定义模板（JSON 序列化的 steps 数组）。
+在 `POST /api/skills/:id/run` 路由中：
 
-**步骤 3: 后端路由**
+```ts
+// 接收运行时参数
+interface SkillRunInput {
+  model?: string;
+  fastModel?: string;
+  qualityModel?: string;
+  mcpServer?: string;
+  endpoint?: string;
+  query?: string;
+  text?: string;
+  data?: string;
+  targetLang?: string;
+}
+
+// 将占位符替换为实际值
+function resolveSkillParameters(steps: SkillTemplate["steps"], params: SkillRunInput): WorkflowStepDefinition[] {
+  return steps.map((step) => {
+    const resolved: Record<string, unknown> = { ...step };
+
+    // 替换 modelId
+    if (step.modelId === "{{model}}" && params.model) resolved.modelId = params.model;
+    else if (step.modelId === "{{fastModel}}" && params.fastModel) resolved.modelId = params.fastModel;
+    else if (step.modelId === "{{qualityModel}}" && params.qualityModel) resolved.modelId = params.qualityModel;
+
+    // 替换 mcpServerId
+    if (step.mcpServerId === "{{mcpServer}}" && params.mcpServer) resolved.mcpServerId = params.mcpServer;
+
+    // 替换 endpointId
+    if (step.endpointId === "{{endpoint}}" && params.endpoint) resolved.endpointId = params.endpoint;
+
+    // 替换 input 中的 {{input.xxx}}
+    if (resolved.input) {
+      for (const [key, value] of Object.entries(resolved.input)) {
+        if (typeof value === "string") {
+          resolved.input[key] = value
+            .replace(/\{\{input\.query\}\}/g, params.query ?? "")
+            .replace(/\{\{input\.text\}\}/g, params.text ?? "")
+            .replace(/\{\{input\.data\}\}/g, params.data ?? "")
+            .replace(/\{\{input\.targetLang\}\}/g, params.targetLang ?? "English");
+        }
+      }
+    }
+
+    return resolved as WorkflowStepDefinition;
+  });
+}
+```
+
+**步骤 4: 用户自定义 Skill 存储**
+
+创建 `server/src/skills/skillRepository.ts`，存储用户自定义模板（JSON 序列化的 steps 数组 + parameters）。
+
+**步骤 5: 后端路由**
 
 ```ts
 // GET /api/skills - 返回内置 + 用户自定义
@@ -689,11 +999,15 @@ export const BUILTIN_SKILLS: SkillTemplate[] = [
 // POST /api/skills/:id/run - 用模板参数运行工作流
 ```
 
-**步骤 4: 前端更新**
+**步骤 6: 前端更新**
 
-修改 `WorkflowTemplatesPage.tsx`，从 `GET /api/workflows` 拉取真实数据，展示 Skill 模板列表，支持"运行"按钮。
+修改 `WorkflowTemplatesPage.tsx`：
+- 从 `GET /api/skills` 拉取真实数据
+- 展示 Skill 模板列表（名称、描述、步骤数）
+- 点击"运行"弹出参数表单（根据 parameters 动态生成）
+- 表单提交后调用 `POST /api/skills/:id/run`
 
-**步骤 5: Commit**
+**步骤 7: Commit**
 
 ```bash
 git add server/src/skills/ server/src/routes/skills.ts client/src/pages/WorkflowTemplatesPage.tsx \
@@ -718,17 +1032,60 @@ git commit -m "feat: add skill template system"
 
 **步骤 1: 页面结构**
 
+三栏布局：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 工作流构建器                                                 │
+├──────────────┬──────────────────────┬───────────────────────┤
+│ 步骤列表      │ 步骤编辑器            │ 运行结果               │
+│              │                      │                       │
+│ [+ 添加步骤]  │ ┌────────────────┐   │ ┌─────────────────┐  │
+│              │ │ 步骤 1: llm.chat │   │ │ Step 1: succeeded│  │
+│ • 步骤 1     │ │ 模型: [v] deepseek│   │ │ content: "..."  │  │
+│ • 步骤 2     │ │ messages:        │   │ └─────────────────┘  │
+│              │ │  [system] ...    │   │                       │
+│              │ │  [user] {{input. │   │ ┌─────────────────┐  │
+│              │ │    query}}       │   │ │ Step 2: running │  │
+│              │ └────────────────┘   │ │ ...               │  │
+│              │ ┌────────────────┐   │ └─────────────────┘  │
+│              │ │ 步骤 2: mcp.call│   │                       │
+│              │ │ Server: [v] ... │   │ [运行] [保存为模板]   │
+│              │ │ Tool:   [v] ... │   │                       │
+│              │ │ input:          │   │                       │
+│              │ │   query: {{...}}│   │                       │
+│              │ └────────────────┘   │                       │
+└──────────────┴──────────────────────┴───────────────────────┘
+```
+
+**步骤 2: 状态管理**
+
 ```tsx
+interface BuilderStep {
+  id: string;
+  type: "llm.chat" | "endpoint.call" | "mcp.call";
+  modelId?: string;
+  endpointId?: string;
+  mcpServerId?: string;
+  toolName?: string;
+  input: Record<string, unknown>;
+}
+
 export function WorkflowBuilderPage({ api }: { api: WorkflowBuilderApi }) {
-  // State: steps[], selectedStep, running, results
-  // UI:
-  //   - 左侧：步骤列表（可添加/删除/排序）
-  //   - 中间：步骤编辑器（选类型→选模型/endpoint/MCP server→编辑输入）
-  //   - 右侧：运行结果（每步的输出预览）
+  const [steps, setSteps] = useState<BuilderStep[]>([]);
+  const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
+  const [running, setRunning] = useState(false);
+  const [results, setResults] = useState<Record<string, Record<string, unknown>>>({});
+  const [initialInput, setInitialInput] = useState<Record<string, string>>({});
+
+  // 添加/删除/移动步骤
+  // 编辑选中步骤
+  // 运行工作流
+  // 保存为模板
 }
 ```
 
-**步骤 2: 步骤编辑器**
+**步骤 3: 步骤编辑器**
 
 每种步骤类型有不同的编辑表单：
 
@@ -736,15 +1093,25 @@ export function WorkflowBuilderPage({ api }: { api: WorkflowBuilderApi }) {
 - `endpoint.call`：选 Endpoint + 编辑 input JSON
 - `mcp.call`：选 MCP Server + 选工具 + 编辑 arguments JSON
 
-**步骤 3: 输入映射语法**
+**步骤 4: 输入映射语法**
 
-使用 `{{steps.<stepId>.outputs.<field>}}` 引用上一步的输出。前端提供自动补全提示。
+使用 `{{steps.<stepId>.outputs.<field>}}` 引用上一步的输出。前端提供自动补全提示——当用户在输入框中输入 `{{` 时，列出所有可用的 `{{steps.X.outputs.Y}}` 和 `{{input.xxx}}` 选项。
 
-**步骤 4: 运行**
+**步骤 5: 运行**
 
-点击"运行"后，调用 `POST /api/workflows/run`，传入编排好的 steps 数组。
+点击"运行"后：
+1. 收集初始输入（从表单或模板参数）
+2. 调用 `POST /api/workflows/run`，传入 steps 数组
+3. 显示每步的结果
 
-**步骤 5: 测试 + 样式 + Commit**
+**步骤 6: 保存为模板**
+
+点击"保存为模板"：
+1. 弹出表单：模板名称、描述
+2. 将 steps 数组 + parameters 声明保存为自定义 Skill
+3. 调用 `POST /api/skills`
+
+**步骤 7: Commit**
 
 ```bash
 git add client/src/pages/WorkflowBuilderPage.tsx client/src/styles.css
@@ -767,6 +1134,7 @@ git commit -m "feat: add workflow builder page"
 - 导出 schema bump 到 `version: 2`
 - 包含 `mcpServers` 和 `skills` 数组
 - 排除 `runs` 和 `run_steps`（运行历史不导出）
+- MCP Server 的 `env` 字段在导出时标记为"需要重新配置"（不导出实际值）
 - 保留 `missingApiKeyEnvs` 追踪
 
 ---
@@ -789,7 +1157,7 @@ git commit -m "feat: add workflow builder page"
 ## Task 9: 文档和全量验证
 
 **文件：**
-- 创建: `docs/superpowers/plans/2026-06-XX-api-tools-v0-3-implementation.md`（更新此文件标记完成）
+- 修改: `docs/superpowers/plans/2026-06-25-api-tools-v0-3-implementation.md`（标记完成）
 - 创建: `docs/api-tools-v0-3-user-guide.md`
 
 **验证：**
@@ -829,11 +1197,10 @@ npm run build --workspace client
 create table if not exists mcp_servers (
   id text primary key,
   name text not null,
-  transport text not null check (transport in ('stdio', 'streamable-http')),
-  command text,
+  transport text not null default 'stdio',
+  command text not null,
   args_json text default '[]',
   env_json text default '{}',
-  url text,
   enabled integer not null default 1,
   created_at text not null,
   updated_at text not null
@@ -844,6 +1211,7 @@ create table if not exists skills (
   name text not null,
   description text,
   steps_json text not null,
+  parameters_json text default '[]',
   builtin integer not null default 0,
   created_at text not null,
   updated_at text not null
@@ -895,4 +1263,5 @@ create table if not exists skills (
 - 不做拖拽编辑器（先做表单式）
 - 不做并行/分支/循环
 - 不做对话记忆
-- 不做 Streamable HTTP transport（仅 stdio）
+- 仅 stdio transport（不含 Streamable HTTP）
+- MCP command 白名单校验
