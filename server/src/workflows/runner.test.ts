@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ApiInvocation } from "../apiProtocol/types.js";
 import type { AdapterRegistry, ModelAdapter } from "../adapters/types.js";
 import { createModelRepository } from "../providers/modelRepository.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
@@ -106,6 +107,91 @@ describe("workflowRunner", () => {
         output_preview: "Hello from model",
         input_tokens: 10,
         output_tokens: 4
+      })
+    ]);
+
+    db.close();
+  });
+
+  it("resolves workflow input and previous step outputs in later step inputs", async () => {
+    const db = createTestDatabase();
+    const providers = createProviderRepository(db);
+    const models = createModelRepository(db);
+    const provider = providers.create({
+      name: "Custom",
+      type: "openai-compatible",
+      baseUrl: "https://example.test/v1",
+      apiKeyEnv: "CUSTOM_KEY",
+      enabled: true
+    });
+    const model = models.create({
+      providerId: provider.id,
+      displayName: "Fast Chat",
+      modelId: "fast-chat",
+      capability: "chat",
+      enabled: true,
+      defaultParams: {},
+      pricing: {}
+    });
+    const invoke = vi.fn(async (request: ApiInvocation) => {
+      const messages = request.input.messages as Array<{ content: string }> | undefined;
+      const message = messages?.[0]?.content ?? "";
+      return {
+        ok: true as const,
+        data: { content: message === "Find weather" ? "weather keyword" : `final: ${message}` },
+        latencyMs: 12,
+        usage: {}
+      };
+    });
+    const adapterRegistry: AdapterRegistry = {
+      getModelAdapter: vi.fn(() => ({
+        listModels: async () => [],
+        testModel: async () => ({ ok: true as const, latencyMs: 1, message: "ok", usage: {} }),
+        runChat: async () => ({ content: "unused", latencyMs: 1, usage: {} })
+      })),
+      invoke
+    };
+    const runner = createWorkflowRunner(db, {
+      adapterRegistry,
+      env: { CUSTOM_KEY: "secret" }
+    });
+
+    const result = await runner.runWorkflow({
+      workflowType: "api-workflow",
+      input: { message: "Find weather", locale: "English" },
+      steps: [
+        {
+          id: "extract",
+          type: "llm.chat",
+          modelId: model.id,
+          input: { message: "{{input.message}}" }
+        },
+        {
+          id: "summarize",
+          type: "llm.chat",
+          modelId: model.id,
+          input: { message: "Summarize {{steps.extract.outputs.content}} in {{input.locale}}" }
+        }
+      ]
+    });
+
+    expect(result.outputs.extract).toEqual({ content: "weather keyword" });
+    expect(result.outputs.summarize).toEqual({ content: "final: Summarize weather keyword in English" });
+    expect(invoke).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      input: { messages: [{ role: "user", content: "Summarize weather keyword in English" }] }
+    }));
+
+    const runSteps = db.prepare("select step_index, input_preview, output_preview from run_steps order by step_index asc").all<{
+      step_index: number;
+      input_preview: string;
+      output_preview: string;
+    }>();
+    expect(runSteps).toEqual([
+      expect.objectContaining({ step_index: 0, input_preview: "Find weather", output_preview: "weather keyword" }),
+      expect.objectContaining({
+        step_index: 1,
+        input_preview: "Summarize weather keyword in English",
+        output_preview: "final: Summarize weather keyword in English"
       })
     ]);
 

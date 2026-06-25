@@ -278,7 +278,7 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
           throw new ProviderError("unsupported_workflow_step", `Unsupported workflow step type: ${step.type}`, { statusCode: 400 });
         }
 
-        const stepMessage = resolveStepMessage(step, input.input);
+        const stepMessage = resolveStepMessage(step, input.input, outputs);
         const target = resolveLlmChatStepTarget(step);
         const stepId = insertRunningRunStep({
           runId,
@@ -419,13 +419,95 @@ function resolveInputMessage(input: Record<string, unknown>) {
   return typeof message === "string" ? message : "";
 }
 
-function resolveStepMessage(step: WorkflowStepDefinition, workflowInput: Record<string, unknown>) {
-  const message = step.input.message;
-  if (message === "{{input.message}}") {
-    return resolveInputMessage(workflowInput);
-  }
+function resolveStepMessage(
+  step: WorkflowStepDefinition,
+  workflowInput: Record<string, unknown>,
+  outputs: Record<string, Record<string, unknown>>
+) {
+  const resolvedInput = resolveStepInput(step.input, workflowInput, outputs);
+  const message = resolvedInput.message;
 
   return typeof message === "string" ? message : resolveInputMessage(workflowInput);
+}
+
+function resolveStepInput(
+  input: Record<string, unknown>,
+  workflowInput: Record<string, unknown>,
+  outputs: Record<string, Record<string, unknown>>
+): Record<string, unknown> {
+  const resolved: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(input)) {
+    resolved[key] = resolveInputValue(value, workflowInput, outputs);
+  }
+
+  return resolved;
+}
+
+function resolveInputValue(
+  value: unknown,
+  workflowInput: Record<string, unknown>,
+  outputs: Record<string, Record<string, unknown>>
+): unknown {
+  if (typeof value === "string") {
+    return resolvePlaceholders(value, workflowInput, outputs);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveInputValue(item, workflowInput, outputs));
+  }
+
+  if (isPlainRecord(value)) {
+    return resolveStepInput(value, workflowInput, outputs);
+  }
+
+  return value;
+}
+
+function resolvePlaceholders(
+  value: string,
+  workflowInput: Record<string, unknown>,
+  outputs: Record<string, Record<string, unknown>>
+): string {
+  const exactInputRef = value.match(/^\{\{input\.([A-Za-z0-9_]+)\}\}$/);
+  if (exactInputRef) {
+    return stringifyPlaceholderValue(workflowInput[exactInputRef[1]]);
+  }
+
+  const exactStepRef = value.match(/^\{\{steps\.([^.]+)\.outputs\.([^.}]+)\}\}$/);
+  if (exactStepRef) {
+    return stringifyPlaceholderValue(outputs[exactStepRef[1]]?.[exactStepRef[2]]);
+  }
+
+  return value.replace(/\{\{(input\.([A-Za-z0-9_]+)|steps\.([^.]+)\.outputs\.([^.}]+))\}\}/g, (
+    _match,
+    _expression,
+    inputKey: string | undefined,
+    stepId: string | undefined,
+    outputKey: string | undefined
+  ) => {
+    if (inputKey) {
+      return stringifyPlaceholderValue(workflowInput[inputKey]);
+    }
+
+    if (stepId && outputKey) {
+      return stringifyPlaceholderValue(outputs[stepId]?.[outputKey]);
+    }
+
+    return "";
+  });
+}
+
+function stringifyPlaceholderValue(value: unknown): string {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function asNumber(value: unknown): number | undefined {

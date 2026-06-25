@@ -142,7 +142,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
 
 ### Milestone A: Workflow 基础能力
 
-- [ ] **Task A1: 步骤输入解析器**
+- [x] **Task A1: 步骤输入解析器**
   - 目标：实现 `resolveStepInput` / `resolvePlaceholders`，支持 `{{input.x}}` 与 `{{steps.<id>.outputs.<field>}}`。
   - 修改：`server/src/workflows/runner.ts`、`server/src/workflows/runner.test.ts`。
   - 验证：`npm run test --workspace server -- src/workflows/runner.test.ts`。
