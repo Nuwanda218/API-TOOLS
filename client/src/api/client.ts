@@ -1,12 +1,19 @@
 import type {
   CreateModelInput,
+  CreateEndpointInput,
   CreateProviderInput,
+  EndpointRecord,
+  ExportedConfiguration,
+  ImportConfigurationResponse,
   ModelRecord,
   ProviderRecord,
   RemoteModelRecord,
   RunWorkflowRequest,
   RunWorkflowResponse,
+  RunRecord,
   SaveApiKeyInput,
+  TestEndpointResponse,
+  TestModelInput,
   TestModelResponse,
   UsageSummary
 } from "./types";
@@ -95,6 +102,36 @@ export const apiClient = {
     return requestJson<void>(`/api/providers/${providerId}`, { method: "DELETE" });
   },
 
+  listEndpoints(providerId?: string) {
+    const search = providerId ? `?providerId=${encodeURIComponent(providerId)}` : "";
+    return requestJson<EndpointRecord[]>(`/api/endpoints${search}`);
+  },
+
+  createEndpoint(input: CreateEndpointInput) {
+    return requestJson<EndpointRecord>("/api/endpoints", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+
+  updateEndpoint(endpointId: string, input: Partial<CreateEndpointInput>) {
+    return requestJson<EndpointRecord>(`/api/endpoints/${endpointId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input)
+    });
+  },
+
+  deleteEndpoint(endpointId: string) {
+    return requestJson<void>(`/api/endpoints/${endpointId}`, { method: "DELETE" });
+  },
+
+  testEndpoint(endpointId: string, input: Record<string, unknown>) {
+    return requestJson<TestEndpointResponse>(`/api/endpoints/${endpointId}/test`, {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+
   listRemoteModels(providerId: string) {
     return requestJson<{ ok: true; providerId: string; models: RemoteModelRecord[] }>(
       `/api/providers/${providerId}/remote-models`
@@ -129,16 +166,38 @@ export const apiClient = {
     return requestJson<void>(`/api/models/${modelId}`, { method: "DELETE" });
   },
 
-  testModel(modelId: string) {
-    return requestJson<TestModelResponse>(`/api/models/${modelId}/test`, { method: "POST" });
+  testModel(modelId: string, input?: TestModelInput) {
+    return requestJson<TestModelResponse>(`/api/models/${modelId}/test`, {
+      method: "POST",
+      body: JSON.stringify(input ?? {})
+    });
   },
 
   getUsageSummary() {
     return requestJson<UsageSummary>("/api/usage/summary");
   },
 
+  listRuns() {
+    return requestJson<RunRecord[]>("/api/runs");
+  },
+
+  getRun(runId: string) {
+    return requestJson<RunRecord>(`/api/runs/${runId}`);
+  },
+
   runWorkflow(input: RunWorkflowRequest) {
     return requestJson<RunWorkflowResponse>("/api/workflows/run", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+
+  exportConfiguration() {
+    return requestJson<ExportedConfiguration>("/api/configuration/export");
+  },
+
+  importConfiguration(input: ExportedConfiguration) {
+    return requestJson<ImportConfigurationResponse>("/api/configuration/import", {
       method: "POST",
       body: JSON.stringify(input)
     });

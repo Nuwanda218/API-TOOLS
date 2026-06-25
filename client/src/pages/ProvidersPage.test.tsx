@@ -5,6 +5,17 @@ import { describe, expect, it, vi } from "vitest";
 import { NotificationProvider } from "../components/notifications/NotificationProvider";
 import { ProvidersPage } from "./ProvidersPage";
 
+const defaultCapabilities = {
+  supportsChat: true,
+  supportsModelListing: true,
+  supportsManualModelImport: true,
+  supportsStreaming: false,
+  supportsToolCalling: false,
+  supportsVision: false,
+  supportsRemoteConversation: false,
+  requiresManualModelImport: false
+};
+
 function renderWithNotifications(ui: ReactElement) {
   return render(<NotificationProvider>{ui}</NotificationProvider>);
 }
@@ -19,6 +30,7 @@ describe("ProvidersPage", () => {
         apiFormat: "openai-chat-completions" as const,
         baseUrl: "https://api.deepseek.com/v1",
         apiKeyEnv: "DEEPSEEK_API_KEY",
+        capabilities: defaultCapabilities,
         enabled: true,
         createdAt: "2026-06-08T00:00:00.000Z",
         updatedAt: "2026-06-08T00:00:00.000Z"
@@ -33,6 +45,7 @@ describe("ProvidersPage", () => {
         apiFormat: "openai-chat-completions",
         baseUrl: "https://api.deepseek.com/v1",
         apiKeyEnv: "DEEPSEEK_API_KEY",
+        capabilities: defaultCapabilities,
         enabled: true,
         createdAt: "2026-06-08T00:00:00.000Z",
         updatedAt: "2026-06-08T00:00:00.000Z"
@@ -73,6 +86,7 @@ describe("ProvidersPage", () => {
         apiFormat: "claude-messages" as const,
         baseUrl: "https://api.anthropic.com/v1",
         apiKeyEnv: "ANTHROPIC_API_KEY",
+        capabilities: defaultCapabilities,
         enabled: true,
         createdAt: "2026-06-08T00:00:00.000Z",
         updatedAt: "2026-06-08T00:00:00.000Z"
@@ -112,6 +126,7 @@ describe("ProvidersPage", () => {
         apiFormat: "openai-chat-completions" as const,
         baseUrl: "https://api.deepseek.com/v1",
         apiKeyEnv: "DEEPSEEK_API_KEY",
+        capabilities: defaultCapabilities,
         enabled: true,
         createdAt: "2026-06-08T00:00:00.000Z",
         updatedAt: "2026-06-08T00:00:00.000Z"
@@ -181,6 +196,27 @@ describe("ProvidersPage", () => {
     expect(api.createProvider).not.toHaveBeenCalled();
   });
 
+  it("rejects secret-like values in API key env var names", async () => {
+    const api = {
+      listProviders: vi.fn().mockResolvedValue([]),
+      createProvider: vi.fn(),
+      saveApiKey: vi.fn(),
+      deleteProvider: vi.fn()
+    };
+
+    renderWithNotifications(<ProvidersPage api={api} />);
+
+    await userEvent.type(screen.getByLabelText("名称"), "Long secret");
+    await userEvent.type(screen.getByLabelText("Base URL"), "https://api.deepseek.com/v1");
+    await userEvent.type(screen.getByLabelText("API Key 环境变量"), "SKREALKEYVALUE12345678901234567890");
+    await userEvent.click(screen.getByRole("button", { name: "添加 Provider" }));
+
+    expect(
+      (await screen.findAllByText("API Key 环境变量填变量名，例如 DEEPSEEK_API_KEY，不要填真实 key。")).length
+    ).toBeGreaterThanOrEqual(1);
+    expect(api.createProvider).not.toHaveBeenCalled();
+  });
+
   it("deletes a provider and refreshes the list", async () => {
     const provider = {
       id: "provider-1",
@@ -189,6 +225,7 @@ describe("ProvidersPage", () => {
       apiFormat: "openai-chat-completions" as const,
       baseUrl: "https://api.deepseek.com/v1",
       apiKeyEnv: "DEEPSEEK_API_KEY",
+      capabilities: defaultCapabilities,
       enabled: true,
       createdAt: "2026-06-08T00:00:00.000Z",
       updatedAt: "2026-06-08T00:00:00.000Z"
@@ -218,6 +255,7 @@ describe("ProvidersPage", () => {
       apiFormat: "openai-chat-completions" as const,
       baseUrl: "https://api.deepseek.com/v1",
       apiKeyEnv: "DEEPSEEK_API_KEY",
+      capabilities: defaultCapabilities,
       enabled: true,
       createdAt: "2026-06-08T00:00:00.000Z",
       updatedAt: "2026-06-08T00:00:00.000Z"
@@ -235,5 +273,43 @@ describe("ProvidersPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "删除 DeepSeek" }));
 
     expect((await screen.findAllByText("Provider delete failed")).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows provider connection details and capability status", async () => {
+    const provider = {
+      id: "provider-tju",
+      name: "TJU LLM",
+      type: "openai-compatible" as const,
+      apiFormat: "openai-chat-completions" as const,
+      baseUrl: "https://ai.tju.edu.cn/api/v3",
+      apiKeyEnv: "TJU_API_KEY",
+      capabilities: {
+        ...defaultCapabilities,
+        supportsModelListing: false,
+        supportsStreaming: true,
+        supportsRemoteConversation: true,
+        requiresManualModelImport: true
+      },
+      enabled: true,
+      createdAt: "2026-06-08T00:00:00.000Z",
+      updatedAt: "2026-06-08T00:00:00.000Z"
+    };
+    const api = {
+      listProviders: vi.fn().mockResolvedValue([provider]),
+      createProvider: vi.fn(),
+      saveApiKey: vi.fn(),
+      deleteProvider: vi.fn()
+    };
+
+    renderWithNotifications(<ProvidersPage api={api} />);
+
+    expect(await screen.findByText("TJU LLM")).toBeInTheDocument();
+    expect(screen.getAllByText("openai-chat-completions").length).toBeGreaterThan(0);
+    expect(screen.getByText("https://ai.tju.edu.cn/api/v3")).toBeInTheDocument();
+    expect(screen.getByText("TJU_API_KEY")).toBeInTheDocument();
+    expect(screen.getByText("手动导入")).toBeInTheDocument();
+    expect(screen.getByText("模型列表关闭")).toBeInTheDocument();
+    expect(screen.getByText("流式")).toBeInTheDocument();
+    expect(screen.getByText("远端会话")).toBeInTheDocument();
   });
 });

@@ -111,4 +111,113 @@ describe("workflowRunner", () => {
 
     db.close();
   });
+
+  it("records failed run and run_step when adapter invocation fails", async () => {
+    const db = createTestDatabase();
+    const providers = createProviderRepository(db);
+    const models = createModelRepository(db);
+    const provider = providers.create({
+      name: "Custom",
+      type: "openai-compatible",
+      baseUrl: "https://example.test/v1",
+      apiKeyEnv: "CUSTOM_KEY",
+      enabled: true
+    });
+    const model = models.create({
+      providerId: provider.id,
+      displayName: "Fast Chat",
+      modelId: "fast-chat",
+      capability: "chat",
+      enabled: true,
+      defaultParams: {},
+      pricing: {}
+    });
+    const adapterRegistry: AdapterRegistry = {
+      getModelAdapter: vi.fn(() => ({
+        listModels: async () => [],
+        testModel: async () => ({ ok: true as const, latencyMs: 1, message: "ok", usage: {} }),
+        runChat: async () => ({ content: "unused", latencyMs: 1, usage: {} })
+      })),
+      invoke: vi.fn(async () => ({
+        ok: false as const,
+        code: "rate_limited" as const,
+        message: "Provider request failed",
+        providerMessage: "Too many requests",
+        statusCode: 429,
+        suggestion: "Retry later",
+        latencyMs: 15
+      }))
+    };
+    const runner = createWorkflowRunner(db, {
+      adapterRegistry,
+      env: { CUSTOM_KEY: "secret" }
+    });
+
+    await expect(runner.runWorkflow({
+      workflowType: "api-workflow",
+      input: { message: "Hello" },
+      steps: [
+        {
+          id: "main-response",
+          type: "llm.chat",
+          modelId: model.id,
+          input: { message: "{{input.message}}" }
+        }
+      ]
+    })).rejects.toMatchObject({
+      code: "rate_limited",
+      message: "Provider request failed",
+      providerMessage: "Too many requests",
+      statusCode: 429,
+      suggestion: "Retry later"
+    });
+
+    const runs = db.prepare("select * from runs").all<{
+      status: string;
+      total_input_tokens: number | null;
+      total_output_tokens: number | null;
+      total_cost_estimate: number | null;
+    }>();
+    expect(runs).toEqual([
+      expect.objectContaining({
+        status: "failed",
+        total_input_tokens: null,
+        total_output_tokens: null,
+        total_cost_estimate: null
+      })
+    ]);
+
+    const runSteps = db.prepare("select * from run_steps").all<{
+      step_type: string;
+      provider_id: string;
+      model_id: string;
+      status: string;
+      input_preview: string;
+      output_preview: string | null;
+      error_code: string | null;
+      error_message: string | null;
+      latency_ms: number | null;
+    }>();
+    expect(runSteps).toEqual([
+      expect.objectContaining({
+        step_type: "llm.chat",
+        provider_id: provider.id,
+        model_id: model.id,
+        status: "failed",
+        input_preview: "Hello",
+        output_preview: null,
+        error_code: "rate_limited",
+        error_message: "Provider request failed",
+        latency_ms: 15
+      })
+    ]);
+
+    const messages = db.prepare("select role, content from messages order by created_at asc").all<{
+      role: string;
+      content: string;
+    }>();
+    expect(messages).toEqual([{ role: "user", content: "Hello" }]);
+
+    db.close();
+  });
 });

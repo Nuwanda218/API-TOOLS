@@ -4,6 +4,7 @@ import type {
   ApiInvocationOutcome,
   LlmChatData
 } from "../apiProtocol/types.js";
+import { parseLlmChatInput } from "../apiProtocol/llmChat.js";
 import { ProviderError } from "../errors/providerError.js";
 import type { ModelAdapter } from "./types.js";
 
@@ -30,12 +31,12 @@ export function createModelApiBridge(id: string, modelAdapter: ModelAdapter): Ap
         };
       }
 
-      const messages = Array.isArray(input.input.messages) ? input.input.messages : undefined;
-      if (!messages) {
+      const parsedInput = parseLlmChatInput(input.input);
+      if (!parsedInput.ok) {
         return {
           ok: false,
           code: "invalid_workflow_step",
-          message: "llm.chat requires input.messages."
+          message: parsedInput.message
         };
       }
 
@@ -44,7 +45,7 @@ export function createModelApiBridge(id: string, modelAdapter: ModelAdapter): Ap
           provider: input.provider,
           model: input.resource.model,
           apiKey: input.apiKey,
-          messages: messages as Array<{ role: "system" | "user" | "assistant"; content: string }>
+          messages: parsedInput.input.messages
         });
 
         return {

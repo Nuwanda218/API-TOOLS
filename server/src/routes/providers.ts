@@ -10,7 +10,19 @@ import { createProviderRepository } from "../providers/providerRepository.js";
 
 const apiKeyEnvSchema = z
   .string()
-  .regex(/^[A-Z][A-Z0-9_]*$/, "API key env var must be an environment variable name");
+  .regex(/^[A-Z][A-Z0-9_]*$/, "API key env var must be an environment variable name")
+  .refine((value) => !looksLikeRawApiKey(value), "API key env var must be an environment variable name");
+
+const providerCapabilitiesSchema = z.object({
+  supportsChat: z.boolean().optional(),
+  supportsModelListing: z.boolean().optional(),
+  supportsManualModelImport: z.boolean().optional(),
+  supportsStreaming: z.boolean().optional(),
+  supportsToolCalling: z.boolean().optional(),
+  supportsVision: z.boolean().optional(),
+  supportsRemoteConversation: z.boolean().optional(),
+  requiresManualModelImport: z.boolean().optional()
+});
 
 const createProviderSchema = z.object({
   name: z.string().min(1),
@@ -18,6 +30,7 @@ const createProviderSchema = z.object({
   apiFormat: z.enum(["openai-chat-completions", "openai-responses", "claude-messages"]).default("openai-chat-completions"),
   baseUrl: z.string().url(),
   apiKeyEnv: apiKeyEnvSchema,
+  capabilities: providerCapabilitiesSchema.optional(),
   enabled: z.boolean().default(true)
 });
 
@@ -134,4 +147,8 @@ export function createProvidersRouter(db: AppDatabase, dependencies: ProvidersRo
   });
 
   return router;
+}
+
+function looksLikeRawApiKey(value: string) {
+  return /^(sk|tk)-/i.test(value) || /[A-Z0-9]{32,}/.test(value);
 }

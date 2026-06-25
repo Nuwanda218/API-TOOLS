@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Model } from "../providers/modelRepository.js";
-import type { Provider } from "../providers/providerRepository.js";
+import { DEFAULT_PROVIDER_CAPABILITIES, type Provider } from "../providers/providerRepository.js";
 import type { ApiInvocation, ApiInvocationResult, LlmChatData, LlmChatInput } from "./types.js";
-import { isCoreOperation } from "./types.js";
+import { getCoreOperationSpec, isCoreOperation } from "./types.js";
 
 const provider: Provider = {
   id: "provider-1",
@@ -11,6 +11,7 @@ const provider: Provider = {
   apiFormat: "openai-chat-completions",
   baseUrl: "https://example.test/v1",
   apiKeyEnv: "CUSTOM_KEY",
+  capabilities: DEFAULT_PROVIDER_CAPABILITIES,
   enabled: true,
   createdAt: "now",
   updatedAt: "now"
@@ -50,6 +51,7 @@ describe("generic API protocol types", () => {
 
     expect(invocation.operationId).toBe("llm.chat");
     expect(isCoreOperation(invocation.operationId)).toBe(true);
+    expect(getCoreOperationSpec(invocation.operationId)?.resourceKind).toBe("model");
     expect(isCoreOperation("weather.current")).toBe(false);
     expect(invocation.resource.kind).toBe("model");
     expect(result.data.content).toBe("Hi");

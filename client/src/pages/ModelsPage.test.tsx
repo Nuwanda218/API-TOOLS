@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { ApiClientError } from "../api/client";
 import type { ModelRecord, ProviderRecord } from "../api/types";
 import { NotificationProvider } from "../components/notifications/NotificationProvider";
 import { ModelsPage } from "./ModelsPage";
@@ -17,6 +18,16 @@ const provider: ProviderRecord = {
   apiFormat: "openai-chat-completions",
   baseUrl: "https://api.deepseek.com/v1",
   apiKeyEnv: "DEEPSEEK_API_KEY",
+  capabilities: {
+    supportsChat: true,
+    supportsModelListing: true,
+    supportsManualModelImport: true,
+    supportsStreaming: false,
+    supportsToolCalling: false,
+    supportsVision: false,
+    supportsRemoteConversation: false,
+    requiresManualModelImport: false
+  },
   enabled: true
 };
 
@@ -57,6 +68,44 @@ function createApi(overrides: Partial<Parameters<typeof ModelsPage>[0]["api"]> =
 }
 
 describe("ModelsPage", () => {
+  it("manually imports a model by ID and refreshes the local list", async () => {
+    const importedModel = {
+      ...model,
+      id: "model-tju",
+      displayName: "tju-llm",
+      modelId: "tju-llm"
+    };
+    const api = createApi({
+      listModels: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([importedModel]),
+      importModels: vi.fn().mockResolvedValue({ created: [importedModel], skipped: [] })
+    });
+
+    renderWithNotifications(<ModelsPage api={api} />);
+
+    await screen.findByText("DeepSeek");
+    await userEvent.clear(screen.getByLabelText("显示名称"));
+    await userEvent.type(screen.getByLabelText("显示名称"), "tju-llm");
+    await userEvent.clear(screen.getByLabelText("Model ID"));
+    await userEvent.type(screen.getByLabelText("Model ID"), "tju-llm");
+    await userEvent.click(screen.getByRole("button", { name: "手动导入模型" }));
+
+    await waitFor(() =>
+      expect(api.importModels).toHaveBeenCalledWith("provider-1", [
+        {
+          providerId: "provider-1",
+          displayName: "tju-llm",
+          modelId: "tju-llm",
+          capability: "chat",
+          enabled: true,
+          defaultParams: {},
+          pricing: {}
+        }
+      ])
+    );
+    expect((await screen.findAllByText("导入完成：新增 1 个，跳过 0 个")).length).toBeGreaterThanOrEqual(1);
+    expect((await screen.findAllByText("tju-llm")).length).toBeGreaterThanOrEqual(1);
+  });
+
   it("creates a model and refreshes the local list", async () => {
     const api = createApi({
       listModels: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([model])
@@ -86,6 +135,26 @@ describe("ModelsPage", () => {
     expect(await screen.findByText("deepseek-chat")).toBeInTheDocument();
   });
 
+  it("shows manual import guidance when remote model listing is unsupported", async () => {
+    const api = createApi({
+      listRemoteModels: vi.fn().mockRejectedValue(
+        new ApiClientError({
+          code: "unexpected_response_shape",
+          message: "Remote model list response was not usable",
+          providerMessage: "Remote model list response was not valid JSON",
+          statusCode: 502
+        })
+      )
+    });
+
+    renderWithNotifications(<ModelsPage api={api} />);
+
+    await screen.findByText("DeepSeek");
+    await userEvent.click(screen.getByRole("button", { name: "拉取远程模型" }));
+
+    expect((await screen.findAllByText("远程模型列表不可用，可手动导入模型 ID。")).length).toBeGreaterThanOrEqual(1);
+  });
+
   it("imports a remote model and reports created and skipped counts", async () => {
     const api = createApi({
       listModels: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([model])
@@ -110,6 +179,30 @@ describe("ModelsPage", () => {
     expect(await screen.findByRole("button", { name: "测试 deepseek-chat" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "测试 deepseek-chat" }));
 
+    expect((await screen.findAllByText("成功: ok. (123ms, tokens 8/2)")).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("tests a model with custom prompt and runtime params", async () => {
+    const api = createApi({ listModels: vi.fn().mockResolvedValue([model]) });
+
+    renderWithNotifications(<ModelsPage api={api} />);
+
+    await screen.findByRole("button", { name: "测试 deepseek-chat" });
+    await userEvent.clear(screen.getByLabelText("测试提示词"));
+    await userEvent.type(screen.getByLabelText("测试提示词"), "只回复 ok");
+    await userEvent.clear(screen.getByLabelText("Temperature"));
+    await userEvent.type(screen.getByLabelText("Temperature"), "0");
+    await userEvent.clear(screen.getByLabelText("Max tokens"));
+    await userEvent.type(screen.getByLabelText("Max tokens"), "20");
+    await userEvent.click(screen.getByRole("button", { name: "测试 deepseek-chat" }));
+
+    expect(api.testModel).toHaveBeenCalledWith("model-1", {
+      message: "只回复 ok",
+      params: {
+        temperature: 0,
+        maxTokens: 20
+      }
+    });
     expect((await screen.findAllByText("成功: ok. (123ms, tokens 8/2)")).length).toBeGreaterThanOrEqual(1);
   });
 

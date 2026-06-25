@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Model } from "../providers/modelRepository.js";
-import type { Provider } from "../providers/providerRepository.js";
+import { DEFAULT_PROVIDER_CAPABILITIES, type Provider } from "../providers/providerRepository.js";
 import type { ModelAdapter } from "./types.js";
 import { createAdapterRegistry } from "./registry.js";
 
@@ -20,6 +20,7 @@ function provider(apiFormat: Provider["apiFormat"]): Provider {
     apiFormat,
     baseUrl: "https://example.test/v1",
     apiKeyEnv: "CUSTOM_KEY",
+    capabilities: DEFAULT_PROVIDER_CAPABILITIES,
     enabled: true,
     createdAt: "now",
     updatedAt: "now"

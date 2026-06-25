@@ -29,11 +29,27 @@ interface LlmChatStepResult {
   costEstimate: number;
 }
 
+interface ResolvedLlmChatStepTarget {
+  provider: Provider;
+  model: Model;
+  apiKey: string;
+}
+
+interface RunningRunStepInput {
+  runId: string;
+  stepIndex: number;
+  step: WorkflowStepDefinition;
+  providerId: string;
+  modelId: string;
+  inputPreview: string;
+  startedAt: string;
+}
+
 export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunnerDependencies) {
   const providers = createProviderRepository(db);
   const models = createModelRepository(db);
 
-  async function runLlmChatStep(step: WorkflowStepDefinition, message: string): Promise<LlmChatStepResult> {
+  function resolveLlmChatStepTarget(step: WorkflowStepDefinition): ResolvedLlmChatStepTarget {
     if (!step.modelId) {
       throw new ProviderError("invalid_workflow_step", "llm.chat step requires modelId", { statusCode: 400 });
     }
@@ -53,22 +69,32 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
     }
 
     const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
+
+    return { provider, model, apiKey };
+  }
+
+  async function runLlmChatStep(target: ResolvedLlmChatStepTarget, message: string): Promise<LlmChatStepResult> {
     const invocation = await dependencies.adapterRegistry.invoke({
       operationId: "llm.chat",
-      provider,
-      apiKey,
-      resource: { kind: "model", model },
+      provider: target.provider,
+      apiKey: target.apiKey,
+      resource: { kind: "model", model: target.model },
       input: {
         messages: [{ role: "user", content: message }]
       }
     });
 
     if (!invocation.ok) {
-      throw new ProviderError(invocation.code, invocation.message, {
+      const error = new ProviderError(invocation.code, invocation.message, {
         providerMessage: invocation.providerMessage,
         statusCode: invocation.statusCode,
         suggestion: invocation.suggestion
       });
+      Object.defineProperty(error, "latencyMs", {
+        value: invocation.latencyMs,
+        enumerable: false
+      });
+      throw error;
     }
 
     const inputTokens = asNumber(invocation.usage?.inputTokens);
@@ -76,14 +102,124 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
     const data = invocation.data as LlmChatData;
 
     return {
-      provider,
-      model,
+      provider: target.provider,
+      model: target.model,
       content: data.content,
       latencyMs: invocation.latencyMs,
       inputTokens,
       outputTokens,
-      costEstimate: estimateCost(inputTokens, outputTokens, model.pricing)
+      costEstimate: estimateCost(inputTokens, outputTokens, target.model.pricing)
     };
+  }
+
+  function insertRunningRunStep(input: RunningRunStepInput): string {
+    const stepId = nanoid();
+
+    db.prepare(`
+      insert into run_steps (
+        id,
+        run_id,
+        step_index,
+        step_type,
+        provider_id,
+        model_id,
+        status,
+        input_preview,
+        created_at,
+        updated_at
+      )
+      values (
+        @id,
+        @runId,
+        @stepIndex,
+        @stepType,
+        @providerId,
+        @modelId,
+        'running',
+        @inputPreview,
+        @createdAt,
+        @updatedAt
+      )
+    `).run({
+      id: stepId,
+      runId: input.runId,
+      stepIndex: input.stepIndex,
+      stepType: input.step.type,
+      providerId: input.providerId,
+      modelId: input.modelId,
+      inputPreview: input.inputPreview,
+      createdAt: input.startedAt,
+      updatedAt: input.startedAt
+    });
+
+    return stepId;
+  }
+
+  function markRunStepSucceeded(input: {
+    stepId: string;
+    outputPreview: string;
+    latencyMs: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    costEstimate: number;
+    updatedAt: string;
+  }) {
+    db.prepare(`
+      update run_steps
+      set status = 'succeeded',
+          output_preview = @outputPreview,
+          latency_ms = @latencyMs,
+          input_tokens = @inputTokens,
+          output_tokens = @outputTokens,
+          cost_estimate = @costEstimate,
+          updated_at = @updatedAt
+      where id = @stepId
+    `).run({
+      stepId: input.stepId,
+      outputPreview: input.outputPreview,
+      latencyMs: input.latencyMs,
+      inputTokens: input.inputTokens ?? null,
+      outputTokens: input.outputTokens ?? null,
+      costEstimate: input.costEstimate,
+      updatedAt: input.updatedAt
+    });
+  }
+
+  function markRunStepFailed(input: {
+    stepId: string;
+    error: ProviderError;
+    latencyMs?: number;
+    updatedAt: string;
+  }) {
+    db.prepare(`
+      update run_steps
+      set status = 'failed',
+          error_code = @errorCode,
+          error_message = @errorMessage,
+          latency_ms = @latencyMs,
+          updated_at = @updatedAt
+      where id = @stepId
+    `).run({
+      stepId: input.stepId,
+      errorCode: input.error.code,
+      errorMessage: input.error.message,
+      latencyMs: input.latencyMs ?? null,
+      updatedAt: input.updatedAt
+    });
+  }
+
+  function markRunFailed(input: {
+    runId: string;
+    endedAt: string;
+  }) {
+    db.prepare(`
+      update runs
+      set status = 'failed', ended_at = @endedAt
+      where id = @runId
+    `).run({
+      runId: input.runId,
+      endedAt: input.endedAt
+    });
   }
 
   return {
@@ -143,68 +279,52 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
         }
 
         const stepMessage = resolveStepMessage(step, input.input);
-        const stepResult = await runLlmChatStep(step, stepMessage);
-        const stepId = nanoid();
-        const stepEndedAt = nextIso(startedAt, stepIndex + 1);
-
-        totalInputTokens += stepResult.inputTokens ?? 0;
-        totalOutputTokens += stepResult.outputTokens ?? 0;
-        totalCostEstimate += stepResult.costEstimate;
-        finalModelId = stepResult.model.id;
-        finalContent = stepResult.content;
-        outputs[step.id] = { content: stepResult.content };
-
-        db.prepare(`
-          insert into run_steps (
-            id,
-            run_id,
-            step_index,
-            step_type,
-            provider_id,
-            model_id,
-            status,
-            input_preview,
-            output_preview,
-            latency_ms,
-            input_tokens,
-            output_tokens,
-            cost_estimate,
-            created_at,
-            updated_at
-          )
-          values (
-            @id,
-            @runId,
-            @stepIndex,
-            @stepType,
-            @providerId,
-            @modelId,
-            'succeeded',
-            @inputPreview,
-            @outputPreview,
-            @latencyMs,
-            @inputTokens,
-            @outputTokens,
-            @costEstimate,
-            @createdAt,
-            @updatedAt
-          )
-        `).run({
-          id: stepId,
+        const target = resolveLlmChatStepTarget(step);
+        const stepId = insertRunningRunStep({
           runId,
           stepIndex,
-          stepType: step.type,
-          providerId: stepResult.provider.id,
-          modelId: stepResult.model.id,
+          step,
+          providerId: target.provider.id,
+          modelId: target.model.id,
           inputPreview: stepMessage.slice(0, 200),
-          outputPreview: stepResult.content.slice(0, 200),
-          latencyMs: stepResult.latencyMs,
-          inputTokens: stepResult.inputTokens ?? null,
-          outputTokens: stepResult.outputTokens ?? null,
-          costEstimate: stepResult.costEstimate,
-          createdAt: startedAt,
-          updatedAt: stepEndedAt
+          startedAt
         });
+
+        try {
+          const stepResult = await runLlmChatStep(target, stepMessage);
+          const stepEndedAt = nextIso(startedAt, stepIndex + 1);
+
+          totalInputTokens += stepResult.inputTokens ?? 0;
+          totalOutputTokens += stepResult.outputTokens ?? 0;
+          totalCostEstimate += stepResult.costEstimate;
+          finalModelId = stepResult.model.id;
+          finalContent = stepResult.content;
+          outputs[step.id] = { content: stepResult.content };
+
+          markRunStepSucceeded({
+            stepId,
+            outputPreview: stepResult.content.slice(0, 200),
+            latencyMs: stepResult.latencyMs,
+            inputTokens: stepResult.inputTokens,
+            outputTokens: stepResult.outputTokens,
+            costEstimate: stepResult.costEstimate,
+            updatedAt: stepEndedAt
+          });
+        } catch (error) {
+          const failedAt = nextIso(startedAt, stepIndex + 1);
+
+          if (error instanceof ProviderError) {
+            markRunStepFailed({
+              stepId,
+              error,
+              latencyMs: getErrorLatencyMs(error),
+              updatedAt: failedAt
+            });
+            markRunFailed({ runId, endedAt: failedAt });
+          }
+
+          throw error;
+        }
       }
 
       const endedAt = nextIso(startedAt, input.steps.length + 1);
@@ -309,6 +429,11 @@ function resolveStepMessage(step: WorkflowStepDefinition, workflowInput: Record<
 }
 
 function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined;
+}
+
+function getErrorLatencyMs(error: ProviderError): number | undefined {
+  const value = (error as ProviderError & { latencyMs?: unknown }).latencyMs;
   return typeof value === "number" ? value : undefined;
 }
 

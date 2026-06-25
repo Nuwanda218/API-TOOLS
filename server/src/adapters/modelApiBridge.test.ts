@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Model } from "../providers/modelRepository.js";
-import type { Provider } from "../providers/providerRepository.js";
+import { DEFAULT_PROVIDER_CAPABILITIES, type Provider } from "../providers/providerRepository.js";
 import type { ModelAdapter } from "./types.js";
 import { createModelApiBridge } from "./modelApiBridge.js";
 
@@ -11,6 +11,7 @@ const provider: Provider = {
   apiFormat: "openai-chat-completions",
   baseUrl: "https://example.test/v1",
   apiKeyEnv: "CUSTOM_KEY",
+  capabilities: DEFAULT_PROVIDER_CAPABILITIES,
   enabled: true,
   createdAt: "now",
   updatedAt: "now"
@@ -84,5 +85,53 @@ describe("model API bridge", () => {
       ok: false,
       code: "invalid_api_resource"
     });
+  });
+
+  it("rejects llm.chat input with invalid message role before calling the model adapter", async () => {
+    const modelAdapter: ModelAdapter = {
+      listModels: vi.fn(async () => []),
+      testModel: vi.fn(async () => ({ ok: true as const, latencyMs: 1, message: "ok", usage: {} })),
+      runChat: vi.fn(async () => ({ content: "unused", latencyMs: 1, usage: {} }))
+    };
+    const bridge = createModelApiBridge("bridge", modelAdapter);
+
+    const result = await bridge.invoke({
+      operationId: "llm.chat",
+      provider,
+      apiKey: "secret",
+      resource: { kind: "model", model },
+      input: { messages: [{ role: "tool", content: "bad" }] }
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      code: "invalid_workflow_step",
+      message: "llm.chat message at index 0 has invalid role."
+    });
+    expect(modelAdapter.runChat).not.toHaveBeenCalled();
+  });
+
+  it("rejects llm.chat input with empty messages before calling the model adapter", async () => {
+    const modelAdapter: ModelAdapter = {
+      listModels: vi.fn(async () => []),
+      testModel: vi.fn(async () => ({ ok: true as const, latencyMs: 1, message: "ok", usage: {} })),
+      runChat: vi.fn(async () => ({ content: "unused", latencyMs: 1, usage: {} }))
+    };
+    const bridge = createModelApiBridge("bridge", modelAdapter);
+
+    const result = await bridge.invoke({
+      operationId: "llm.chat",
+      provider,
+      apiKey: "secret",
+      resource: { kind: "model", model },
+      input: { messages: [] }
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      code: "invalid_workflow_step",
+      message: "llm.chat requires at least one message."
+    });
+    expect(modelAdapter.runChat).not.toHaveBeenCalled();
   });
 });

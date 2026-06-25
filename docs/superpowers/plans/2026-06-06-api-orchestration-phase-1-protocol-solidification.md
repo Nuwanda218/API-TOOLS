@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Solidify the Phase 1 API orchestration protocol by making operation contracts explicit, tightening `llm.chat` validation, and guaranteeing failed invocations create traceable `run_step` records.
+**Goal:** Solidify the post-v0.1 API orchestration protocol by making operation contracts explicit, tightening `llm.chat` validation, and guaranteeing failed invocations create traceable `run_step` records.
 
-**Architecture:** Keep the backend-first direction from `docs/superpowers/specs/2026-06-06-api-orchestration-framework-design.md`. Add a small operation catalog and operation-specific input validation under `server/src/apiProtocol/`, keep adapters focused on provider mapping, and refactor workflow execution only enough to satisfy the trace invariant: no invocation without a run step.
+**Architecture:** Keep the backend-first direction from `docs/superpowers/specs/2026-06-06-api-orchestration-framework-design.md`, while treating the completed v0.1 workbench UI and provider/model workflow as the current baseline. Add a small operation catalog and operation-specific input validation under `server/src/apiProtocol/`, keep adapters focused on provider mapping, and refactor workflow execution only enough to satisfy the trace invariant: no attempted workflow invocation without a `run_step`.
 
 **Tech Stack:** TypeScript, Express, sql.js, Vitest, Supertest, Zod, npm workspaces.
 
@@ -12,7 +12,7 @@
 
 ## Scope check
 
-This plan implements only Phase 1 from the new direction spec:
+This plan implements only Phase 1 from the new direction spec, starting from the v0.1 workbench baseline:
 
 - Solidify protocol-level operation metadata.
 - Keep `llm.chat` as the only workflow-executable operation.
@@ -21,10 +21,21 @@ This plan implements only Phase 1 from the new direction spec:
 - Tighten adapter bridge input validation.
 - Guarantee failed adapter invocations are written to `run_steps` and `runs`.
 - Add focused tests and documentation for these rules.
+- Preserve the existing frontend behavior and run full workspace verification at the end.
+
+Current workspace note:
+
+- `server/src/apiProtocol/types.ts`
+- `server/src/apiProtocol/types.test.ts`
+- `server/src/apiProtocol/llmChat.ts`
+- `server/src/apiProtocol/operationCatalog.ts`
+- `server/src/apiProtocol/operationCatalog.test.ts`
+
+These files may already exist locally as partial protocol-solidification work. Treat them as draft state, verify them against this plan, and replace or complete them as needed. Do not assume the current local content is already correct.
 
 This plan does not implement:
 
-- Frontend UI.
+- Frontend UI or frontend product behavior changes.
 - `image.generate`.
 - Executable `http.request`.
 - Visual workflow builder.
@@ -33,7 +44,7 @@ This plan does not implement:
 
 ## File structure
 
-Create these files:
+Create or complete these files:
 
 ```text
 server/src/apiProtocol/operationCatalog.ts
@@ -70,10 +81,11 @@ Responsibilities:
 **Files:**
 - Create: `server/src/apiProtocol/operationCatalog.ts`
 - Create: `server/src/apiProtocol/operationCatalog.test.ts`
+- Create: `server/src/apiProtocol/llmChat.ts` with shared `llm.chat` type declarations required by `types.ts`; Task 2 adds runtime parsing.
 - Modify: `server/src/apiProtocol/types.ts`
 - Modify: `server/src/apiProtocol/types.test.ts`
 
-- [ ] **Step 1: Write failing operation catalog tests**
+- [x] **Step 1: Write failing operation catalog tests**
 
 Create `server/src/apiProtocol/operationCatalog.test.ts`:
 
@@ -126,7 +138,7 @@ describe("operation catalog", () => {
 });
 ```
 
-- [ ] **Step 2: Run operation catalog tests to verify they fail**
+- [x] **Step 2: Run operation catalog tests to verify they fail**
 
 Run:
 
@@ -136,7 +148,7 @@ npm run test --workspace server -- src/apiProtocol/operationCatalog.test.ts
 
 Expected: FAIL because `server/src/apiProtocol/operationCatalog.ts` does not exist.
 
-- [ ] **Step 3: Implement operation catalog**
+- [x] **Step 3: Implement operation catalog**
 
 Create `server/src/apiProtocol/operationCatalog.ts`:
 
@@ -204,7 +216,7 @@ export function isWorkflowExecutableOperation(operationId: string): boolean {
 }
 ```
 
-- [ ] **Step 4: Update generic protocol types to use the catalog**
+- [x] **Step 4: Update generic protocol types to use the catalog**
 
 Modify `server/src/apiProtocol/types.ts` to this complete file:
 
@@ -273,7 +285,7 @@ export interface ApiAdapter {
 }
 ```
 
-- [ ] **Step 5: Update existing protocol type test**
+- [x] **Step 5: Update existing protocol type test**
 
 Modify `server/src/apiProtocol/types.test.ts` to this complete file:
 
@@ -338,7 +350,7 @@ describe("generic API protocol types", () => {
 });
 ```
 
-- [ ] **Step 6: Run protocol tests**
+- [x] **Step 6: Run protocol tests**
 
 Run:
 
@@ -348,7 +360,7 @@ npm run test --workspace server -- src/apiProtocol/types.test.ts src/apiProtocol
 
 Expected: PASS.
 
-- [ ] **Step 7: Run server typecheck**
+- [x] **Step 7: Run server typecheck**
 
 Run:
 
@@ -358,21 +370,21 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
-git add server/src/apiProtocol/operationCatalog.ts server/src/apiProtocol/operationCatalog.test.ts server/src/apiProtocol/types.ts server/src/apiProtocol/types.test.ts
+git add server/src/apiProtocol/operationCatalog.ts server/src/apiProtocol/operationCatalog.test.ts server/src/apiProtocol/llmChat.ts server/src/apiProtocol/types.ts server/src/apiProtocol/types.test.ts
 git commit -m "feat: add api operation catalog"
 ```
 
 ## Task 2: Add `llm.chat` runtime input contract
 
 **Files:**
-- Create: `server/src/apiProtocol/llmChat.ts`
+- Modify: `server/src/apiProtocol/llmChat.ts`
 - Create: `server/src/apiProtocol/llmChat.test.ts`
 - Modify: `server/src/apiProtocol/types.ts`
 
-- [ ] **Step 1: Write failing `llm.chat` input parser tests**
+- [x] **Step 1: Write failing `llm.chat` input parser tests**
 
 Create `server/src/apiProtocol/llmChat.test.ts`:
 
@@ -432,7 +444,7 @@ describe("llm.chat input contract", () => {
 });
 ```
 
-- [ ] **Step 2: Run parser tests to verify they fail**
+- [x] **Step 2: Run parser tests to verify they fail**
 
 Run:
 
@@ -440,11 +452,11 @@ Run:
 npm run test --workspace server -- src/apiProtocol/llmChat.test.ts
 ```
 
-Expected: FAIL because `server/src/apiProtocol/llmChat.ts` does not exist.
+Expected: FAIL because `parseLlmChatInput()` is not implemented yet.
 
-- [ ] **Step 3: Implement `llm.chat` input parser**
+- [x] **Step 3: Implement `llm.chat` input parser**
 
-Create `server/src/apiProtocol/llmChat.ts`:
+Modify `server/src/apiProtocol/llmChat.ts`:
 
 ```ts
 export type LlmChatRole = "system" | "user" | "assistant";
@@ -508,7 +520,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 ```
 
-- [ ] **Step 4: Run parser tests**
+- [x] **Step 4: Run parser tests**
 
 Run:
 
@@ -518,7 +530,7 @@ npm run test --workspace server -- src/apiProtocol/llmChat.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Run existing protocol tests**
+- [x] **Step 5: Run existing protocol tests**
 
 Run:
 
@@ -528,7 +540,7 @@ npm run test --workspace server -- src/apiProtocol
 
 Expected: PASS.
 
-- [ ] **Step 6: Run server typecheck**
+- [x] **Step 6: Run server typecheck**
 
 Run:
 
@@ -538,7 +550,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/apiProtocol/llmChat.ts server/src/apiProtocol/llmChat.test.ts server/src/apiProtocol/types.ts
@@ -551,7 +563,7 @@ git commit -m "feat: add llm chat operation contract"
 - Modify: `server/src/adapters/modelApiBridge.ts`
 - Modify: `server/src/adapters/modelApiBridge.test.ts`
 
-- [ ] **Step 1: Add failing bridge validation tests**
+- [x] **Step 1: Add failing bridge validation tests**
 
 Append these tests inside the existing `describe("modelApiBridge", () => { ... })` block in `server/src/adapters/modelApiBridge.test.ts`:
 
@@ -607,7 +619,7 @@ Append these tests inside the existing `describe("modelApiBridge", () => { ... }
 
 If `provider`, `model`, `ModelAdapter`, `vi`, or `createModelApiBridge` are not already imported or declared in the file, keep the existing file-level declarations and add only the missing imports from existing neighboring tests.
 
-- [ ] **Step 2: Run bridge tests to verify they fail**
+- [x] **Step 2: Run bridge tests to verify they fail**
 
 Run:
 
@@ -617,7 +629,7 @@ npm run test --workspace server -- src/adapters/modelApiBridge.test.ts
 
 Expected: FAIL because `createModelApiBridge()` currently accepts any array as `messages` and casts it.
 
-- [ ] **Step 3: Update model API bridge to use the parser**
+- [x] **Step 3: Update model API bridge to use the parser**
 
 Modify `server/src/adapters/modelApiBridge.ts` to this complete file:
 
@@ -698,7 +710,7 @@ export function createModelApiBridge(id: string, modelAdapter: ModelAdapter): Ap
 }
 ```
 
-- [ ] **Step 4: Run bridge tests**
+- [x] **Step 4: Run bridge tests**
 
 Run:
 
@@ -708,7 +720,7 @@ npm run test --workspace server -- src/adapters/modelApiBridge.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Run all adapter and protocol tests**
+- [x] **Step 5: Run all adapter and protocol tests**
 
 Run:
 
@@ -718,7 +730,7 @@ npm run test --workspace server -- src/apiProtocol src/adapters
 
 Expected: PASS.
 
-- [ ] **Step 6: Run server typecheck**
+- [x] **Step 6: Run server typecheck**
 
 Run:
 
@@ -728,7 +740,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/src/adapters/modelApiBridge.ts server/src/adapters/modelApiBridge.test.ts
@@ -741,7 +753,7 @@ git commit -m "fix: validate llm chat bridge input"
 - Modify: `server/src/workflows/runner.ts`
 - Modify: `server/src/workflows/runner.test.ts`
 
-- [ ] **Step 1: Write failing runner test for failed adapter invocation trace**
+- [x] **Step 1: Write failing runner test for failed adapter invocation trace**
 
 Append this test inside the existing `describe("workflowRunner", () => { ... })` block in `server/src/workflows/runner.test.ts`:
 
@@ -856,7 +868,7 @@ Append this test inside the existing `describe("workflowRunner", () => { ... })`
   });
 ```
 
-- [ ] **Step 2: Run runner test to verify it fails**
+- [x] **Step 2: Run runner test to verify it fails**
 
 Run:
 
@@ -866,7 +878,7 @@ npm run test --workspace server -- src/workflows/runner.test.ts
 
 Expected: FAIL because failed adapter invocations currently throw before a `run_step` is written.
 
-- [ ] **Step 3: Add helper interfaces and functions to runner**
+- [x] **Step 3: Add helper interfaces and functions to runner**
 
 In `server/src/workflows/runner.ts`, add these interfaces near the existing `LlmChatStepResult` interface:
 
@@ -1030,7 +1042,7 @@ Inside `createWorkflowRunner()`, add these persistence helpers before the return
   }
 ```
 
-- [ ] **Step 4: Refactor `runLlmChatStep()` to use resolved target**
+- [x] **Step 4: Refactor `runLlmChatStep()` to use resolved target**
 
 Replace the existing `runLlmChatStep()` function in `server/src/workflows/runner.ts` with this version:
 
@@ -1075,7 +1087,7 @@ Replace the existing `runLlmChatStep()` function in `server/src/workflows/runner
   }
 ```
 
-- [ ] **Step 5: Refactor the workflow loop to insert running step before invoking adapter**
+- [x] **Step 5: Refactor the workflow loop to insert running step before invoking adapter**
 
 In `server/src/workflows/runner.ts`, replace the body of the `for (const [stepIndex, step] of input.steps.entries()) { ... }` loop with this body:
 
@@ -1142,7 +1154,7 @@ function getErrorLatencyMs(error: ProviderError): number | undefined {
 }
 ```
 
-- [ ] **Step 6: Remove old inline successful `run_steps` insert**
+- [x] **Step 6: Remove old inline successful `run_steps` insert**
 
 In `server/src/workflows/runner.ts`, delete the old inline block inside the workflow loop that starts with:
 
@@ -1154,7 +1166,7 @@ In `server/src/workflows/runner.ts`, delete the old inline block inside the work
 
 and ends after its `.run({ ... })` call. The new `insertRunningRunStep()` plus `markRunStepSucceeded()` calls replace it.
 
-- [ ] **Step 7: Run runner tests**
+- [x] **Step 7: Run runner tests**
 
 Run:
 
@@ -1164,7 +1176,7 @@ npm run test --workspace server -- src/workflows/runner.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 8: Run workflow route tests**
+- [x] **Step 8: Run workflow route tests**
 
 Run:
 
@@ -1174,7 +1186,7 @@ npm run test --workspace server -- src/routes/workflows.test.ts src/routes/usage
 
 Expected: PASS.
 
-- [ ] **Step 9: Run server typecheck**
+- [x] **Step 9: Run server typecheck**
 
 Run:
 
@@ -1184,7 +1196,7 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add server/src/workflows/runner.ts server/src/workflows/runner.test.ts
@@ -1198,7 +1210,7 @@ git commit -m "fix: record failed workflow run steps"
 - Create: `docs/superpowers/specs/operations/2026-06-06-models-list-operation.md`
 - Create: `docs/superpowers/specs/operations/2026-06-06-http-request-reserved-operation.md`
 
-- [ ] **Step 1: Create operation docs directory and `llm.chat` contract doc**
+- [x] **Step 1: Create operation docs directory and `llm.chat` contract doc**
 
 Create `docs/superpowers/specs/operations/2026-06-06-llm-chat-operation.md`:
 
@@ -1295,7 +1307,7 @@ Every `llm.chat` invocation must write one `run_step` with:
 - token usage when available
 ```
 
-- [ ] **Step 2: Create `models.list` contract doc**
+- [x] **Step 2: Create `models.list` contract doc**
 
 Create `docs/superpowers/specs/operations/2026-06-06-models-list-operation.md`:
 
@@ -1368,7 +1380,7 @@ The adapter may return or throw standardized provider errors including:
 `models.list` must not be accepted as a workflow step in Phase 1. If a workflow tries to execute it, the runner or route must reject it with `unsupported_workflow_step` or validation failure.
 ```
 
-- [ ] **Step 3: Create reserved `http.request` contract doc**
+- [x] **Step 3: Create reserved `http.request` contract doc**
 
 Create `docs/superpowers/specs/operations/2026-06-06-http-request-reserved-operation.md`:
 
@@ -1430,7 +1442,7 @@ Before implementing this operation, a later spec or plan must decide:
 - How errors are mapped to the standard provider error model.
 ```
 
-- [ ] **Step 4: Verify operation docs contain no placeholders**
+- [x] **Step 4: Verify operation docs contain no placeholders**
 
 Run:
 
@@ -1440,7 +1452,7 @@ rg -n -e "TB[D]" -e "TO[D]O" -e "PLACEHOLD[ER]" -e "待[定]" -e "未[定]" docs
 
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/superpowers/specs/operations/2026-06-06-llm-chat-operation.md docs/superpowers/specs/operations/2026-06-06-models-list-operation.md docs/superpowers/specs/operations/2026-06-06-http-request-reserved-operation.md
@@ -1452,7 +1464,7 @@ git commit -m "docs: add api operation contracts"
 **Files:**
 - No new files unless verification reveals a necessary fix.
 
-- [ ] **Step 1: Run backend tests**
+- [x] **Step 1: Run backend tests**
 
 Run:
 
@@ -1462,7 +1474,17 @@ npm run test --workspace server
 
 Expected: all server tests pass.
 
-- [ ] **Step 2: Run backend typecheck**
+- [x] **Step 2: Run frontend tests**
+
+Run:
+
+```bash
+npm run test --workspace client
+```
+
+Expected: all client tests pass.
+
+- [x] **Step 3: Run backend typecheck**
 
 Run:
 
@@ -1472,7 +1494,17 @@ npm run typecheck --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 3: Run backend build**
+- [x] **Step 4: Run frontend typecheck**
+
+Run:
+
+```bash
+npm run typecheck --workspace client
+```
+
+Expected: PASS.
+
+- [x] **Step 5: Run backend build**
 
 Run:
 
@@ -1482,19 +1514,29 @@ npm run build --workspace server
 
 Expected: PASS.
 
-- [ ] **Step 4: Confirm workspace-level typecheck still fails only because client source is absent**
+- [x] **Step 6: Run frontend build**
 
 Run:
 
 ```bash
-npm run typecheck
+npm run build --workspace client
 ```
 
-Expected: server typecheck passes, then client typecheck fails with TS18003 because `client/src`, `client/vite.config.ts`, and `client/vitest.config.ts` are not implemented yet.
+Expected: PASS.
 
-If it fails for a different reason, fix that reason before continuing.
+- [x] **Step 7: Run workspace-level verification**
 
-- [ ] **Step 5: Inspect git status**
+Run:
+
+```bash
+npm run test
+npm run typecheck
+npm run build
+```
+
+Expected: all workspace commands pass. This project now has both server and client source trees, so workspace-level typecheck must not rely on the old missing-client-source failure.
+
+- [x] **Step 8: Inspect git status**
 
 Run:
 
@@ -1504,7 +1546,7 @@ git status --short
 
 Expected: clean working tree.
 
-- [ ] **Step 6: Commit any verification fixes**
+- [x] **Step 9: Commit any verification fixes**
 
 If verification required fixes, stage only relevant files and commit:
 
@@ -1526,7 +1568,7 @@ This plan maps to the Phase 1 requirements in `docs/superpowers/specs/2026-06-06
 - Workflow step/run trace stability: Task 4.
 - Error model stability: Tasks 3 and 4.
 - Testing strategy: Tasks 1 through 4 and Task 6.
-- No frontend scope: explicitly excluded in the scope check.
+- No frontend product changes: explicitly excluded in the scope check, while final verification still covers the existing client.
 - No `image.generate` or executable `http.request`: `http.request` is reserved and documented only.
 
 ### Placeholder scan

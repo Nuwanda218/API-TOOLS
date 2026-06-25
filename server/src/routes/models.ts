@@ -21,6 +21,14 @@ const createModelSchema = z.object({
 
 const updateModelSchema = createModelSchema.partial();
 
+const modelTestSchema = z.object({
+  message: z.string().trim().min(1).optional(),
+  params: z.object({
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().int().positive().optional()
+  }).default({})
+}).default({});
+
 interface ModelsRouterDependencies {
   env: NodeJS.ProcessEnv;
   adapterRegistry?: AdapterRegistry;
@@ -61,12 +69,24 @@ export function createModelsRouter(db: AppDatabase, dependencies: ModelsRouterDe
       return;
     }
 
-    const run = createModelTestRun(db, provider, model);
+    const input = modelTestSchema.parse(req.body ?? {});
+    const testMessage = input.message ?? "Reply with ok.";
+    const hasCustomInput = input.message !== undefined || Object.keys(input.params).length > 0;
+    const run = createModelTestRun(db, provider, model, testMessage);
 
     try {
       const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
       const adapter = adapterRegistry.getModelAdapter(provider);
-      const result = await adapter.testModel({ provider, model, apiKey });
+      const result = hasCustomInput
+        ? await runModelCustomTest({
+          adapter,
+          provider,
+          model,
+          apiKey,
+          message: testMessage,
+          params: input.params
+        })
+        : await adapter.testModel({ provider, model, apiKey });
 
       completeModelTestRun(db, {
         runId: run.id,
@@ -117,7 +137,36 @@ export function createModelsRouter(db: AppDatabase, dependencies: ModelsRouterDe
   return router;
 }
 
-function createModelTestRun(db: AppDatabase, provider: Provider, model: Model) {
+async function runModelCustomTest(input: {
+  adapter: ReturnType<AdapterRegistry["getModelAdapter"]>;
+  provider: Provider;
+  model: Model;
+  apiKey: string;
+  message: string;
+  params: Record<string, unknown>;
+}) {
+  const result = await input.adapter.runChat({
+    provider: input.provider,
+    model: {
+      ...input.model,
+      defaultParams: {
+        ...input.model.defaultParams,
+        ...input.params
+      }
+    },
+    apiKey: input.apiKey,
+    messages: [{ role: "user", content: input.message }]
+  });
+
+  return {
+    ok: true as const,
+    latencyMs: result.latencyMs,
+    message: result.content,
+    usage: result.usage
+  };
+}
+
+function createModelTestRun(db: AppDatabase, provider: Provider, model: Model, inputPreview: string) {
   const now = new Date().toISOString();
   const sessionId = nanoid();
   const runId = nanoid();
@@ -172,7 +221,7 @@ function createModelTestRun(db: AppDatabase, provider: Provider, model: Model) {
     runId,
     providerId: provider.id,
     modelId: model.id,
-    inputPreview: "Reply with ok.",
+    inputPreview,
     createdAt: now,
     updatedAt: now
   });

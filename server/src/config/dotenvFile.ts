@@ -4,7 +4,7 @@ import path from "node:path";
 const needsQuotingPattern = /[\s#"']/;
 
 export function updateDotenvContent(content: string, apiKeyEnv: string, apiKey: string) {
-  const line = `${apiKeyEnv}=${formatDotenvValue(apiKey)}`;
+  const line = `${apiKeyEnv}=${formatDotenvValue(apiKey.trim())}`;
   const normalized = content.length > 0 && !content.endsWith("\n") ? `${content}\n` : content;
   const lines = normalized.length > 0 ? normalized.split("\n") : [];
   let updated = false;

@@ -3,7 +3,10 @@ import { z } from "zod";
 import { writeApiKeyToDotenv } from "../config/dotenvFile.js";
 
 const saveApiKeySchema = z.object({
-  apiKeyEnv: z.string().regex(/^[A-Z][A-Z0-9_]*$/, "API key env var must be an environment variable name"),
+  apiKeyEnv: z
+    .string()
+    .regex(/^[A-Z][A-Z0-9_]*$/, "API key env var must be an environment variable name")
+    .refine((value) => !looksLikeRawApiKey(value), "API key env var must be an environment variable name"),
   apiKey: z.string().min(1)
 });
 
@@ -19,4 +22,8 @@ export function createApiKeysRouter(dependencies: { envPath: string; env: NodeJS
   });
 
   return router;
+}
+
+function looksLikeRawApiKey(value: string) {
+  return /^(sk|tk)-/i.test(value) || /[A-Z0-9]{32,}/.test(value);
 }

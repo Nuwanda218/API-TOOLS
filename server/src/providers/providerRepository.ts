@@ -4,6 +4,28 @@ import { nanoid } from "nanoid";
 export type ProviderType = "openai-compatible" | "openai-official";
 export type ProviderApiFormat = "openai-chat-completions" | "openai-responses" | "claude-messages";
 
+export interface ProviderCapabilities {
+  supportsChat: boolean;
+  supportsModelListing: boolean;
+  supportsManualModelImport: boolean;
+  supportsStreaming: boolean;
+  supportsToolCalling: boolean;
+  supportsVision: boolean;
+  supportsRemoteConversation: boolean;
+  requiresManualModelImport: boolean;
+}
+
+export const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapabilities = {
+  supportsChat: true,
+  supportsModelListing: true,
+  supportsManualModelImport: true,
+  supportsStreaming: false,
+  supportsToolCalling: false,
+  supportsVision: false,
+  supportsRemoteConversation: false,
+  requiresManualModelImport: false
+};
+
 export interface Provider {
   id: string;
   name: string;
@@ -11,6 +33,7 @@ export interface Provider {
   apiFormat: ProviderApiFormat;
   baseUrl: string;
   apiKeyEnv: string;
+  capabilities: ProviderCapabilities;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -23,6 +46,7 @@ export interface CreateProviderInput {
   apiFormat?: ProviderApiFormat;
   baseUrl: string;
   apiKeyEnv: string;
+  capabilities?: Partial<ProviderCapabilities>;
   enabled?: boolean;
 }
 
@@ -35,6 +59,7 @@ interface ProviderRow {
   api_format: ProviderApiFormat;
   base_url: string;
   api_key_env: string;
+  capabilities_json: string;
   enabled: number;
   created_at: string;
   updated_at: string;
@@ -48,8 +73,8 @@ export class ProviderRepository {
     const id = input.id ?? nanoid();
 
     this.db.prepare(`
-      insert into providers (id, name, type, api_format, base_url, api_key_env, enabled, created_at, updated_at)
-      values (@id, @name, @type, @apiFormat, @baseUrl, @apiKeyEnv, @enabled, @createdAt, @updatedAt)
+      insert into providers (id, name, type, api_format, base_url, api_key_env, capabilities_json, enabled, created_at, updated_at)
+      values (@id, @name, @type, @apiFormat, @baseUrl, @apiKeyEnv, @capabilitiesJson, @enabled, @createdAt, @updatedAt)
     `).run({
       id,
       name: input.name,
@@ -57,6 +82,7 @@ export class ProviderRepository {
       apiFormat: input.apiFormat ?? "openai-chat-completions",
       baseUrl: input.baseUrl,
       apiKeyEnv: input.apiKeyEnv,
+      capabilitiesJson: JSON.stringify(mergeCapabilities(input.capabilities)),
       enabled: input.enabled === false ? 0 : 1,
       createdAt: now,
       updatedAt: now
@@ -88,6 +114,7 @@ export class ProviderRepository {
           api_format = @apiFormat,
           base_url = @baseUrl,
           api_key_env = @apiKeyEnv,
+          capabilities_json = @capabilitiesJson,
           enabled = @enabled,
           updated_at = @updatedAt
       where id = @id
@@ -98,6 +125,7 @@ export class ProviderRepository {
       apiFormat: input.apiFormat ?? current.apiFormat,
       baseUrl: input.baseUrl ?? current.baseUrl,
       apiKeyEnv: input.apiKeyEnv ?? current.apiKeyEnv,
+      capabilitiesJson: JSON.stringify(mergeCapabilities(input.capabilities, current.capabilities)),
       enabled: input.enabled ?? current.enabled ? 1 : 0,
       updatedAt: nextTimestamp(current.updatedAt)
     });
@@ -126,10 +154,30 @@ function mapProviderRow(row: ProviderRow): Provider {
     apiFormat: row.api_format,
     baseUrl: row.base_url,
     apiKeyEnv: row.api_key_env,
+    capabilities: parseCapabilities(row.capabilities_json),
     enabled: row.enabled === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
+}
+
+function mergeCapabilities(
+  capabilities: Partial<ProviderCapabilities> | undefined,
+  base: ProviderCapabilities = DEFAULT_PROVIDER_CAPABILITIES
+): ProviderCapabilities {
+  return {
+    ...base,
+    ...capabilities
+  };
+}
+
+function parseCapabilities(value: string): ProviderCapabilities {
+  try {
+    const parsed = JSON.parse(value) as Partial<ProviderCapabilities>;
+    return mergeCapabilities(parsed);
+  } catch {
+    return DEFAULT_PROVIDER_CAPABILITIES;
+  }
 }
 
 function nextTimestamp(previous: string): string {

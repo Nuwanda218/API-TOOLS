@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
-import type { ApiClient } from "../api/client";
+import { ApiClientError, type ApiClient } from "../api/client";
 import { formatErrorNotification, formatErrorTitle } from "../api/errors";
 import type { ModelCapability, ModelRecord, ProviderRecord, RemoteModelRecord } from "../api/types";
 import { useNotifications } from "../components/notifications/NotificationProvider";
@@ -22,20 +22,27 @@ const copy = {
     displayName: "显示名称",
     modelId: "Model ID",
     capability: "能力",
+    enabled: "启用",
     submit: "添加模型",
+    manualImport: "手动导入模型",
     remoteTitle: "远程模型",
     fetchRemote: "拉取远程模型",
     import: "导入",
     localTitle: "本地模型",
     test: "测试",
+    testConsole: "测试控制台",
+    testPrompt: "测试提示词",
+    temperature: "Temperature",
+    maxTokens: "Max tokens",
     success: "成功",
-    empty: "还没有本地模型。",
+    empty: "还没有本地模型。先添加 Provider，然后在上方表单或手动导入中添加模型。",
     noProvider: "请先创建 Provider。",
     creating: "正在创建模型...",
     created: "模型已创建",
     fetchingRemote: "正在拉取远程模型...",
     fetchedRemote: "已拉取",
     remoteSuffix: "个远程模型",
+    remoteListingUnsupported: "远程模型列表不可用，可手动导入模型 ID。",
     importDone: "导入完成",
     createdCount: "新增",
     skippedCount: "跳过",
@@ -52,20 +59,27 @@ const copy = {
     displayName: "Display name",
     modelId: "Model ID",
     capability: "Capability",
+    enabled: "Enabled",
     submit: "Add model",
+    manualImport: "Manual import model",
     remoteTitle: "Remote models",
     fetchRemote: "Fetch remote models",
     import: "Import",
     localTitle: "Local models",
     test: "Test",
+    testConsole: "Test console",
+    testPrompt: "Test prompt",
+    temperature: "Temperature",
+    maxTokens: "Max tokens",
     success: "Succeeded",
-    empty: "No local models yet.",
+    empty: "No local models yet. Add a provider first, then create or import models.",
     noProvider: "Create a provider first.",
     creating: "Creating model...",
     created: "Model created",
     fetchingRemote: "Fetching remote models...",
     fetchedRemote: "Fetched",
     remoteSuffix: "remote models",
+    remoteListingUnsupported: "Remote model listing is unavailable. You can import model IDs manually.",
     importDone: "Import complete",
     createdCount: "created",
     skippedCount: "skipped",
@@ -86,8 +100,12 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
   const [displayName, setDisplayName] = useState("");
   const [modelId, setModelId] = useState("");
   const [capability, setCapability] = useState<ModelCapability>("chat");
+  const [enabled, setEnabled] = useState(true);
   const [status, setStatus] = useState("");
   const [testResult, setTestResult] = useState("");
+  const [testMessage, setTestMessage] = useState("Reply with ok.");
+  const [testTemperature, setTestTemperature] = useState("");
+  const [testMaxTokens, setTestMaxTokens] = useState("");
   const [creating, setCreating] = useState(false);
   const [fetchingRemote, setFetchingRemote] = useState(false);
   const [importingId, setImportingId] = useState("");
@@ -131,7 +149,7 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
         displayName,
         modelId,
         capability,
-        enabled: true,
+        enabled,
         defaultParams: {},
         pricing: {}
       });
@@ -147,6 +165,46 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
       notify.error(formatErrorNotification(error, text.created));
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleManualImport() {
+    if (!providerId) {
+      setStatus(text.noProvider);
+      notify.warning({ title: text.noProvider });
+      return;
+    }
+
+    setImportingId("__manual__");
+    setStatus(text.import);
+    setTestResult("");
+    notify.info({ title: text.import, detail: modelId });
+
+    try {
+      const result = await api.importModels(providerId, [
+        {
+          providerId,
+          displayName: displayName || modelId,
+          modelId,
+          capability,
+          enabled,
+          defaultParams: {},
+          pricing: {}
+        }
+      ]);
+
+      await refreshModels();
+      const successMessage =
+        `${text.importDone}：${text.createdCount} ${result.created.length} ${text.countSuffix}，${text.skippedCount} ${result.skipped.length} ${text.countSuffix}`.trim();
+      setStatus(successMessage);
+      notify.success({ title: successMessage });
+      setDisplayName("");
+      setModelId("");
+    } catch (error) {
+      setStatus(formatErrorTitle(error, text.importDone));
+      notify.error(formatErrorNotification(error, text.importDone));
+    } finally {
+      setImportingId("");
     }
   }
 
@@ -169,6 +227,16 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
       setStatus(successMessage);
       notify.success({ title: successMessage });
     } catch (error) {
+      if (error instanceof ApiClientError && error.code === "unexpected_response_shape") {
+        setRemoteModels([]);
+        setStatus(text.remoteListingUnsupported);
+        notify.warning({
+          title: text.remoteListingUnsupported,
+          detail: error.log
+        });
+        return;
+      }
+
       setStatus(formatErrorTitle(error, text.fetchRemote));
       notify.error(formatErrorNotification(error, text.fetchRemote));
     } finally {
@@ -211,7 +279,15 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
   async function handleTest(id: string) {
     notify.info({ title: text.test });
     try {
-      const result = await api.testModel(id);
+      const params: { temperature?: number; maxTokens?: number } = {};
+      const temperature = Number(testTemperature);
+      const maxTokens = Number(testMaxTokens);
+      if (testTemperature.trim() && Number.isFinite(temperature)) params.temperature = temperature;
+      if (testMaxTokens.trim() && Number.isFinite(maxTokens)) params.maxTokens = maxTokens;
+      const result = await api.testModel(id, {
+        message: testMessage,
+        params
+      });
       const usage =
         result.usage?.inputTokens !== undefined || result.usage?.outputTokens !== undefined
           ? `, tokens ${result.usage?.inputTokens ?? 0}/${result.usage?.outputTokens ?? 0}`
@@ -282,8 +358,20 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
               <option value="multimodal">multimodal</option>
             </select>
           </label>
+          <label className="checkbox-row">
+            <input checked={enabled} type="checkbox" onChange={(event) => setEnabled(event.target.checked)} />
+            {text.enabled}
+          </label>
           <button type="submit" disabled={!providerId || creating}>
             {creating ? text.creating : text.submit}
+          </button>
+          <button
+            className="secondary-action"
+            disabled={!providerId || !modelId || importingId === "__manual__"}
+            type="button"
+            onClick={handleManualImport}
+          >
+            {importingId === "__manual__" ? text.importDone : text.manualImport}
           </button>
         </form>
 
@@ -321,6 +409,35 @@ export function ModelsPage({ api, language = "zh-CN" }: ModelsPageProps) {
         {status && <p className="panel-status">{status}</p>}
         {testResult && <p className="panel-status success">{testResult}</p>}
         {models.length === 0 && !status && <p className="panel-status">{text.empty}</p>}
+        <div className="test-console" aria-label={text.testConsole}>
+          <label>
+            {text.testPrompt}
+            <textarea value={testMessage} onChange={(event) => setTestMessage(event.target.value)} />
+          </label>
+          <label>
+            {text.temperature}
+            <input
+              aria-label={text.temperature}
+              min="0"
+              max="2"
+              step="0.1"
+              type="number"
+              value={testTemperature}
+              onChange={(event) => setTestTemperature(event.target.value)}
+            />
+          </label>
+          <label>
+            {text.maxTokens}
+            <input
+              aria-label={text.maxTokens}
+              min="1"
+              step="1"
+              type="number"
+              value={testMaxTokens}
+              onChange={(event) => setTestMaxTokens(event.target.value)}
+            />
+          </label>
+        </div>
         <div className="record-list">
           {models.map((model) => (
             <div className="record-row model-row" key={model.id}>

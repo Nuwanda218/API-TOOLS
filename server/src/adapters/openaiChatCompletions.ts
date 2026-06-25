@@ -33,6 +33,11 @@ interface OpenAIChatCompletionsModelsResponse {
   };
 }
 
+interface ParsedModelsResponse {
+  body: OpenAIChatCompletionsModelsResponse;
+  invalidJson: boolean;
+}
+
 export function createOpenAIChatCompletionsAdapter(dependencies: AdapterDependencies = {}): ModelAdapter {
   const fetchImpl = dependencies.fetch ?? fetch;
 
@@ -53,7 +58,7 @@ export function createOpenAIChatCompletionsAdapter(dependencies: AdapterDependen
       });
     }
 
-    const body = await parseModelsJson(response);
+    const { body, invalidJson } = await parseModelsJson(response);
 
     if (!response.ok) {
       const providerMessage = body.error?.message ?? `HTTP ${response.status}`;
@@ -63,7 +68,15 @@ export function createOpenAIChatCompletionsAdapter(dependencies: AdapterDependen
       });
     }
 
-    return (body.data ?? [])
+    if (invalidJson) {
+      throw modelListingShapeError("Remote model list response was not valid JSON");
+    }
+
+    if (!Array.isArray(body.data)) {
+      throw modelListingShapeError("Remote model list response did not include a data array");
+    }
+
+    return body.data
       .filter((model): model is { id: string; owned_by?: string } => typeof model.id === "string")
       .map((model) => ({
         id: model.id,
@@ -162,10 +175,24 @@ async function parseJson(response: Response): Promise<OpenAIChatCompletionsRespo
   }
 }
 
-async function parseModelsJson(response: Response): Promise<OpenAIChatCompletionsModelsResponse> {
+function modelListingShapeError(providerMessage: string) {
+  return new ProviderError("unexpected_response_shape", "Remote model list response was not usable", {
+    providerMessage,
+    statusCode: 502,
+    suggestion: "Use manual model import with a known model ID."
+  });
+}
+
+async function parseModelsJson(response: Response): Promise<ParsedModelsResponse> {
   try {
-    return await response.json() as OpenAIChatCompletionsModelsResponse;
+    return {
+      body: await response.json() as OpenAIChatCompletionsModelsResponse,
+      invalidJson: false
+    };
   } catch {
-    return {};
+    return {
+      body: {},
+      invalidJson: true
+    };
   }
 }
