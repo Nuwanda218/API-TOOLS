@@ -154,7 +154,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
   - 验证：`npm run test --workspace server -- src/workflows/runner.test.ts`。
   - Commit：`feat: add endpoint.call workflow step`。
 
-- [ ] **Task A3: endpoint.call 路由校验与 trace**
+- [x] **Task A3: endpoint.call 路由校验与 trace**
   - 目标：让 `POST /api/workflows/run` 接受 `endpoint.call`，并在 run steps 中保存成功/失败 trace。
   - 修改：`server/src/routes/workflows.ts`、`server/src/routes/workflows.test.ts`、`server/src/routes/runs.ts`、`server/src/routes/runs.test.ts`。
   - 验证：`npm run test --workspace server -- src/routes/workflows.test.ts src/routes/runs.test.ts`。

@@ -20,7 +20,8 @@ interface RunStepRow {
   step_index: number;
   step_type: string;
   provider_id: string;
-  model_id: string;
+  model_id: string | null;
+  endpoint_id: string | null;
   status: "running" | "succeeded" | "failed";
   input_preview: string;
   output_preview: string | null;
@@ -118,6 +119,7 @@ function listSteps(db: AppDatabase, runId: string) {
     stepType: row.step_type,
     providerId: row.provider_id,
     modelId: row.model_id,
+    endpointId: row.endpoint_id,
     status: row.status,
     inputPreview: row.input_preview,
     outputPreview: row.output_preview,

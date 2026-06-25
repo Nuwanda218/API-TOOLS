@@ -45,7 +45,8 @@ export function createApp(dependencies: AppDependencies) {
   app.use("/api/runs", createRunsRouter(db));
   app.use("/api/workflows", createWorkflowsRouter(db, {
     env,
-    adapterRegistry
+    adapterRegistry,
+    endpointFetch: dependencies.endpointFetch
   }));
   app.use("/api/usage", createUsageRouter(db));
   app.use(errorHandler);

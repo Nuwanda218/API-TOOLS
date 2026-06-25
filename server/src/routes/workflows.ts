@@ -34,13 +34,15 @@ const runWorkflowSchema = z.object({
 interface WorkflowsRouterDependencies {
   adapterRegistry?: AdapterRegistry;
   env: NodeJS.ProcessEnv;
+  endpointFetch?: typeof fetch;
 }
 
 export function createWorkflowsRouter(db: AppDatabase, dependencies: WorkflowsRouterDependencies) {
   const router = Router();
   const runner = createWorkflowRunner(db, {
     adapterRegistry: dependencies.adapterRegistry ?? createAdapterRegistry(),
-    env: dependencies.env
+    env: dependencies.env,
+    endpointFetch: dependencies.endpointFetch
   });
 
   router.get("/", (_req, res) => {
