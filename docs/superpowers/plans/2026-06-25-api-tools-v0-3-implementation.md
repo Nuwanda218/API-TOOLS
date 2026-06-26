@@ -211,7 +211,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
   - 验证：`npm run test --workspace client -- src/pages/WorkflowTemplatesPage.test.tsx`。
   - Commit：`feat: connect workflow templates page`。
 
-- [ ] **Task C4: 工作流构建器前端**
+- [x] **Task C4: 工作流构建器前端**
   - 目标：提供表单式多步骤 workflow builder，支持 `llm.chat`、`endpoint.call`、`mcp.call`。
   - 创建：`client/src/pages/WorkflowBuilderPage.tsx`、`client/src/pages/WorkflowBuilderPage.test.tsx`。
   - 修改：`client/src/api/client.ts`、`client/src/api/types.ts`、`client/src/components/TopNav.tsx`、`client/src/App.tsx`、`client/src/styles.css`。

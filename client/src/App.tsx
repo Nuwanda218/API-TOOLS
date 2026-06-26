@@ -12,6 +12,7 @@ import { RunsPage } from "./pages/RunsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UsagePage } from "./pages/UsagePage";
 import { WorkbenchPage } from "./pages/WorkbenchPage";
+import { WorkflowBuilderPage } from "./pages/WorkflowBuilderPage";
 import { WorkflowTemplatesPage } from "./pages/WorkflowTemplatesPage";
 import "./styles.css";
 
@@ -42,6 +43,8 @@ export function App() {
         return <RunsPage api={apiClient} language={language} />;
       case "workflows":
         return <WorkflowTemplatesPage api={apiClient} language={language} />;
+      case "workflowBuilder":
+        return <WorkflowBuilderPage api={apiClient} language={language} />;
       case "settings":
         return <SettingsPage language={language} />;
       default:

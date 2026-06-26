@@ -1028,6 +1028,72 @@ button {
   align-self: start;
 }
 
+.workflow-builder-page {
+  grid-template-columns: minmax(320px, 0.78fr) minmax(0, 1.22fr);
+}
+
+.builder-resource-strip {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.builder-resource-strip span {
+  background: #f4f7fa;
+  border: 1px solid #e1e8ef;
+  border-radius: 8px;
+  color: #26384d;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 8px 10px;
+}
+
+.builder-step-list {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.builder-step-card {
+  background: #fbfcfd;
+  border: 1px solid #dce4eb;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.builder-step-card h3 {
+  color: #111827;
+  font-size: 14px;
+  margin: 0;
+}
+
+.builder-step-card label {
+  color: #526174;
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 7px;
+}
+
+.builder-step-card input,
+.builder-step-card select,
+.builder-step-card textarea {
+  background: #ffffff;
+  border: 1px solid #cfd8e2;
+  border-radius: 8px;
+  color: #111827;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.builder-step-card textarea {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  line-height: 1.5;
+  resize: vertical;
+}
+
 .chat-transcript {
   display: grid;
   gap: 12px;

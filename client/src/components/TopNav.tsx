@@ -28,6 +28,7 @@ export type PageKey =
   | "usage"
   | "runs"
   | "workflows"
+  | "workflowBuilder"
   | "settings";
 export type LanguageKey = "zh-CN" | "en";
 
@@ -71,6 +72,7 @@ const navGroups: NavGroup[] = [
     label: { "zh-CN": "工具", en: "Tools" },
     items: [
       { key: "workflows", labels: { "zh-CN": "工作流模板", en: "Workflows" }, Icon: Workflow },
+      { key: "workflowBuilder", labels: { "zh-CN": "工作流构建器", en: "Workflow Builder" }, Icon: ListChecks },
       { key: "settings", labels: { "zh-CN": "设置", en: "Settings" }, Icon: Settings }
     ]
   }
