@@ -280,7 +280,7 @@ describe("workflowRunner", () => {
         endpoint_id: endpoint.id,
         status: "succeeded",
         input_preview: "{\"prompt\":\"Hello endpoint\"}",
-        output_preview: "{\"received\":\"Hello endpoint\"}"
+        output_preview: "{\"statusCode\":200,\"bodyPreview\":{\"received\":\"Hello endpoint\"}}"
       })
     ]);
 

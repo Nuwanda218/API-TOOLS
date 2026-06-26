@@ -224,7 +224,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
   - 验证：`npm run test --workspace server -- src/configuration/configExport.test.ts src/routes/configuration.test.ts`；`npm run test --workspace client -- src/pages/RunsPage.test.tsx src/pages/ConfigurationPage.test.tsx`。
   - Commit：`feat: export v0.3 configuration and step traces`。
 
-- [ ] **Task C6: 文档与全量验证**
+- [x] **Task C6: 文档与全量验证**
   - 目标：补齐用户指南、标记本计划完成，并跑完整测试/构建。
   - 创建：`docs/api-tools-v0-3-user-guide.md`。
   - 修改：`docs/superpowers/plans/2026-06-25-api-tools-v0-3-implementation.md`。

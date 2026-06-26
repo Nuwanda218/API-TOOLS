@@ -35,7 +35,8 @@ describe("schema", () => {
       "providers",
       "run_steps",
       "runs",
-      "sessions"
+      "sessions",
+      "skills"
     ]);
   });
 
