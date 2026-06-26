@@ -41,7 +41,7 @@ export function App() {
       case "runs":
         return <RunsPage api={apiClient} language={language} />;
       case "workflows":
-        return <WorkflowTemplatesPage language={language} />;
+        return <WorkflowTemplatesPage api={apiClient} language={language} />;
       case "settings":
         return <SettingsPage language={language} />;
       default:

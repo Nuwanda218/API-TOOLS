@@ -205,7 +205,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
   - 验证：`npm run test --workspace server -- src/skills/templateRegistry.test.ts src/skills/skillRepository.test.ts src/routes/skills.test.ts`。
   - Commit：`feat: add workflow skill template API`。
 
-- [ ] **Task C3: Skill 模板前端**
+- [x] **Task C3: Skill 模板前端**
   - 目标：`WorkflowTemplatesPage` 接入真实 API，支持查看模板、填写参数、运行模板。
   - 修改：`client/src/pages/WorkflowTemplatesPage.tsx`、`client/src/pages/WorkflowTemplatesPage.test.tsx`、`client/src/api/client.ts`、`client/src/api/types.ts`。
   - 验证：`npm run test --workspace client -- src/pages/WorkflowTemplatesPage.test.tsx`。

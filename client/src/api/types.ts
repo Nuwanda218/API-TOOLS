@@ -208,12 +208,15 @@ export interface RunRecord {
   steps: RunStepRecord[];
 }
 
-export type WorkflowStepType = "llm.chat";
+export type WorkflowStepType = "llm.chat" | "endpoint.call" | "mcp.call";
 
 export interface WorkflowStepDefinition {
   id: string;
   type: WorkflowStepType;
   modelId?: string;
+  endpointId?: string;
+  mcpServerId?: string;
+  toolName?: string;
   input: Record<string, unknown>;
 }
 
@@ -228,6 +231,26 @@ export interface RunWorkflowResponse {
   session: { id: string; title: string; workflowType: string };
   run: { id: string; status: "running" | "succeeded" | "failed" };
   outputs: Record<string, Record<string, unknown>>;
+}
+
+export type SkillParameterType = "model" | "mcpServer" | "endpoint" | "text";
+
+export interface SkillParameterRecord {
+  key: string;
+  label: Record<"zh-CN" | "en", string>;
+  required: boolean;
+  type: SkillParameterType;
+}
+
+export interface SkillTemplateRecord {
+  id: string;
+  name: Record<"zh-CN" | "en", string>;
+  description: Record<"zh-CN" | "en", string>;
+  parameters: SkillParameterRecord[];
+  steps: WorkflowStepDefinition[];
+  builtin: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ExportedConfiguration {

@@ -15,6 +15,7 @@ import type {
   RunWorkflowResponse,
   RunRecord,
   SaveApiKeyInput,
+  SkillTemplateRecord,
   TestEndpointResponse,
   TestMcpServerResponse,
   TestModelInput,
@@ -225,6 +226,17 @@ export const apiClient = {
     return requestJson<RunWorkflowResponse>("/api/workflows/run", {
       method: "POST",
       body: JSON.stringify(input)
+    });
+  },
+
+  listSkills() {
+    return requestJson<SkillTemplateRecord[]>("/api/skills");
+  },
+
+  runSkill(skillId: string, parameters: Record<string, unknown>) {
+    return requestJson<RunWorkflowResponse>(`/api/skills/${skillId}/run`, {
+      method: "POST",
+      body: JSON.stringify({ parameters })
     });
   },
 
