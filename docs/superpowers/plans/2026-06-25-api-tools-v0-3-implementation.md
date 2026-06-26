@@ -183,7 +183,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
   - 验证：`npm run test --workspace server -- src/routes/mcpServers.test.ts`。
   - Commit：`feat: add MCP server management API`。
 
-- [ ] **Task B4: mcp.call 工作流步骤**
+- [x] **Task B4: mcp.call 工作流步骤**
   - 目标：workflow runner 支持调用 MCP 工具，并把 content blocks 写入 `outputs[stepId]` 与 run trace。
   - 修改：`server/src/workflows/types.ts`、`server/src/workflows/runner.ts`、`server/src/workflows/runner.test.ts`、`server/src/routes/workflows.ts`、`server/src/routes/workflows.test.ts`。
   - 验证：`npm run test --workspace server -- src/workflows/runner.test.ts src/routes/workflows.test.ts`。

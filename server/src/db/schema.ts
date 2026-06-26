@@ -89,10 +89,12 @@ export function applySchema(db: AppDatabase) {
       id text primary key,
       run_id text not null references runs(id) on delete cascade,
       step_index integer not null,
-      step_type text not null check (step_type in ('llm.chat', 'endpoint.call', 'chat-completion', 'image-generation', 'model-test', 'prompt-optimizer', 'reviewer', 'summarizer')),
+      step_type text not null check (step_type in ('llm.chat', 'endpoint.call', 'mcp.call', 'chat-completion', 'image-generation', 'model-test', 'prompt-optimizer', 'reviewer', 'summarizer')),
       provider_id text references providers(id),
       model_id text references models(id),
       endpoint_id text references endpoints(id),
+      mcp_server_id text references mcp_servers(id),
+      mcp_tool_name text,
       status text not null check (status in ('running', 'succeeded', 'failed')),
       input_preview text not null,
       output_preview text,
@@ -109,6 +111,8 @@ export function applySchema(db: AppDatabase) {
 
   addColumnIfMissing(db, "providers", "capabilities_json", "text not null default '{}'");
   addColumnIfMissing(db, "run_steps", "endpoint_id", "text references endpoints(id)");
+  addColumnIfMissing(db, "run_steps", "mcp_server_id", "text references mcp_servers(id)");
+  addColumnIfMissing(db, "run_steps", "mcp_tool_name", "text");
 }
 
 function addColumnIfMissing(db: AppDatabase, table: string, column: string, definition: string) {

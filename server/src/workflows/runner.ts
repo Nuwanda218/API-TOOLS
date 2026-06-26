@@ -6,6 +6,9 @@ import type { AppDatabase } from "../db/client.js";
 import { createEndpointRepository, type Endpoint } from "../endpoints/endpointRepository.js";
 import { testEndpoint } from "../endpoints/endpointTester.js";
 import { ProviderError } from "../errors/providerError.js";
+import { McpClientManager, type McpManagerLike } from "../mcp/client.js";
+import { createMcpServerRepository } from "../mcp/mcpServerRepository.js";
+import type { McpCallResult, McpServerRecord } from "../mcp/types.js";
 import { createModelRepository, type Model } from "../providers/modelRepository.js";
 import { createProviderRepository, type Provider } from "../providers/providerRepository.js";
 import type {
@@ -14,6 +17,8 @@ import type {
   RunWorkflowResult,
   SessionRecord,
   LlmChatStepDefinition,
+  EndpointCallStepDefinition,
+  McpCallStepDefinition,
   WorkflowStepDefinition
 } from "./types.js";
 
@@ -21,6 +26,7 @@ interface WorkflowRunnerDependencies {
   adapterRegistry: AdapterRegistry;
   env: NodeJS.ProcessEnv;
   endpointFetch?: typeof fetch;
+  mcpManager?: McpManagerLike;
 }
 
 interface LlmChatStepResult {
@@ -53,6 +59,11 @@ interface ResolvedEndpointCallStepTarget {
   apiKey: string;
 }
 
+interface ResolvedMcpCallStepTarget {
+  server: McpServerRecord;
+  mcpManager: McpManagerLike;
+}
+
 interface RunningRunStepInput {
   runId: string;
   stepIndex: number;
@@ -60,6 +71,8 @@ interface RunningRunStepInput {
   providerId?: string;
   modelId?: string;
   endpointId?: string;
+  mcpServerId?: string;
+  mcpToolName?: string;
   inputPreview: string;
   startedAt: string;
 }
@@ -68,6 +81,8 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
   const providers = createProviderRepository(db);
   const models = createModelRepository(db);
   const endpoints = createEndpointRepository(db);
+  const mcpServers = createMcpServerRepository(db);
+  const mcpManager = dependencies.mcpManager ?? new McpClientManager();
 
   function resolveLlmChatStepTarget(step: LlmChatStepDefinition): ResolvedLlmChatStepTarget {
     const model = models.getById(step.modelId);
@@ -107,6 +122,19 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
     const apiKey = getRequiredApiKey(provider.apiKeyEnv, dependencies.env);
 
     return { provider, endpoint, apiKey };
+  }
+
+  function resolveMcpCallStepTarget(step: McpCallStepDefinition): ResolvedMcpCallStepTarget {
+    const server = mcpServers.getById(step.mcpServerId);
+    if (!server) {
+      throw new ProviderError("mcp_server_not_found", "MCP Server not found", { statusCode: 404 });
+    }
+
+    if (!server.enabled) {
+      throw new ProviderError("unsupported_operation", "MCP Server is disabled", { statusCode: 400 });
+    }
+
+    return { server, mcpManager };
   }
 
   async function runLlmChatStep(target: ResolvedLlmChatStepTarget, message: string): Promise<LlmChatStepResult> {
@@ -169,6 +197,15 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
     };
   }
 
+  async function runMcpCallStep(
+    target: ResolvedMcpCallStepTarget,
+    step: McpCallStepDefinition,
+    input: Record<string, unknown>
+  ): Promise<McpCallResult> {
+    await target.mcpManager.connect(target.server);
+    return target.mcpManager.callTool(target.server.id, step.toolName, input);
+  }
+
   function insertRunningRunStep(input: RunningRunStepInput): string {
     const stepId = nanoid();
 
@@ -181,6 +218,8 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
         provider_id,
         model_id,
         endpoint_id,
+        mcp_server_id,
+        mcp_tool_name,
         status,
         input_preview,
         created_at,
@@ -194,6 +233,8 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
         @providerId,
         @modelId,
         @endpointId,
+        @mcpServerId,
+        @mcpToolName,
         'running',
         @inputPreview,
         @createdAt,
@@ -207,6 +248,8 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
       providerId: input.providerId ?? null,
       modelId: input.modelId ?? null,
       endpointId: input.endpointId ?? null,
+      mcpServerId: input.mcpServerId ?? null,
+      mcpToolName: input.mcpToolName ?? null,
       inputPreview: input.inputPreview,
       createdAt: input.startedAt,
       updatedAt: input.startedAt
@@ -408,6 +451,56 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
             outputs[step.id] = {
               body: stepResult.bodyPreview,
               statusCode: stepResult.statusCode
+            };
+
+            markRunStepSucceeded({
+              stepId,
+              outputPreview: outputPreview.slice(0, 200),
+              latencyMs: stepResult.latencyMs,
+              costEstimate: 0,
+              updatedAt: stepEndedAt
+            });
+          } catch (error) {
+            const failedAt = nextIso(startedAt, stepIndex + 1);
+
+            if (error instanceof ProviderError) {
+              markRunStepFailed({
+                stepId,
+                error,
+                latencyMs: getErrorLatencyMs(error),
+                updatedAt: failedAt
+              });
+              markRunFailed({ runId, endedAt: failedAt });
+            }
+
+            throw error;
+          }
+
+          continue;
+        }
+
+        if (step.type === "mcp.call") {
+          const resolvedInput = resolveStepInput(step.input, input.input, outputs);
+          const target = resolveMcpCallStepTarget(step);
+          const stepId = insertRunningRunStep({
+            runId,
+            stepIndex,
+            step,
+            mcpServerId: target.server.id,
+            mcpToolName: step.toolName,
+            inputPreview: stringifyPreview(resolvedInput).slice(0, 200),
+            startedAt
+          });
+
+          try {
+            const stepResult = await runMcpCallStep(target, step, resolvedInput);
+            const stepEndedAt = nextIso(startedAt, stepIndex + 1);
+            const outputPreview = stringifyPreview(stepResult.content);
+
+            finalContent = outputPreview;
+            outputs[step.id] = {
+              content: stepResult.content,
+              isError: stepResult.isError
             };
 
             markRunStepSucceeded({

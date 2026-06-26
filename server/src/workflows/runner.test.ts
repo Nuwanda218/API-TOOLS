@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ApiInvocation } from "../apiProtocol/types.js";
 import type { AdapterRegistry, ModelAdapter } from "../adapters/types.js";
 import { createEndpointRepository } from "../endpoints/endpointRepository.js";
+import { createMcpServerRepository } from "../mcp/mcpServerRepository.js";
 import { createModelRepository } from "../providers/modelRepository.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
 import { createTestDatabase } from "../test/testDb.js";
@@ -286,6 +287,78 @@ describe("workflowRunner", () => {
     db.close();
   });
 
+  it("runs an mcp.call workflow step and records MCP trace fields", async () => {
+    const db = createTestDatabase();
+    const mcpServers = createMcpServerRepository(db);
+    const mcpServer = mcpServers.create({
+      name: "Filesystem",
+      command: "npx",
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "F:\\tmp"],
+      env: { ROOT: "F:\\tmp" }
+    });
+    const mcpManager = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      listTools: vi.fn().mockResolvedValue([]),
+      callTool: vi.fn().mockResolvedValue({
+        ok: true,
+        content: [{ type: "text", text: "file content" }],
+        isError: false,
+        latencyMs: 9
+      }),
+      disconnect: vi.fn().mockResolvedValue(true)
+    };
+    const runner = createWorkflowRunner(db, {
+      adapterRegistry: createNoopAdapterRegistry(),
+      env: {},
+      mcpManager
+    });
+
+    const result = await runner.runWorkflow({
+      workflowType: "api-workflow",
+      input: { message: "Read package", path: "package.json" },
+      steps: [
+        {
+          id: "read",
+          type: "mcp.call",
+          mcpServerId: mcpServer.id,
+          toolName: "read_file",
+          input: { path: "{{input.path}}" }
+        }
+      ]
+    });
+
+    expect(mcpManager.connect).toHaveBeenCalledWith(expect.objectContaining({ id: mcpServer.id }));
+    expect(mcpManager.callTool).toHaveBeenCalledWith(mcpServer.id, "read_file", { path: "package.json" });
+    expect(result.outputs.read).toEqual({
+      content: [{ type: "text", text: "file content" }],
+      isError: false
+    });
+    expect(result.run.status).toBe("succeeded");
+
+    const runSteps = db.prepare("select * from run_steps").all<{
+      step_type: string;
+      mcp_server_id: string | null;
+      mcp_tool_name: string | null;
+      status: string;
+      input_preview: string;
+      output_preview: string;
+      latency_ms: number;
+    }>();
+    expect(runSteps).toEqual([
+      expect.objectContaining({
+        step_type: "mcp.call",
+        mcp_server_id: mcpServer.id,
+        mcp_tool_name: "read_file",
+        status: "succeeded",
+        input_preview: "{\"path\":\"package.json\"}",
+        output_preview: "[{\"type\":\"text\",\"text\":\"file content\"}]",
+        latency_ms: 9
+      })
+    ]);
+
+    db.close();
+  });
+
   it("records failed run and run_step when adapter invocation fails", async () => {
     const db = createTestDatabase();
     const providers = createProviderRepository(db);
@@ -395,3 +468,14 @@ describe("workflowRunner", () => {
     db.close();
   });
 });
+
+function createNoopAdapterRegistry(): AdapterRegistry {
+  return {
+    getModelAdapter: vi.fn(() => ({
+      listModels: async () => [],
+      testModel: async () => ({ ok: true as const, latencyMs: 1, message: "ok", usage: {} }),
+      runChat: async () => ({ content: "unused", latencyMs: 1, usage: {} })
+    })),
+    invoke: vi.fn()
+  };
+}

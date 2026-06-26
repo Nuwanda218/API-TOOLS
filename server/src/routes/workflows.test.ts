@@ -114,4 +114,55 @@ describe("workflow routes", () => {
 
     db.close();
   });
+
+  it("runs an mcp.call workflow", async () => {
+    const db = createTestDatabase();
+    const mcpManager = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      listTools: vi.fn().mockResolvedValue([]),
+      callTool: vi.fn().mockResolvedValue({
+        ok: true,
+        content: [{ type: "text", text: "search result" }],
+        isError: false,
+        latencyMs: 7
+      }),
+      disconnect: vi.fn().mockResolvedValue(true)
+    };
+    const app = createApp({
+      db,
+      env: { MCP_ALLOWED_COMMANDS: "npx,node" },
+      mcpManager
+    });
+    const serverResponse = await request(app).post("/api/mcp-servers").send({
+      name: "Search",
+      command: "npx",
+      args: ["-y", "search-server"],
+      enabled: true
+    });
+
+    const response = await request(app).post("/api/workflows/run").send({
+      workflowType: "api-workflow",
+      input: { message: "Find docs" },
+      steps: [
+        {
+          id: "search",
+          type: "mcp.call",
+          mcpServerId: serverResponse.body.id,
+          toolName: "web_search",
+          input: { query: "{{input.message}}" }
+        }
+      ]
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.outputs.search).toEqual({
+      content: [{ type: "text", text: "search result" }],
+      isError: false
+    });
+    expect(mcpManager.callTool).toHaveBeenCalledWith(serverResponse.body.id, "web_search", {
+      query: "Find docs"
+    });
+
+    db.close();
+  });
 });
