@@ -169,7 +169,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
   - 验证：`npm run test --workspace server -- src/mcp/mcpServerRepository.test.ts src/db/schema.test.ts`。
   - Commit：`feat: add MCP server repository`。
 
-- [ ] **Task B2: MCP Client stdio 模块**
+- [x] **Task B2: MCP Client stdio 模块**
   - 目标：封装 `@modelcontextprotocol/sdk` stdio client，支持连接、列工具、调用工具、断开。
   - 修改：`server/package.json`。
   - 创建：`server/src/mcp/client.ts`、`server/src/mcp/client.test.ts`。

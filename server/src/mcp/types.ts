@@ -12,6 +12,27 @@ export interface McpServerRecord {
   updatedAt: string;
 }
 
+export interface McpTool {
+  name: string;
+  title?: string;
+  description?: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface McpContentBlock {
+  type: string;
+  text?: string;
+  data?: string;
+  mimeType?: string;
+}
+
+export interface McpCallResult {
+  ok: boolean;
+  content: McpContentBlock[];
+  isError?: boolean;
+  latencyMs: number;
+}
+
 export interface CreateMcpServerInput {
   id?: string;
   name: string;
