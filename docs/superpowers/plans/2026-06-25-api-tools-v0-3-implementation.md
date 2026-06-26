@@ -176,7 +176,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
   - 验证：`npm run test --workspace server -- src/mcp/client.test.ts`。
   - Commit：`feat: add MCP stdio client`。
 
-- [ ] **Task B3: MCP Server 管理 API**
+- [x] **Task B3: MCP Server 管理 API**
   - 目标：提供 MCP Server CRUD、工具拉取、连接测试 API，并加入 command 白名单校验。
   - 创建：`server/src/routes/mcpServers.ts`、`server/src/routes/mcpServers.test.ts`。
   - 修改：`server/src/app.ts`、`server/src/config/env.ts`、`.env.example`。

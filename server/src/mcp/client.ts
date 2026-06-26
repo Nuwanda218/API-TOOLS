@@ -3,12 +3,19 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import type { McpCallResult, McpContentBlock, McpServerRecord, McpTool } from "./types.js";
 import { ProviderError } from "../errors/providerError.js";
 
+export interface McpManagerLike {
+  connect(server: McpServerRecord): Promise<void>;
+  listTools(serverId: string): Promise<McpTool[]>;
+  callTool(serverId: string, toolName: string, args: Record<string, unknown>): Promise<McpCallResult>;
+  disconnect(serverId: string): Promise<boolean>;
+}
+
 interface McpClientEntry {
   client: Client;
   server: McpServerRecord;
 }
 
-export class McpClientManager {
+export class McpClientManager implements McpManagerLike {
   private readonly clients = new Map<string, McpClientEntry>();
 
   async connect(server: McpServerRecord): Promise<void> {

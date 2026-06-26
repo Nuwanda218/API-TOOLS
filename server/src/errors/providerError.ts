@@ -6,6 +6,7 @@ export type ProviderErrorCode =
   | "invalid_workflow_step"
   | "model_not_found"
   | "endpoint_not_found"
+  | "mcp_server_not_found"
   | "mcp_server_not_connected"
   | "mcp_connection_failed"
   | "mcp_tool_error"
