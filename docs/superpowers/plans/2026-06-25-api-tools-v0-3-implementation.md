@@ -162,7 +162,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
 
 ### Milestone B: MCP 后端能力
 
-- [ ] **Task B1: MCP Server schema 与 repository**
+- [x] **Task B1: MCP Server schema 与 repository**
   - 目标：新增 `mcp_servers` 表和 repository，先完成纯数据 CRUD，不接入前端。
   - 修改：`server/src/db/schema.ts`。
   - 创建：`server/src/mcp/types.ts`、`server/src/mcp/mcpServerRepository.ts`、`server/src/mcp/mcpServerRepository.test.ts`。

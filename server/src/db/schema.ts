@@ -43,6 +43,18 @@ export function applySchema(db: AppDatabase) {
       updated_at text not null
     );
 
+    create table if not exists mcp_servers (
+      id text primary key,
+      name text not null,
+      transport text not null default 'stdio' check (transport in ('stdio')),
+      command text not null,
+      args_json text not null default '[]',
+      env_json text not null default '{}',
+      enabled integer not null default 1,
+      created_at text not null,
+      updated_at text not null
+    );
+
     create table if not exists sessions (
       id text primary key,
       title text not null,

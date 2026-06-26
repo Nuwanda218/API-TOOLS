@@ -29,6 +29,7 @@ describe("schema", () => {
 
     expect(rows.map((row) => row.name)).toEqual([
       "endpoints",
+      "mcp_servers",
       "messages",
       "models",
       "providers",
