@@ -14,6 +14,7 @@ import { createModelsRouter } from "./routes/models.js";
 import { createMcpServersRouter } from "./routes/mcpServers.js";
 import { createProvidersRouter } from "./routes/providers.js";
 import { createRunsRouter } from "./routes/runs.js";
+import { createSkillsRouter } from "./routes/skills.js";
 import { createUsageRouter } from "./routes/usage.js";
 import { createWorkflowsRouter } from "./routes/workflows.js";
 import { McpClientManager, type McpManagerLike } from "./mcp/client.js";
@@ -47,6 +48,12 @@ export function createApp(dependencies: AppDependencies) {
   }));
   app.use("/api/models", createModelsRouter(db, { env, adapterRegistry }));
   app.use("/api/mcp-servers", createMcpServersRouter(db, { env, mcpManager }));
+  app.use("/api/skills", createSkillsRouter(db, {
+    env,
+    adapterRegistry,
+    endpointFetch: dependencies.endpointFetch,
+    mcpManager
+  }));
   app.use("/api/runs", createRunsRouter(db));
   app.use("/api/workflows", createWorkflowsRouter(db, {
     env,

@@ -198,7 +198,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
   - 验证：`npm run test --workspace client -- src/pages/McpServersPage.test.tsx`。
   - Commit：`feat: add MCP server management page`。
 
-- [ ] **Task C2: Skill 模板后端**
+- [x] **Task C2: Skill 模板后端**
   - 目标：提供内置 Skill 模板、用户自定义模板存储、模板参数解析和模板运行 API。
   - 创建：`server/src/skills/templateRegistry.ts`、`server/src/skills/templateRegistry.test.ts`、`server/src/skills/skillRepository.ts`、`server/src/skills/skillRepository.test.ts`、`server/src/routes/skills.ts`、`server/src/routes/skills.test.ts`。
   - 修改：`server/src/db/schema.ts`、`server/src/app.ts`。

@@ -55,6 +55,17 @@ export function applySchema(db: AppDatabase) {
       updated_at text not null
     );
 
+    create table if not exists skills (
+      id text primary key,
+      name_json text not null,
+      description_json text not null,
+      parameters_json text not null default '[]',
+      steps_json text not null,
+      builtin integer not null default 0,
+      created_at text not null,
+      updated_at text not null
+    );
+
     create table if not exists sessions (
       id text primary key,
       title text not null,
