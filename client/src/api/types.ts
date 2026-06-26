@@ -96,6 +96,48 @@ export interface TestEndpointResponse {
   latencyMs: number;
 }
 
+export type McpTransport = "stdio";
+
+export interface McpServerRecord {
+  id: string;
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateMcpServerInput {
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  enabled: boolean;
+}
+
+export interface McpToolRecord {
+  name: string;
+  title?: string;
+  description?: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface ListMcpToolsResponse {
+  ok: true;
+  serverId: string;
+  tools: McpToolRecord[];
+}
+
+export interface TestMcpServerResponse {
+  ok: true;
+  serverId: string;
+  toolCount: number;
+}
+
 export interface CreateModelInput {
   providerId: string;
   displayName: string;

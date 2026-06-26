@@ -191,7 +191,7 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
 
 ### Milestone C: 前端与产品化
 
-- [ ] **Task C1: MCP Server 管理前端**
+- [x] **Task C1: MCP Server 管理前端**
   - 目标：用户能在前端新增、删除、测试 MCP Server，并查看工具列表。
   - 创建：`client/src/pages/McpServersPage.tsx`、`client/src/pages/McpServersPage.test.tsx`。
   - 修改：`client/src/api/client.ts`、`client/src/api/types.ts`、`client/src/components/TopNav.tsx`、`client/src/App.tsx`。

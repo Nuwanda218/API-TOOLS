@@ -5,6 +5,7 @@ import { TopNav, type LanguageKey, type PageKey } from "./components/TopNav";
 import { ConfigurationPage } from "./pages/ConfigurationPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EndpointsPage } from "./pages/EndpointsPage";
+import { McpServersPage } from "./pages/McpServersPage";
 import { ModelsPage } from "./pages/ModelsPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { RunsPage } from "./pages/RunsPage";
@@ -31,6 +32,8 @@ export function App() {
         return <ModelsPage api={apiClient} language={language} />;
       case "endpoints":
         return <EndpointsPage api={apiClient} language={language} />;
+      case "mcpServers":
+        return <McpServersPage api={apiClient} language={language} />;
       case "configuration":
         return <ConfigurationPage api={apiClient} language={language} />;
       case "usage":

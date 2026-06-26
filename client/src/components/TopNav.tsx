@@ -6,6 +6,7 @@ import {
   Languages,
   LayoutDashboard,
   ListChecks,
+  Network,
   PanelLeftClose,
   PanelLeftOpen,
   PlugZap,
@@ -22,6 +23,7 @@ export type PageKey =
   | "providers"
   | "models"
   | "endpoints"
+  | "mcpServers"
   | "configuration"
   | "usage"
   | "runs"
@@ -54,6 +56,7 @@ const navGroups: NavGroup[] = [
       { key: "providers", labels: { "zh-CN": "API接入", en: "Providers" }, Icon: PlugZap },
       { key: "models", labels: { "zh-CN": "模型管理", en: "Models" }, Icon: Cpu },
       { key: "endpoints", labels: { "zh-CN": "Endpoint", en: "Endpoints" }, Icon: Globe2 },
+      { key: "mcpServers", labels: { "zh-CN": "MCP Server", en: "MCP Servers" }, Icon: Network },
       { key: "configuration", labels: { "zh-CN": "配置迁移", en: "Configuration" }, Icon: FileJson }
     ]
   },

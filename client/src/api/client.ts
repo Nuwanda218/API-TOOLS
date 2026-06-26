@@ -1,10 +1,13 @@
 import type {
   CreateModelInput,
   CreateEndpointInput,
+  CreateMcpServerInput,
   CreateProviderInput,
   EndpointRecord,
   ExportedConfiguration,
   ImportConfigurationResponse,
+  ListMcpToolsResponse,
+  McpServerRecord,
   ModelRecord,
   ProviderRecord,
   RemoteModelRecord,
@@ -13,6 +16,7 @@ import type {
   RunRecord,
   SaveApiKeyInput,
   TestEndpointResponse,
+  TestMcpServerResponse,
   TestModelInput,
   TestModelResponse,
   UsageSummary
@@ -129,6 +133,38 @@ export const apiClient = {
     return requestJson<TestEndpointResponse>(`/api/endpoints/${endpointId}/test`, {
       method: "POST",
       body: JSON.stringify(input)
+    });
+  },
+
+  listMcpServers() {
+    return requestJson<McpServerRecord[]>("/api/mcp-servers");
+  },
+
+  createMcpServer(input: CreateMcpServerInput) {
+    return requestJson<McpServerRecord>("/api/mcp-servers", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+
+  updateMcpServer(serverId: string, input: Partial<CreateMcpServerInput>) {
+    return requestJson<McpServerRecord>(`/api/mcp-servers/${serverId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input)
+    });
+  },
+
+  deleteMcpServer(serverId: string) {
+    return requestJson<void>(`/api/mcp-servers/${serverId}`, { method: "DELETE" });
+  },
+
+  listMcpServerTools(serverId: string) {
+    return requestJson<ListMcpToolsResponse>(`/api/mcp-servers/${serverId}/tools`);
+  },
+
+  testMcpServer(serverId: string) {
+    return requestJson<TestMcpServerResponse>(`/api/mcp-servers/${serverId}/test`, {
+      method: "POST"
     });
   },
 
