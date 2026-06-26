@@ -67,7 +67,13 @@ export function ConfigurationPage({ api, language = "zh-CN" }: ConfigurationPage
       setStatus(text.exported);
       notify.success({
         title: text.exported,
-        detail: `${configuration.providers.length} providers / ${configuration.models.length} models / ${configuration.endpoints.length} endpoints`
+        detail: [
+          `${configuration.providers.length} providers`,
+          `${configuration.models.length} models`,
+          `${configuration.endpoints.length} endpoints`,
+          `${configuration.mcpServers?.length ?? 0} MCP servers`,
+          `${configuration.skills?.length ?? 0} skills`
+        ].join(" / ")
       });
     } catch (error) {
       setStatus(formatErrorTitle(error, text.error));
@@ -90,7 +96,7 @@ export function ConfigurationPage({ api, language = "zh-CN" }: ConfigurationPage
     setWorking(true);
     try {
       const result = await api.importConfiguration(configuration);
-      const message = `${text.imported}：Provider ${result.imported.providers}，Model ${result.imported.models}，Endpoint ${result.imported.endpoints}`;
+      const message = `${text.imported}：Provider ${result.imported.providers}，Model ${result.imported.models}，Endpoint ${result.imported.endpoints}，MCP Server ${result.imported.mcpServers}，Skill ${result.imported.skills}`;
       setStatus(message);
       notify.success({ title: text.imported, detail: message });
     } catch (error) {

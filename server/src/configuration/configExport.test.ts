@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createEndpointRepository } from "../endpoints/endpointRepository.js";
+import { createMcpServerRepository } from "../mcp/mcpServerRepository.js";
 import { createModelRepository } from "../providers/modelRepository.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
+import { createSkillRepository } from "../skills/skillRepository.js";
 import { createTestDatabase } from "../test/testDb.js";
 import { buildConfigurationExport, importConfiguration } from "./configExport.js";
 
@@ -11,6 +13,8 @@ describe("configuration export", () => {
     const providers = createProviderRepository(db);
     const models = createModelRepository(db);
     const endpoints = createEndpointRepository(db);
+    const mcpServers = createMcpServerRepository(db);
+    const skills = createSkillRepository(db);
 
     const provider = providers.create({
       id: "provider-1",
@@ -44,12 +48,29 @@ describe("configuration export", () => {
       bodyTemplate: { model: "deepseek-chat" },
       enabled: true
     });
+    mcpServers.create({
+      id: "mcp-1",
+      name: "Search MCP",
+      transport: "stdio",
+      command: "node",
+      args: ["server.js"],
+      env: { SEARCH_TOKEN: "mcp-secret-value" },
+      enabled: true
+    });
+    skills.create({
+      id: "skill-1",
+      name: { "zh-CN": "摘要", en: "Summary" },
+      description: { "zh-CN": "生成摘要", en: "Generate summary" },
+      parameters: [{ key: "message", label: { "zh-CN": "消息", en: "Message" }, type: "text", required: true }],
+      steps: [{ id: "summarize", type: "llm.chat", modelId: "model-1", input: { message: "{{input.message}}" } }]
+    });
 
     const exported = buildConfigurationExport(db, { DEEPSEEK_API_KEY: "real-secret-value" });
 
     expect(JSON.stringify(exported)).not.toContain("real-secret-value");
+    expect(JSON.stringify(exported)).not.toContain("mcp-secret-value");
     expect(exported).toMatchObject({
-      version: 1,
+      version: 2,
       providers: [
         {
           id: "provider-1",
@@ -69,6 +90,19 @@ describe("configuration export", () => {
           id: "endpoint-1",
           providerId: "provider-1",
           path: "/chat/completions"
+        }
+      ],
+      mcpServers: [
+        {
+          id: "mcp-1",
+          name: "Search MCP",
+          env: { SEARCH_TOKEN: "__RECONFIGURE_REQUIRED__" }
+        }
+      ],
+      skills: [
+        {
+          id: "skill-1",
+          name: { "zh-CN": "摘要", en: "Summary" }
         }
       ],
       missingApiKeyEnvs: []
@@ -98,11 +132,11 @@ describe("configuration export", () => {
     db.close();
   });
 
-  it("imports configuration by upserting providers, models, and endpoints", () => {
+  it("imports configuration by upserting providers, models, endpoints, MCP servers, and skills", () => {
     const db = createTestDatabase();
 
     const result = importConfiguration(db, {
-      version: 1,
+      version: 2,
       providers: [
         {
           id: "provider-1",
@@ -141,13 +175,35 @@ describe("configuration export", () => {
           enabled: true
         }
       ],
+      mcpServers: [
+        {
+          id: "mcp-1",
+          name: "Imported MCP",
+          transport: "stdio",
+          command: "node",
+          args: ["mcp.js"],
+          env: { SEARCH_TOKEN: "__RECONFIGURE_REQUIRED__" },
+          enabled: true
+        }
+      ],
+      skills: [
+        {
+          id: "skill-1",
+          name: { "zh-CN": "导入技能", en: "Imported skill" },
+          description: { "zh-CN": "导入描述", en: "Imported description" },
+          parameters: [],
+          steps: [{ id: "call", type: "endpoint.call", endpointId: "endpoint-1", input: { prompt: "{{input.message}}" } }]
+        }
+      ],
       missingApiKeyEnvs: []
     });
 
-    expect(result).toEqual({ providers: 1, models: 1, endpoints: 1 });
+    expect(result).toEqual({ providers: 1, models: 1, endpoints: 1, mcpServers: 1, skills: 1 });
     expect(createProviderRepository(db).getById("provider-1")?.name).toBe("Imported Provider");
     expect(createModelRepository(db).getById("model-1")?.modelId).toBe("example-chat");
     expect(createEndpointRepository(db).getById("endpoint-1")?.path).toBe("/chat/completions");
+    expect(createMcpServerRepository(db).getById("mcp-1")?.name).toBe("Imported MCP");
+    expect(createSkillRepository(db).getById("skill-1")?.name.en).toBe("Imported skill");
 
     db.close();
   });

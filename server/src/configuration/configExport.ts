@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { AppDatabase } from "../db/client.js";
 import { createEndpointRepository } from "../endpoints/endpointRepository.js";
 import type { Endpoint, EndpointMethod } from "../endpoints/endpointRepository.js";
+import { createMcpServerRepository } from "../mcp/mcpServerRepository.js";
+import type { McpServerRecord, McpTransport } from "../mcp/types.js";
 import { createModelRepository } from "../providers/modelRepository.js";
 import type { Model, ModelCapability } from "../providers/modelRepository.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
@@ -11,6 +13,11 @@ import type {
   ProviderCapabilities,
   ProviderType
 } from "../providers/providerRepository.js";
+import { createSkillRepository } from "../skills/skillRepository.js";
+import type { SkillTemplate } from "../skills/templateRegistry.js";
+import type { WorkflowStepDefinition } from "../workflows/types.js";
+
+const RECONFIGURE_REQUIRED = "__RECONFIGURE_REQUIRED__";
 
 export interface ExportedProvider {
   id: string;
@@ -47,11 +54,32 @@ export interface ExportedEndpoint {
   enabled: boolean;
 }
 
+export interface ExportedMcpServer {
+  id: string;
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  enabled: boolean;
+}
+
+export interface ExportedSkill {
+  id: string;
+  name: SkillTemplate["name"];
+  description: SkillTemplate["description"];
+  parameters: SkillTemplate["parameters"];
+  steps: WorkflowStepDefinition[];
+  builtin?: boolean;
+}
+
 export interface ExportedConfiguration {
-  version: 1;
+  version: 1 | 2;
   providers: ExportedProvider[];
   models: ExportedModel[];
   endpoints: ExportedEndpoint[];
+  mcpServers: ExportedMcpServer[];
+  skills: ExportedSkill[];
   missingApiKeyEnvs: string[];
 }
 
@@ -59,6 +87,8 @@ export interface ImportConfigurationResult {
   providers: number;
   models: number;
   endpoints: number;
+  mcpServers: number;
+  skills: number;
 }
 
 const providerSchema = z.object({
@@ -107,11 +137,54 @@ const endpointSchema = z.object({
   enabled: z.boolean()
 });
 
+const mcpServerSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  transport: z.literal("stdio").default("stdio"),
+  command: z.string().min(1),
+  args: z.array(z.string()).default([]),
+  env: z.record(z.string()).default({}),
+  enabled: z.boolean()
+});
+
+const localizedTextSchema = z.object({
+  "zh-CN": z.string(),
+  en: z.string()
+});
+
+const skillParameterSchema = z.object({
+  key: z.string().min(1),
+  label: localizedTextSchema,
+  required: z.boolean(),
+  type: z.enum(["model", "mcpServer", "endpoint", "text"])
+});
+
+const workflowStepSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["llm.chat", "endpoint.call", "mcp.call"]),
+  modelId: z.string().min(1).optional(),
+  endpointId: z.string().min(1).optional(),
+  mcpServerId: z.string().min(1).optional(),
+  toolName: z.string().min(1).optional(),
+  input: z.record(z.unknown()).default({})
+});
+
+const skillSchema = z.object({
+  id: z.string().min(1),
+  name: localizedTextSchema,
+  description: localizedTextSchema,
+  parameters: z.array(skillParameterSchema).default([]),
+  steps: z.array(workflowStepSchema).default([]),
+  builtin: z.boolean().optional()
+});
+
 export const exportedConfigurationSchema = z.object({
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2)]),
   providers: z.array(providerSchema).default([]),
   models: z.array(modelSchema).default([]),
   endpoints: z.array(endpointSchema).default([]),
+  mcpServers: z.array(mcpServerSchema).default([]),
+  skills: z.array(skillSchema).default([]),
   missingApiKeyEnvs: z.array(z.string()).default([])
 });
 
@@ -122,10 +195,12 @@ export function buildConfigurationExport(
   const providers = createProviderRepository(db).list().map(exportProvider);
 
   return {
-    version: 1,
+    version: 2,
     providers,
     models: createModelRepository(db).list().map(exportModel),
     endpoints: createEndpointRepository(db).list().map(exportEndpoint),
+    mcpServers: createMcpServerRepository(db).list().map(exportMcpServer),
+    skills: createSkillRepository(db).list().map(exportSkill),
     missingApiKeyEnvs: providers
       .map((provider) => provider.apiKeyEnv)
       .filter((apiKeyEnv, index, apiKeyEnvs) => apiKeyEnvs.indexOf(apiKeyEnv) === index)
@@ -141,9 +216,13 @@ export function importConfiguration(db: AppDatabase, configuration: ExportedConf
   const providers = createProviderRepository(db);
   const models = createModelRepository(db);
   const endpoints = createEndpointRepository(db);
+  const mcpServers = createMcpServerRepository(db);
+  const skills = createSkillRepository(db);
   let providerCount = 0;
   let modelCount = 0;
   let endpointCount = 0;
+  let mcpServerCount = 0;
+  let skillCount = 0;
 
   for (const provider of configuration.providers) {
     if (providers.getById(provider.id)) {
@@ -172,7 +251,25 @@ export function importConfiguration(db: AppDatabase, configuration: ExportedConf
     endpointCount += 1;
   }
 
-  return { providers: providerCount, models: modelCount, endpoints: endpointCount };
+  for (const mcpServer of configuration.mcpServers) {
+    if (mcpServers.getById(mcpServer.id)) {
+      mcpServers.update(mcpServer.id, mcpServer);
+    } else {
+      mcpServers.create(mcpServer);
+    }
+    mcpServerCount += 1;
+  }
+
+  for (const skill of configuration.skills) {
+    if (skills.getById(skill.id)) {
+      skills.update(skill.id, skill);
+    } else {
+      skills.create(skill);
+    }
+    skillCount += 1;
+  }
+
+  return { providers: providerCount, models: modelCount, endpoints: endpointCount, mcpServers: mcpServerCount, skills: skillCount };
 }
 
 function exportProvider(provider: Provider): ExportedProvider {
@@ -213,5 +310,28 @@ function exportEndpoint(endpoint: Endpoint): ExportedEndpoint {
     headersTemplate: endpoint.headersTemplate,
     bodyTemplate: endpoint.bodyTemplate,
     enabled: endpoint.enabled
+  };
+}
+
+function exportMcpServer(server: McpServerRecord): ExportedMcpServer {
+  return {
+    id: server.id,
+    name: server.name,
+    transport: server.transport,
+    command: server.command,
+    args: [...server.args],
+    env: Object.fromEntries(Object.keys(server.env).map((key) => [key, RECONFIGURE_REQUIRED])),
+    enabled: server.enabled
+  };
+}
+
+function exportSkill(skill: SkillTemplate): ExportedSkill {
+  return {
+    id: skill.id,
+    name: skill.name,
+    description: skill.description,
+    parameters: skill.parameters,
+    steps: skill.steps,
+    builtin: skill.builtin
   };
 }

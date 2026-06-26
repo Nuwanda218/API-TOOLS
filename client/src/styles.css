@@ -969,6 +969,32 @@ button {
   overflow-wrap: anywhere;
 }
 
+.trace-details {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.trace-details div {
+  display: grid;
+  gap: 3px;
+}
+
+.trace-details dt {
+  color: #66778a;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.trace-details dd {
+  color: #405166;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .trace-step code {
   background: #fff4f2;
   border: 1px solid #f2ccc5;

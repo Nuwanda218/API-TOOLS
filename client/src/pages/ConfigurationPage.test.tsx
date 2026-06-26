@@ -11,7 +11,7 @@ function renderWithNotifications(ui: ReactElement) {
 }
 
 const configuration: ExportedConfiguration = {
-  version: 1,
+  version: 2,
   providers: [
     {
       id: "provider-1",
@@ -35,6 +35,27 @@ const configuration: ExportedConfiguration = {
   ],
   models: [],
   endpoints: [],
+  mcpServers: [
+    {
+      id: "mcp-1",
+      name: "Search MCP",
+      transport: "stdio",
+      command: "node",
+      args: ["server.js"],
+      env: { SEARCH_TOKEN: "__RECONFIGURE_REQUIRED__" },
+      enabled: true
+    }
+  ],
+  skills: [
+    {
+      id: "skill-1",
+      name: { "zh-CN": "摘要", en: "Summary" },
+      description: { "zh-CN": "生成摘要", en: "Generate summary" },
+      parameters: [],
+      steps: [],
+      builtin: false
+    }
+  ],
   missingApiKeyEnvs: ["DEEPSEEK_API_KEY"]
 };
 
@@ -43,7 +64,7 @@ describe("ConfigurationPage", () => {
     const api = {
       exportConfiguration: vi.fn().mockResolvedValue(configuration),
       importConfiguration: vi.fn().mockResolvedValue({
-        imported: { providers: 1, models: 0, endpoints: 0 }
+        imported: { providers: 1, models: 0, endpoints: 0, mcpServers: 1, skills: 1 }
       })
     };
 
@@ -66,6 +87,8 @@ describe("ConfigurationPage", () => {
       expect(container.textContent).toContain("Provider 1");
       expect(container.textContent).toContain("Model 0");
       expect(container.textContent).toContain("Endpoint 0");
+      expect(container.textContent).toContain("MCP Server 1");
+      expect(container.textContent).toContain("Skill 1");
     });
   });
 });

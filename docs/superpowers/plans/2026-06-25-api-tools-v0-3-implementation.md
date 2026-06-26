@@ -218,9 +218,9 @@ V0.3 不按原始大 Task 一次性推进，而是按以下更小的阶段成果
   - 验证：`npm run test --workspace client -- src/pages/WorkflowBuilderPage.test.tsx`。
   - Commit：`feat: add workflow builder page`。
 
-- [ ] **Task C5: 配置导入导出与运行历史增强**
+- [x] **Task C5: 配置导入导出与运行历史增强**
   - 目标：配置导出升级到 version 2，包含 MCP Server 和 Skill；运行历史按 step 类型展示细节。
-  - 修改：`server/src/configuration/configExport.ts`、`server/src/configuration/configExport.test.ts`、`server/src/routes/configuration.test.ts`、`client/src/pages/ConfigurationPage.tsx`、`client/src/pages/RunsPage.tsx`、`client/src/pages/RunsPage.test.tsx`。
+  - 修改：`server/src/configuration/configExport.ts`、`server/src/configuration/configExport.test.ts`、`server/src/routes/configuration.test.ts`、`server/src/workflows/runner.ts`、`client/src/api/types.ts`、`client/src/pages/ConfigurationPage.tsx`、`client/src/pages/ConfigurationPage.test.tsx`、`client/src/pages/RunsPage.tsx`、`client/src/pages/RunsPage.test.tsx`、`client/src/styles.css`。
   - 验证：`npm run test --workspace server -- src/configuration/configExport.test.ts src/routes/configuration.test.ts`；`npm run test --workspace client -- src/pages/RunsPage.test.tsx src/pages/ConfigurationPage.test.tsx`。
   - Commit：`feat: export v0.3 configuration and step traces`。
 

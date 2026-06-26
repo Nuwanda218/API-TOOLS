@@ -22,7 +22,13 @@ const copy = {
     view: "查看",
     tokens: "tokens",
     latency: "latency",
-    cost: "cost"
+    cost: "cost",
+    input: "Input",
+    llmContent: "LLM content",
+    httpStatus: "HTTP status",
+    bodyPreview: "Body preview",
+    mcpTool: "MCP tool",
+    contentBlocks: "Content blocks"
   },
   en: {
     title: "Run History",
@@ -35,7 +41,13 @@ const copy = {
     view: "View",
     tokens: "tokens",
     latency: "latency",
-    cost: "cost"
+    cost: "cost",
+    input: "Input",
+    llmContent: "LLM content",
+    httpStatus: "HTTP status",
+    bodyPreview: "Body preview",
+    mcpTool: "MCP tool",
+    contentBlocks: "Content blocks"
   }
 } satisfies Record<LanguageKey, Record<string, string>>;
 
@@ -121,8 +133,13 @@ export function RunsPage({ api, language = "zh-CN" }: RunsPageProps) {
               <strong>{step.stepType}</strong>
               <em>{step.status}</em>
             </header>
-            <p>{step.inputPreview}</p>
-            {step.outputPreview && <p>{step.outputPreview}</p>}
+            <dl className="trace-details">
+              <div>
+                <dt>{text.input}</dt>
+                <dd>{step.inputPreview}</dd>
+              </div>
+              {renderStepOutput(step, text)}
+            </dl>
             {step.errorCode && <code>{step.errorCode}</code>}
             {step.errorMessage && <p>{step.errorMessage}</p>}
             <small>
@@ -140,4 +157,83 @@ function formatRunMetric(run: RunRecord, text: Record<string, string>) {
   const outputTokens = run.totalOutputTokens ?? 0;
   const cost = run.totalCostEstimate ?? 0;
   return `${text.tokens} ${inputTokens}/${outputTokens} · ${text.cost} ${cost}`;
+}
+
+function renderStepOutput(step: RunRecord["steps"][number], text: Record<string, string>) {
+  if (step.stepType === "endpoint.call") {
+    const parsed = parseEndpointPreview(step.outputPreview);
+
+    return (
+      <>
+        <div>
+          <dt>{text.httpStatus}</dt>
+          <dd>{parsed?.statusCode ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>{text.bodyPreview}</dt>
+          <dd>{formatPreview(parsed?.bodyPreview ?? step.outputPreview)}</dd>
+        </div>
+      </>
+    );
+  }
+
+  if (step.stepType === "mcp.call") {
+    return (
+      <>
+        <div>
+          <dt>{text.mcpTool}</dt>
+          <dd>{step.mcpToolName ?? "-"}</dd>
+        </div>
+        <div>
+          <dt>{text.contentBlocks}</dt>
+          <dd>{formatMcpContentBlocks(step.outputPreview)}</dd>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div>
+      <dt>{text.llmContent}</dt>
+      <dd>{step.outputPreview ?? "-"}</dd>
+    </div>
+  );
+}
+
+function parseEndpointPreview(value: string | null): { statusCode?: number; bodyPreview?: unknown } | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return parsed as { statusCode?: number; bodyPreview?: unknown };
+  } catch {
+    return null;
+  }
+}
+
+function formatMcpContentBlocks(value: string | null): string {
+  if (!value) return "-";
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return value;
+
+    return parsed
+      .map((block) => {
+        if (!block || typeof block !== "object") return "";
+        const text = "text" in block ? block.text : undefined;
+        return typeof text === "string" ? text : JSON.stringify(block);
+      })
+      .filter(Boolean)
+      .join("\n");
+  } catch {
+    return value;
+  }
+}
+
+function formatPreview(value: unknown): string {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
 }

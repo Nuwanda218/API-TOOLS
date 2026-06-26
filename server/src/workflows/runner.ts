@@ -445,9 +445,12 @@ export function createWorkflowRunner(db: AppDatabase, dependencies: WorkflowRunn
           try {
             const stepResult = await runEndpointCallStep(target, resolvedInput);
             const stepEndedAt = nextIso(startedAt, stepIndex + 1);
-            const outputPreview = stringifyPreview(stepResult.bodyPreview);
+            const outputPreview = stringifyPreview({
+              statusCode: stepResult.statusCode,
+              bodyPreview: stepResult.bodyPreview
+            });
 
-            finalContent = outputPreview;
+            finalContent = stringifyPreview(stepResult.bodyPreview);
             outputs[step.id] = {
               body: stepResult.bodyPreview,
               statusCode: stepResult.statusCode

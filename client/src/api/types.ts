@@ -179,8 +179,11 @@ export interface RunStepRecord {
   runId: string;
   stepIndex: number;
   stepType: string;
-  providerId: string;
-  modelId: string;
+  providerId: string | null;
+  modelId: string | null;
+  endpointId: string | null;
+  mcpServerId: string | null;
+  mcpToolName: string | null;
   status: "running" | "succeeded" | "failed";
   inputPreview: string;
   outputPreview: string | null;
@@ -254,10 +257,12 @@ export interface SkillTemplateRecord {
 }
 
 export interface ExportedConfiguration {
-  version: 1;
+  version: 1 | 2;
   providers: Array<Omit<ProviderRecord, "createdAt" | "updatedAt">>;
   models: Array<Omit<ModelRecord, "createdAt" | "updatedAt">>;
   endpoints: Array<Omit<EndpointRecord, "createdAt" | "updatedAt">>;
+  mcpServers: Array<Omit<McpServerRecord, "createdAt" | "updatedAt">>;
+  skills: Array<Omit<SkillTemplateRecord, "createdAt" | "updatedAt">>;
   missingApiKeyEnvs: string[];
 }
 
@@ -266,5 +271,7 @@ export interface ImportConfigurationResponse {
     providers: number;
     models: number;
     endpoints: number;
+    mcpServers: number;
+    skills: number;
   };
 }

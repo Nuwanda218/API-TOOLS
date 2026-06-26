@@ -1,7 +1,9 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../app.js";
+import { createMcpServerRepository } from "../mcp/mcpServerRepository.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
+import { createSkillRepository } from "../skills/skillRepository.js";
 import { createTestDatabase } from "../test/testDb.js";
 
 describe("configuration routes", () => {
@@ -22,6 +24,7 @@ describe("configuration routes", () => {
     const response = await request(app).get("/api/configuration/export");
 
     expect(response.status).toBe(200);
+    expect(response.body.version).toBe(2);
     expect(response.body.providers[0]).toMatchObject({
       id: "provider-1",
       apiKeyEnv: "DEEPSEEK_API_KEY"
@@ -36,7 +39,7 @@ describe("configuration routes", () => {
     const app = createApp({ db });
 
     const response = await request(app).post("/api/configuration/import").send({
-      version: 1,
+      version: 2,
       providers: [
         {
           id: "provider-1",
@@ -50,14 +53,36 @@ describe("configuration routes", () => {
       ],
       models: [],
       endpoints: [],
+      mcpServers: [
+        {
+          id: "mcp-1",
+          name: "Imported MCP",
+          transport: "stdio",
+          command: "node",
+          args: ["mcp.js"],
+          env: { SEARCH_TOKEN: "__RECONFIGURE_REQUIRED__" },
+          enabled: true
+        }
+      ],
+      skills: [
+        {
+          id: "skill-1",
+          name: { "zh-CN": "导入技能", en: "Imported skill" },
+          description: { "zh-CN": "导入描述", en: "Imported description" },
+          parameters: [],
+          steps: []
+        }
+      ],
       missingApiKeyEnvs: []
     });
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ imported: { providers: 1, models: 0, endpoints: 0 } });
+    expect(response.body).toEqual({ imported: { providers: 1, models: 0, endpoints: 0, mcpServers: 1, skills: 1 } });
 
     const listResponse = await request(app).get("/api/providers");
     expect(listResponse.body[0]).toMatchObject({ id: "provider-1", name: "Imported Provider" });
+    expect(createMcpServerRepository(db).getById("mcp-1")?.name).toBe("Imported MCP");
+    expect(createSkillRepository(db).getById("skill-1")?.name.en).toBe("Imported skill");
 
     db.close();
   });
