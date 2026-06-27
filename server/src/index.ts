@@ -48,10 +48,19 @@ export async function startServer(env: NodeJS.ProcessEnv = process.env) {
   await initializeSqlRuntime();
   const db = createDatabase(env.DATABASE_PATH ?? "./api-tools.db");
   const app = createApp({ db });
-  const server = app.listen(port, () => {
-    const address = server.address() as AddressInfo | null;
-    const actualPort = address?.port ?? port;
-    console.log(`API Tools server listening on http://127.0.0.1:${actualPort}`);
+  const server = await new Promise<Server>((resolve, reject) => {
+    const srv = app.listen(port, () => {
+      const address = srv.address() as AddressInfo | null;
+      const actualPort = address?.port ?? port;
+      console.log(`API Tools server listening on http://127.0.0.1:${actualPort}`);
+      resolve(srv);
+    });
+    srv.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EADDRINUSE") {
+        console.error(`Port ${port} is already in use. Kill the other process or set a different PORT in .env`);
+      }
+      reject(err);
+    });
   });
   const shutdown = createShutdownHandler({ server, db });
 
