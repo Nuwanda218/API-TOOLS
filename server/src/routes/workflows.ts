@@ -3,14 +3,36 @@ import { z } from "zod";
 import { createAdapterRegistry } from "../adapters/registry.js";
 import type { AdapterRegistry } from "../adapters/types.js";
 import type { AppDatabase } from "../db/client.js";
+import type { McpManagerLike } from "../mcp/client.js";
 import { createWorkflowRunner } from "../workflows/runner.js";
 
-const workflowStepSchema = z.object({
+const llmChatStepSchema = z.object({
   id: z.string().min(1),
   type: z.literal("llm.chat"),
-  modelId: z.string().min(1).optional(),
+  modelId: z.string().min(1),
   input: z.record(z.unknown()).default({})
 });
+
+const endpointCallStepSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("endpoint.call"),
+  endpointId: z.string().min(1),
+  input: z.record(z.unknown()).default({})
+});
+
+const mcpCallStepSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("mcp.call"),
+  mcpServerId: z.string().min(1),
+  toolName: z.string().min(1),
+  input: z.record(z.unknown()).default({})
+});
+
+const workflowStepSchema = z.discriminatedUnion("type", [
+  llmChatStepSchema,
+  endpointCallStepSchema,
+  mcpCallStepSchema
+]);
 
 const runWorkflowSchema = z.object({
   sessionId: z.string().optional(),
@@ -22,13 +44,17 @@ const runWorkflowSchema = z.object({
 interface WorkflowsRouterDependencies {
   adapterRegistry?: AdapterRegistry;
   env: NodeJS.ProcessEnv;
+  endpointFetch?: typeof fetch;
+  mcpManager?: McpManagerLike;
 }
 
 export function createWorkflowsRouter(db: AppDatabase, dependencies: WorkflowsRouterDependencies) {
   const router = Router();
   const runner = createWorkflowRunner(db, {
     adapterRegistry: dependencies.adapterRegistry ?? createAdapterRegistry(),
-    env: dependencies.env
+    env: dependencies.env,
+    endpointFetch: dependencies.endpointFetch,
+    mcpManager: dependencies.mcpManager
   });
 
   router.get("/", (_req, res) => {

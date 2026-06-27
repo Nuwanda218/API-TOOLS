@@ -5,12 +5,14 @@ import { TopNav, type LanguageKey, type PageKey } from "./components/TopNav";
 import { ConfigurationPage } from "./pages/ConfigurationPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EndpointsPage } from "./pages/EndpointsPage";
+import { McpServersPage } from "./pages/McpServersPage";
 import { ModelsPage } from "./pages/ModelsPage";
 import { ProvidersPage } from "./pages/ProvidersPage";
 import { RunsPage } from "./pages/RunsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UsagePage } from "./pages/UsagePage";
 import { WorkbenchPage } from "./pages/WorkbenchPage";
+import { WorkflowBuilderPage } from "./pages/WorkflowBuilderPage";
 import { WorkflowTemplatesPage } from "./pages/WorkflowTemplatesPage";
 import "./styles.css";
 
@@ -31,6 +33,8 @@ export function App() {
         return <ModelsPage api={apiClient} language={language} />;
       case "endpoints":
         return <EndpointsPage api={apiClient} language={language} />;
+      case "mcpServers":
+        return <McpServersPage api={apiClient} language={language} />;
       case "configuration":
         return <ConfigurationPage api={apiClient} language={language} />;
       case "usage":
@@ -38,7 +42,9 @@ export function App() {
       case "runs":
         return <RunsPage api={apiClient} language={language} />;
       case "workflows":
-        return <WorkflowTemplatesPage language={language} />;
+        return <WorkflowTemplatesPage api={apiClient} language={language} />;
+      case "workflowBuilder":
+        return <WorkflowBuilderPage api={apiClient} language={language} />;
       case "settings":
         return <SettingsPage language={language} />;
       default:

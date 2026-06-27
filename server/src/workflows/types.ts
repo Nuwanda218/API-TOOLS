@@ -1,12 +1,32 @@
 export type WorkflowType = "api-workflow" | "model-test";
-export type WorkflowStepType = "llm.chat";
+export type WorkflowStepType = "llm.chat" | "endpoint.call" | "mcp.call";
 
-export interface WorkflowStepDefinition {
+export interface LlmChatStepDefinition {
   id: string;
-  type: WorkflowStepType;
-  modelId?: string;
+  type: "llm.chat";
+  modelId: string;
   input: Record<string, unknown>;
 }
+
+export interface EndpointCallStepDefinition {
+  id: string;
+  type: "endpoint.call";
+  endpointId: string;
+  input: Record<string, unknown>;
+}
+
+export interface McpCallStepDefinition {
+  id: string;
+  type: "mcp.call";
+  mcpServerId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+}
+
+export type WorkflowStepDefinition =
+  | LlmChatStepDefinition
+  | EndpointCallStepDefinition
+  | McpCallStepDefinition;
 
 export interface RunWorkflowInput {
   sessionId?: string;

@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 import dotenv from "dotenv";
 import { ProviderError } from "../errors/providerError.js";
 
+const DEFAULT_MCP_ALLOWED_COMMANDS = ["npx", "node"];
+
 export function findLocalEnvPath(startDirectory = process.cwd()) {
   let current = startDirectory;
 
@@ -31,4 +33,16 @@ export function getRequiredApiKey(apiKeyEnv: string, env: NodeJS.ProcessEnv = pr
   }
 
   return value;
+}
+
+export function getAllowedMcpCommands(env: NodeJS.ProcessEnv = process.env): string[] {
+  const configured = env.MCP_ALLOWED_COMMANDS;
+  if (!configured) return DEFAULT_MCP_ALLOWED_COMMANDS;
+
+  const commands = configured
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  return commands.length > 0 ? commands : DEFAULT_MCP_ALLOWED_COMMANDS;
 }

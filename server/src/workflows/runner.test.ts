@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ApiInvocation } from "../apiProtocol/types.js";
 import type { AdapterRegistry, ModelAdapter } from "../adapters/types.js";
+import { createEndpointRepository } from "../endpoints/endpointRepository.js";
+import { createMcpServerRepository } from "../mcp/mcpServerRepository.js";
 import { createModelRepository } from "../providers/modelRepository.js";
 import { createProviderRepository } from "../providers/providerRepository.js";
 import { createTestDatabase } from "../test/testDb.js";
@@ -106,6 +109,250 @@ describe("workflowRunner", () => {
         output_preview: "Hello from model",
         input_tokens: 10,
         output_tokens: 4
+      })
+    ]);
+
+    db.close();
+  });
+
+  it("resolves workflow input and previous step outputs in later step inputs", async () => {
+    const db = createTestDatabase();
+    const providers = createProviderRepository(db);
+    const models = createModelRepository(db);
+    const provider = providers.create({
+      name: "Custom",
+      type: "openai-compatible",
+      baseUrl: "https://example.test/v1",
+      apiKeyEnv: "CUSTOM_KEY",
+      enabled: true
+    });
+    const model = models.create({
+      providerId: provider.id,
+      displayName: "Fast Chat",
+      modelId: "fast-chat",
+      capability: "chat",
+      enabled: true,
+      defaultParams: {},
+      pricing: {}
+    });
+    const invoke = vi.fn(async (request: ApiInvocation) => {
+      const messages = request.input.messages as Array<{ content: string }> | undefined;
+      const message = messages?.[0]?.content ?? "";
+      return {
+        ok: true as const,
+        data: { content: message === "Find weather" ? "weather keyword" : `final: ${message}` },
+        latencyMs: 12,
+        usage: {}
+      };
+    });
+    const adapterRegistry: AdapterRegistry = {
+      getModelAdapter: vi.fn(() => ({
+        listModels: async () => [],
+        testModel: async () => ({ ok: true as const, latencyMs: 1, message: "ok", usage: {} }),
+        runChat: async () => ({ content: "unused", latencyMs: 1, usage: {} })
+      })),
+      invoke
+    };
+    const runner = createWorkflowRunner(db, {
+      adapterRegistry,
+      env: { CUSTOM_KEY: "secret" }
+    });
+
+    const result = await runner.runWorkflow({
+      workflowType: "api-workflow",
+      input: { message: "Find weather", locale: "English" },
+      steps: [
+        {
+          id: "extract",
+          type: "llm.chat",
+          modelId: model.id,
+          input: { message: "{{input.message}}" }
+        },
+        {
+          id: "summarize",
+          type: "llm.chat",
+          modelId: model.id,
+          input: { message: "Summarize {{steps.extract.outputs.content}} in {{input.locale}}" }
+        }
+      ]
+    });
+
+    expect(result.outputs.extract).toEqual({ content: "weather keyword" });
+    expect(result.outputs.summarize).toEqual({ content: "final: Summarize weather keyword in English" });
+    expect(invoke).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      input: { messages: [{ role: "user", content: "Summarize weather keyword in English" }] }
+    }));
+
+    const runSteps = db.prepare("select step_index, input_preview, output_preview from run_steps order by step_index asc").all<{
+      step_index: number;
+      input_preview: string;
+      output_preview: string;
+    }>();
+    expect(runSteps).toEqual([
+      expect.objectContaining({ step_index: 0, input_preview: "Find weather", output_preview: "weather keyword" }),
+      expect.objectContaining({
+        step_index: 1,
+        input_preview: "Summarize weather keyword in English",
+        output_preview: "final: Summarize weather keyword in English"
+      })
+    ]);
+
+    db.close();
+  });
+
+  it("runs an endpoint.call workflow step and records endpoint output", async () => {
+    const db = createTestDatabase();
+    const providers = createProviderRepository(db);
+    const endpoints = createEndpointRepository(db);
+    const provider = providers.create({
+      name: "Custom",
+      type: "openai-compatible",
+      baseUrl: "https://example.test/v1",
+      apiKeyEnv: "CUSTOM_KEY",
+      enabled: true
+    });
+    const endpoint = endpoints.create({
+      providerId: provider.id,
+      name: "Echo",
+      operationId: "http.request",
+      method: "POST",
+      path: "/echo",
+      bodyTemplate: { prompt: "{{input.prompt}}" }
+    });
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { prompt?: string };
+      return new Response(JSON.stringify({ received: body.prompt }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    });
+    const adapterRegistry: AdapterRegistry = {
+      getModelAdapter: vi.fn(() => ({
+        listModels: async () => [],
+        testModel: async () => ({ ok: true as const, latencyMs: 1, message: "ok", usage: {} }),
+        runChat: async () => ({ content: "unused", latencyMs: 1, usage: {} })
+      })),
+      invoke: vi.fn()
+    };
+    const runner = createWorkflowRunner(db, {
+      adapterRegistry,
+      env: { CUSTOM_KEY: "secret" },
+      endpointFetch: fetchMock
+    });
+
+    const result = await runner.runWorkflow({
+      workflowType: "api-workflow",
+      input: { message: "Hello endpoint" },
+      steps: [
+        {
+          id: "echo",
+          type: "endpoint.call",
+          endpointId: endpoint.id,
+          input: { prompt: "{{input.message}}" }
+        }
+      ]
+    });
+
+    expect(result.outputs.echo).toEqual({
+      body: { received: "Hello endpoint" },
+      statusCode: 200
+    });
+    expect(fetchMock).toHaveBeenCalledWith("https://example.test/v1/echo", expect.objectContaining({
+      method: "POST",
+      headers: expect.objectContaining({ authorization: "Bearer secret" }),
+      body: JSON.stringify({ prompt: "Hello endpoint" })
+    }));
+
+    const runSteps = db.prepare("select * from run_steps").all<{
+      step_type: string;
+      provider_id: string | null;
+      model_id: string | null;
+      endpoint_id: string | null;
+      status: string;
+      input_preview: string;
+      output_preview: string;
+    }>();
+    expect(runSteps).toEqual([
+      expect.objectContaining({
+        step_type: "endpoint.call",
+        provider_id: provider.id,
+        model_id: null,
+        endpoint_id: endpoint.id,
+        status: "succeeded",
+        input_preview: "{\"prompt\":\"Hello endpoint\"}",
+        output_preview: "{\"statusCode\":200,\"bodyPreview\":{\"received\":\"Hello endpoint\"}}"
+      })
+    ]);
+
+    db.close();
+  });
+
+  it("runs an mcp.call workflow step and records MCP trace fields", async () => {
+    const db = createTestDatabase();
+    const mcpServers = createMcpServerRepository(db);
+    const mcpServer = mcpServers.create({
+      name: "Filesystem",
+      command: "npx",
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "F:\\tmp"],
+      env: { ROOT: "F:\\tmp" }
+    });
+    const mcpManager = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      listTools: vi.fn().mockResolvedValue([]),
+      callTool: vi.fn().mockResolvedValue({
+        ok: true,
+        content: [{ type: "text", text: "file content" }],
+        isError: false,
+        latencyMs: 9
+      }),
+      disconnect: vi.fn().mockResolvedValue(true)
+    };
+    const runner = createWorkflowRunner(db, {
+      adapterRegistry: createNoopAdapterRegistry(),
+      env: {},
+      mcpManager
+    });
+
+    const result = await runner.runWorkflow({
+      workflowType: "api-workflow",
+      input: { message: "Read package", path: "package.json" },
+      steps: [
+        {
+          id: "read",
+          type: "mcp.call",
+          mcpServerId: mcpServer.id,
+          toolName: "read_file",
+          input: { path: "{{input.path}}" }
+        }
+      ]
+    });
+
+    expect(mcpManager.connect).toHaveBeenCalledWith(expect.objectContaining({ id: mcpServer.id }));
+    expect(mcpManager.callTool).toHaveBeenCalledWith(mcpServer.id, "read_file", { path: "package.json" });
+    expect(result.outputs.read).toEqual({
+      content: [{ type: "text", text: "file content" }],
+      isError: false
+    });
+    expect(result.run.status).toBe("succeeded");
+
+    const runSteps = db.prepare("select * from run_steps").all<{
+      step_type: string;
+      mcp_server_id: string | null;
+      mcp_tool_name: string | null;
+      status: string;
+      input_preview: string;
+      output_preview: string;
+      latency_ms: number;
+    }>();
+    expect(runSteps).toEqual([
+      expect.objectContaining({
+        step_type: "mcp.call",
+        mcp_server_id: mcpServer.id,
+        mcp_tool_name: "read_file",
+        status: "succeeded",
+        input_preview: "{\"path\":\"package.json\"}",
+        output_preview: "[{\"type\":\"text\",\"text\":\"file content\"}]",
+        latency_ms: 9
       })
     ]);
 
@@ -221,3 +468,14 @@ describe("workflowRunner", () => {
     db.close();
   });
 });
+
+function createNoopAdapterRegistry(): AdapterRegistry {
+  return {
+    getModelAdapter: vi.fn(() => ({
+      listModels: async () => [],
+      testModel: async () => ({ ok: true as const, latencyMs: 1, message: "ok", usage: {} }),
+      runChat: async () => ({ content: "unused", latencyMs: 1, usage: {} })
+    })),
+    invoke: vi.fn()
+  };
+}

@@ -9,3 +9,5 @@ dist/
 .claude/settings.local.json
 coverage/
 client/.vite-dev*.log
+docs/superpowers/plans/
+docs/superpowers/specs/operations/

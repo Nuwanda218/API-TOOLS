@@ -11,10 +11,13 @@ import { createConfigurationRouter } from "./routes/configuration.js";
 import { createEndpointsRouter } from "./routes/endpoints.js";
 import { createHealthRouter } from "./routes/health.js";
 import { createModelsRouter } from "./routes/models.js";
+import { createMcpServersRouter } from "./routes/mcpServers.js";
 import { createProvidersRouter } from "./routes/providers.js";
 import { createRunsRouter } from "./routes/runs.js";
+import { createSkillsRouter } from "./routes/skills.js";
 import { createUsageRouter } from "./routes/usage.js";
 import { createWorkflowsRouter } from "./routes/workflows.js";
+import { McpClientManager, type McpManagerLike } from "./mcp/client.js";
 
 export interface AppDependencies {
   db: AppDatabase;
@@ -22,6 +25,7 @@ export interface AppDependencies {
   envPath?: string;
   adapterRegistry?: AdapterRegistry;
   endpointFetch?: typeof fetch;
+  mcpManager?: McpManagerLike;
 }
 
 export function createApp(dependencies: AppDependencies) {
@@ -30,6 +34,7 @@ export function createApp(dependencies: AppDependencies) {
   const env = dependencies.env ?? process.env;
   const envPath = dependencies.envPath ?? ".env";
   const adapterRegistry = dependencies.adapterRegistry ?? createAdapterRegistry();
+  const mcpManager = dependencies.mcpManager ?? new McpClientManager();
 
   app.use(cors({ origin: "http://127.0.0.1:5173" }));
   app.use(express.json({ limit: "2mb" }));
@@ -42,10 +47,19 @@ export function createApp(dependencies: AppDependencies) {
     adapterRegistry
   }));
   app.use("/api/models", createModelsRouter(db, { env, adapterRegistry }));
+  app.use("/api/mcp-servers", createMcpServersRouter(db, { env, mcpManager }));
+  app.use("/api/skills", createSkillsRouter(db, {
+    env,
+    adapterRegistry,
+    endpointFetch: dependencies.endpointFetch,
+    mcpManager
+  }));
   app.use("/api/runs", createRunsRouter(db));
   app.use("/api/workflows", createWorkflowsRouter(db, {
     env,
-    adapterRegistry
+    adapterRegistry,
+    endpointFetch: dependencies.endpointFetch,
+    mcpManager
   }));
   app.use("/api/usage", createUsageRouter(db));
   app.use(errorHandler);

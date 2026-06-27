@@ -125,6 +125,94 @@ describe("run routes", () => {
     db.close();
   });
 
+  it("lists endpoint.call trace steps with endpoint ids", async () => {
+    const db = createTestDatabase();
+    const app = createApp({ db });
+    const providerResponse = await request(app).post("/api/providers").send({
+      name: "Custom",
+      type: "openai-compatible",
+      baseUrl: "https://example.test/v1",
+      apiKeyEnv: "CUSTOM_KEY",
+      enabled: true
+    });
+    const endpointResponse = await request(app).post("/api/endpoints").send({
+      providerId: providerResponse.body.id,
+      name: "Echo",
+      operationId: "http.request",
+      method: "POST",
+      path: "/echo",
+      bodyTemplate: { prompt: "{{input.prompt}}" },
+      enabled: true
+    });
+    const now = "2026-06-23T08:00:00.000Z";
+
+    db.prepare(`
+      insert into sessions (id, title, workflow_type, created_at, updated_at)
+      values ('session-endpoint', 'Endpoint workflow', 'api-workflow', @now, @now)
+    `).run({ now });
+    db.prepare(`
+      insert into runs (id, session_id, workflow_type, status, started_at, ended_at)
+      values ('run-endpoint', 'session-endpoint', 'api-workflow', 'succeeded', @now, @now)
+    `).run({ now });
+    db.prepare(`
+      insert into run_steps (
+        id,
+        run_id,
+        step_index,
+        step_type,
+        provider_id,
+        model_id,
+        endpoint_id,
+        status,
+        input_preview,
+        output_preview,
+        latency_ms,
+        cost_estimate,
+        created_at,
+        updated_at
+      )
+      values (
+        'step-endpoint',
+        'run-endpoint',
+        0,
+        'endpoint.call',
+        @providerId,
+        null,
+        @endpointId,
+        'succeeded',
+        '{"prompt":"Hello"}',
+        '{"received":"Hello"}',
+        12,
+        0,
+        @now,
+        @now
+      )
+    `).run({
+      providerId: providerResponse.body.id,
+      endpointId: endpointResponse.body.id,
+      now
+    });
+
+    const response = await request(app).get("/api/runs/run-endpoint");
+
+    expect(response.status).toBe(200);
+    expect(response.body.steps).toEqual([
+      expect.objectContaining({
+        id: "step-endpoint",
+        stepType: "endpoint.call",
+        providerId: providerResponse.body.id,
+        modelId: null,
+        endpointId: endpointResponse.body.id,
+        inputPreview: '{"prompt":"Hello"}',
+        outputPreview: '{"received":"Hello"}',
+        latencyMs: 12,
+        costEstimate: 0
+      })
+    ]);
+
+    db.close();
+  });
+
   it("returns 404 for missing runs", async () => {
     const db = createTestDatabase();
     const app = createApp({ db });

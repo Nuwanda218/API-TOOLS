@@ -96,6 +96,48 @@ export interface TestEndpointResponse {
   latencyMs: number;
 }
 
+export type McpTransport = "stdio";
+
+export interface McpServerRecord {
+  id: string;
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  enabled: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateMcpServerInput {
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  enabled: boolean;
+}
+
+export interface McpToolRecord {
+  name: string;
+  title?: string;
+  description?: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface ListMcpToolsResponse {
+  ok: true;
+  serverId: string;
+  tools: McpToolRecord[];
+}
+
+export interface TestMcpServerResponse {
+  ok: true;
+  serverId: string;
+  toolCount: number;
+}
+
 export interface CreateModelInput {
   providerId: string;
   displayName: string;
@@ -137,8 +179,11 @@ export interface RunStepRecord {
   runId: string;
   stepIndex: number;
   stepType: string;
-  providerId: string;
-  modelId: string;
+  providerId: string | null;
+  modelId: string | null;
+  endpointId: string | null;
+  mcpServerId: string | null;
+  mcpToolName: string | null;
   status: "running" | "succeeded" | "failed";
   inputPreview: string;
   outputPreview: string | null;
@@ -166,12 +211,15 @@ export interface RunRecord {
   steps: RunStepRecord[];
 }
 
-export type WorkflowStepType = "llm.chat";
+export type WorkflowStepType = "llm.chat" | "endpoint.call" | "mcp.call";
 
 export interface WorkflowStepDefinition {
   id: string;
   type: WorkflowStepType;
   modelId?: string;
+  endpointId?: string;
+  mcpServerId?: string;
+  toolName?: string;
   input: Record<string, unknown>;
 }
 
@@ -188,11 +236,33 @@ export interface RunWorkflowResponse {
   outputs: Record<string, Record<string, unknown>>;
 }
 
+export type SkillParameterType = "model" | "mcpServer" | "endpoint" | "text";
+
+export interface SkillParameterRecord {
+  key: string;
+  label: Record<"zh-CN" | "en", string>;
+  required: boolean;
+  type: SkillParameterType;
+}
+
+export interface SkillTemplateRecord {
+  id: string;
+  name: Record<"zh-CN" | "en", string>;
+  description: Record<"zh-CN" | "en", string>;
+  parameters: SkillParameterRecord[];
+  steps: WorkflowStepDefinition[];
+  builtin: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ExportedConfiguration {
-  version: 1;
+  version: 1 | 2;
   providers: Array<Omit<ProviderRecord, "createdAt" | "updatedAt">>;
   models: Array<Omit<ModelRecord, "createdAt" | "updatedAt">>;
   endpoints: Array<Omit<EndpointRecord, "createdAt" | "updatedAt">>;
+  mcpServers: Array<Omit<McpServerRecord, "createdAt" | "updatedAt">>;
+  skills: Array<Omit<SkillTemplateRecord, "createdAt" | "updatedAt">>;
   missingApiKeyEnvs: string[];
 }
 
@@ -201,5 +271,7 @@ export interface ImportConfigurationResponse {
     providers: number;
     models: number;
     endpoints: number;
+    mcpServers: number;
+    skills: number;
   };
 }

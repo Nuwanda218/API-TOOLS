@@ -791,6 +791,138 @@ button {
   grid-template-columns: minmax(140px, 1fr) 70px minmax(140px, 1fr) 90px 74px 74px;
 }
 
+.resource-list {
+  overflow: hidden;
+}
+
+.resource-card {
+  align-items: center;
+  border-bottom: 1px solid #edf1f5;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 74px;
+  padding: 12px 16px;
+}
+
+.resource-card:last-child {
+  border-bottom: 0;
+}
+
+.resource-card.selected {
+  background: #f7fbfa;
+}
+
+.resource-card-main {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.resource-card-main strong,
+.tool-card h3 {
+  color: #111827;
+  font-size: 14px;
+  margin: 0;
+}
+
+.resource-card-main span {
+  color: #607085;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.resource-card-main code,
+.tool-panel code {
+  background: #f4f7fa;
+  border: 1px solid #e1e8ef;
+  border-radius: 6px;
+  color: #26384d;
+  font-size: 12px;
+  font-weight: 800;
+  justify-self: start;
+  padding: 2px 6px;
+}
+
+.card-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.card-actions button {
+  align-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.card-actions button:not(.inline-action) {
+  background: #18222d;
+  border: 1px solid #18222d;
+  color: #ffffff;
+}
+
+.card-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.tool-panel {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+}
+
+.tool-panel > .muted {
+  border-bottom: 1px solid #edf1f5;
+  color: #607085;
+  font-size: 13px;
+  margin: 0;
+  padding: 12px 16px;
+}
+
+.tool-card {
+  border-bottom: 1px solid #edf1f5;
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.tool-card:last-child {
+  border-bottom: 0;
+}
+
+.tool-card p {
+  color: #607085;
+  font-size: 13px;
+  margin: 0;
+}
+
+.tool-card pre {
+  background: #f7f9fb;
+  border: 1px solid #e1e8ef;
+  border-radius: 8px;
+  color: #1d2938;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  overflow-x: auto;
+  padding: 10px;
+}
+
 .panel-editor {
   border-bottom: 1px solid #edf1f5;
   color: #526174;
@@ -835,6 +967,32 @@ button {
   line-height: 1.45;
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.trace-details {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.trace-details div {
+  display: grid;
+  gap: 3px;
+}
+
+.trace-details dt {
+  color: #66778a;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.trace-details dd {
+  color: #405166;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .trace-step code {
@@ -894,6 +1052,72 @@ button {
 
 .workflow-form {
   align-self: start;
+}
+
+.workflow-builder-page {
+  grid-template-columns: minmax(320px, 0.78fr) minmax(0, 1.22fr);
+}
+
+.builder-resource-strip {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.builder-resource-strip span {
+  background: #f4f7fa;
+  border: 1px solid #e1e8ef;
+  border-radius: 8px;
+  color: #26384d;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 8px 10px;
+}
+
+.builder-step-list {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.builder-step-card {
+  background: #fbfcfd;
+  border: 1px solid #dce4eb;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.builder-step-card h3 {
+  color: #111827;
+  font-size: 14px;
+  margin: 0;
+}
+
+.builder-step-card label {
+  color: #526174;
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 7px;
+}
+
+.builder-step-card input,
+.builder-step-card select,
+.builder-step-card textarea {
+  background: #ffffff;
+  border: 1px solid #cfd8e2;
+  border-radius: 8px;
+  color: #111827;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.builder-step-card textarea {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  line-height: 1.5;
+  resize: vertical;
 }
 
 .chat-transcript {
