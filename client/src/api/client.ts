@@ -26,14 +26,16 @@ import type {
 export class ApiClientError extends Error {
   public readonly code: string;
   public readonly providerMessage?: string;
+  public readonly suggestion?: string;
   public readonly statusCode: number;
   public readonly log: string;
 
-  constructor(input: { code: string; message: string; providerMessage?: string; statusCode: number }) {
+  constructor(input: { code: string; message: string; providerMessage?: string; suggestion?: string; statusCode: number }) {
     super(input.message);
     this.name = "ApiClientError";
     this.code = input.code;
     this.providerMessage = input.providerMessage;
+    this.suggestion = input.suggestion;
     this.statusCode = input.statusCode;
     this.log = [input.code, input.message].filter(Boolean).join(": ");
     if (input.providerMessage) {
@@ -73,8 +75,9 @@ async function readApiError(response: Response) {
           ? body.error
           : `Request failed: ${response.status}`;
     const providerMessage = typeof body?.providerMessage === "string" ? body.providerMessage : undefined;
+    const suggestion = typeof body?.suggestion === "string" ? body.suggestion : undefined;
     const statusCode = typeof body?.statusCode === "number" ? body.statusCode : response.status;
-    return new ApiClientError({ code, message, providerMessage, statusCode });
+    return new ApiClientError({ code, message, providerMessage, suggestion, statusCode });
   } catch {
     return new ApiClientError({
       code: "request_failed",
