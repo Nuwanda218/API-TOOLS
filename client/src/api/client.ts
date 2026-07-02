@@ -15,6 +15,8 @@ import type {
   RunWorkflowResponse,
   RunRecord,
   SaveApiKeyInput,
+  SessionDetail,
+  SessionListItem,
   SkillTemplateRecord,
   TestEndpointResponse,
   TestMcpServerResponse,
@@ -241,6 +243,25 @@ export const apiClient = {
       method: "POST",
       body: JSON.stringify({ parameters })
     });
+  },
+
+  listSessions() {
+    return requestJson<SessionListItem[]>("/api/sessions");
+  },
+
+  getSession(sessionId: string) {
+    return requestJson<SessionDetail>(`/api/sessions/${sessionId}`);
+  },
+
+  createSession(input: { title: string; workflowType: string }) {
+    return requestJson<SessionListItem>("/api/sessions", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+
+  deleteSession(sessionId: string) {
+    return requestJson<void>(`/api/sessions/${sessionId}`, { method: "DELETE" });
   },
 
   exportConfiguration() {

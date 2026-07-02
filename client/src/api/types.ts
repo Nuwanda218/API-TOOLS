@@ -275,3 +275,25 @@ export interface ImportConfigurationResponse {
     skills: number;
   };
 }
+
+export interface SessionListItem {
+  id: string;
+  title: string;
+  workflowType: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
+export interface SessionMessage {
+  id: string;
+  role: "user" | "assistant" | "system" | "tool";
+  content: string;
+  modelId: string | null;
+  runId: string | null;
+  createdAt: string;
+}
+
+export interface SessionDetail extends SessionListItem {
+  messages: SessionMessage[];
+}
