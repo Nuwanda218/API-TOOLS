@@ -672,6 +672,17 @@ button {
   margin-top: 6px;
 }
 
+.notification-suggestion {
+  background: #f5f8fb;
+  border-radius: 4px;
+  color: #3d5a80;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.45;
+  margin-top: 6px;
+  padding: 6px 8px;
+}
+
 .notification-toast button {
   background: transparent;
   border: 0;
@@ -1047,7 +1058,253 @@ button {
 }
 
 .workbench-page {
-  grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.18fr);
+  grid-template-columns: 220px minmax(0, 1fr) 280px;
+  gap: 0;
+  padding: 0;
+}
+
+.session-list {
+  background: #f8fafb;
+  border-right: 1px solid #e0e5eb;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 0;
+}
+
+.session-list .panel-heading {
+  padding: 0 16px 12px;
+}
+
+.session-new-btn {
+  background: transparent;
+  border: 1px dashed #c4cdd8;
+  border-radius: 6px;
+  color: #2eac8c;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 12px 8px;
+  padding: 8px;
+  transition: border-color 120ms ease;
+}
+
+.session-new-btn:hover {
+  border-color: #2eac8c;
+}
+
+.session-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 0 8px;
+}
+
+.session-item {
+  align-items: center;
+  border-radius: 6px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  transition: background 80ms ease;
+}
+
+.session-item:hover {
+  background: #edf1f5;
+}
+
+.session-item.active {
+  background: #e4f0ec;
+}
+
+.session-select {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.session-select strong {
+  color: #17202a;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-select small {
+  color: #8899a6;
+  font-size: 11px;
+}
+
+.session-delete {
+  background: transparent;
+  border: 0;
+  color: #8899a6;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 10px;
+}
+
+.session-delete:hover {
+  color: #c84d3f;
+}
+
+.workbench-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 20px 24px;
+}
+
+.workbench-chat .page-heading {
+  flex-shrink: 0;
+}
+
+.workbench-chat .chat-transcript {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.chat-input-bar {
+  border-top: 1px solid #e0e5eb;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto 1fr auto;
+  align-items: end;
+  padding: 12px 0 0;
+  flex-shrink: 0;
+}
+
+.chat-input-bar select {
+  background: #f5f8fb;
+  border: 1px solid #d0d8e0;
+  border-radius: 6px;
+  color: #17202a;
+  font-size: 13px;
+  padding: 8px 10px;
+  max-width: 180px;
+}
+
+.chat-input-bar textarea {
+  background: #ffffff;
+  border: 1px solid #d0d8e0;
+  border-radius: 6px;
+  color: #17202a;
+  font-family: inherit;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 8px 12px;
+  resize: none;
+}
+
+.chat-input-bar button {
+  background: #2eac8c;
+  border: 0;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 16px;
+}
+
+.chat-input-bar button:disabled {
+  background: #b0c4b8;
+  cursor: not-allowed;
+}
+
+.run-detail-panel {
+  background: #f8fafb;
+  border-left: 1px solid #e0e5eb;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.run-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.run-detail-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.run-detail-row {
+  align-items: center;
+  border-bottom: 1px solid #edf1f5;
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.run-detail-row:last-child {
+  border-bottom: 0;
+}
+
+.run-detail-row span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.run-detail-row strong {
+  color: #17202a;
+  font-size: 13px;
+}
+
+.run-status-badge {
+  border-radius: 999px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  padding: 3px 8px;
+}
+
+.run-status-badge.succeeded {
+  background: #edf7f4;
+  color: #1f6b58;
+}
+
+.run-status-badge.failed {
+  background: #fef2f0;
+  color: #9a3412;
+}
+
+.run-status-badge.running {
+  background: #eef4fc;
+  color: #2563eb;
+}
+
+.trace-error {
+  background: #fef2f0;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.trace-error code {
+  color: #9a3412;
+  font-size: 12px;
+}
+
+.trace-error p {
+  color: #6b4c41;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 4px 0 0;
 }
 
 .workflow-form {
@@ -1254,6 +1511,16 @@ button {
 
   .workbench-page {
     grid-template-columns: 1fr;
+    padding: 0;
+  }
+
+  .workbench-page .session-list,
+  .workbench-page .run-detail-panel {
+    display: none;
+  }
+
+  .workbench-chat {
+    padding: 16px;
   }
 
   .status-strip,

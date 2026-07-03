@@ -39,7 +39,10 @@ const copy = {
     noRuns: "还没有运行记录。去工作台发送一条消息，或测试一个模型。",
     emptyUsage: "运行一次工作流或测试后，这里会显示用量统计。",
     adapterList: "适配器格式",
-    healthCheck: "健康检查"
+    healthCheck: "健康检查",
+    subtitle: "查看 API 接入、模型、Endpoint 和运行记录的汇总状态。",
+    recentRuns: "最近运行",
+    viewAll: "查看全部"
   },
   en: {
     title: "Overview",
@@ -61,7 +64,10 @@ const copy = {
     noRuns: "No runs yet. Send a message in Workbench or test a model.",
     emptyUsage: "Usage stats appear after running a workflow or testing a model.",
     adapterList: "Adapter formats",
-    healthCheck: "Health check"
+    healthCheck: "Health check",
+    subtitle: "Overview of connected APIs, models, endpoints, and run records.",
+    recentRuns: "Recent Runs",
+    viewAll: "View all"
   }
 } satisfies Record<LanguageKey, Record<string, string>>;
 
@@ -105,7 +111,7 @@ export function DashboardPage({ api, language = "zh-CN" }: DashboardPageProps) {
       <section className="page-heading">
         <span className="module-badge">overview</span>
         <h1>{t.title}</h1>
-        <p>查看 API 接入、模型、Endpoint 和运行记录的汇总状态。</p>
+        <p>{t.subtitle}</p>
       </section>
 
       {error && <p className="panel-status error">{error}</p>}
@@ -179,11 +185,11 @@ export function DashboardPage({ api, language = "zh-CN" }: DashboardPageProps) {
 
       {/* Recent runs */}
       {runs.length > 0 && (
-        <section className="dashboard-panel" aria-label="最近运行">
+        <section className="dashboard-panel" aria-label={t.recentRuns}>
           <div className="panel-heading">
-            <h2>最近运行</h2>
+            <h2>{t.recentRuns}</h2>
             <a className="panel-link" href="#/runs">
-              查看全部
+              {t.viewAll}
             </a>
           </div>
           <div className="record-list">

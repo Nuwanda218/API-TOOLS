@@ -6,6 +6,7 @@ interface NotificationInput {
   title: string;
   detail?: string;
   code?: string;
+  suggestion?: string;
 }
 
 interface NotificationRecord extends NotificationInput {
@@ -58,6 +59,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
               <strong>{notification.title}</strong>
               {notification.code && <code>{notification.code}</code>}
               {notification.detail && <p>{notification.detail}</p>}
+              {notification.suggestion && <p className="notification-suggestion">{notification.suggestion}</p>}
             </div>
             <button type="button" aria-label={`关闭 ${notification.title}`} onClick={() => dismiss(notification.id)}>
               x

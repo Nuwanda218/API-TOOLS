@@ -28,8 +28,7 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("button", { name: "工作台" }));
 
     expect(screen.getByRole("heading", { name: "工作台" })).toBeInTheDocument();
-    expect(screen.getByText("单步工作流")).toBeInTheDocument();
-    expect(screen.getByLabelText("消息")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("输入要发送给模型的内容")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "用量检测" }));
 

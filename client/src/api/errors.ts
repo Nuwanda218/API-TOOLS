@@ -11,7 +11,8 @@ export function formatErrorNotification(error: unknown, fallbackTitle: string) {
     return {
       title: error.message || fallbackTitle,
       code: error.code,
-      detail: error.log
+      detail: error.log,
+      suggestion: error.suggestion
     };
   }
 
