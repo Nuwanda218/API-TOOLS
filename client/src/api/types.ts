@@ -297,3 +297,64 @@ export interface SessionMessage {
 export interface SessionDetail extends SessionListItem {
   messages: SessionMessage[];
 }
+
+export type UsageRange = "today" | "7d" | "30d" | "all";
+
+export interface UsageSummary {
+  requestCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCost: number;
+  errorCount: number;
+  averageLatencyMs: number | null;
+}
+
+export interface UsageGroupRow {
+  id: string | null;
+  name: string;
+  requestCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+  errorCount: number;
+  averageLatencyMs: number | null;
+}
+
+export interface UsageTrendPoint {
+  date: string;
+  requestCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCost: number;
+  errorCount: number;
+  averageLatencyMs: number | null;
+}
+
+export interface UsageStepRow {
+  id: string;
+  runId: string;
+  createdAt: string;
+  status: "running" | "succeeded" | "failed";
+  stepType: string;
+  providerName: string | null;
+  modelName: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  costEstimate: number | null;
+  latencyMs: number | null;
+  errorCode: string | null;
+}
+
+export interface UsageDashboard {
+  summary: UsageSummary;
+  filters: {
+    range: UsageRange;
+    providerId?: string;
+    modelId?: string;
+  };
+  byProvider: UsageGroupRow[];
+  byModel: UsageGroupRow[];
+  trend: UsageTrendPoint[];
+  recentSteps: UsageStepRow[];
+}

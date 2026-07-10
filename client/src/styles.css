@@ -434,6 +434,208 @@ button {
   background: #c98b2c;
 }
 
+/* Usage Dashboard */
+.usage-dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.usage-dashboard-page.usage-stale .dashboard-stats,
+.usage-dashboard-page.usage-stale .operation-panel {
+  opacity: 0.6;
+  transition: opacity 150ms ease;
+}
+
+.usage-filter-bar {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.usage-range-tabs {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.usage-range-tabs button {
+  background: transparent;
+  border: 1px solid #d0d8e0;
+  border-radius: 6px;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  transition: background 100ms ease, color 100ms ease;
+}
+
+.usage-range-tabs button:hover {
+  background: #edf1f5;
+}
+
+.usage-range-tabs button.active {
+  background: #2eac8c;
+  border-color: #2eac8c;
+  color: #ffffff;
+}
+
+.usage-filter-bar select {
+  background: #ffffff;
+  border: 1px solid #d0d8e0;
+  border-radius: 6px;
+  color: #17202a;
+  font-size: 13px;
+  padding: 6px 10px;
+  min-width: 140px;
+}
+
+.stat-card-warn strong {
+  color: #c98b2c;
+}
+
+.usage-trend-bars {
+  align-items: flex-end;
+  display: flex;
+  gap: 2px;
+  min-height: 120px;
+  padding: 12px 4px 24px;
+}
+
+.usage-bar-item {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  height: 100%;
+  justify-content: flex-end;
+  min-height: 96px;
+  position: relative;
+}
+
+.usage-bar {
+  background: #2eac8c;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  width: 100%;
+  max-width: 24px;
+  transition: background 100ms ease;
+}
+
+.usage-bar:hover {
+  background: #228b6e;
+}
+
+.usage-bar-date {
+  bottom: 0;
+  color: #8899a6;
+  font-size: 10px;
+  font-weight: 600;
+  position: absolute;
+  text-align: center;
+  white-space: nowrap;
+  writing-mode: vertical-lr;
+}
+
+.usage-stats-tabs {
+  border-bottom: 1px solid #e0e5eb;
+  display: flex;
+  gap: 0;
+  padding: 0 16px;
+}
+
+.usage-stats-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 16px;
+  transition: color 100ms ease, border-color 100ms ease;
+}
+
+.usage-stats-tabs button.active {
+  border-bottom-color: #2eac8c;
+  color: #2eac8c;
+}
+
+.usage-stats-tabs button:hover {
+  color: #17202a;
+}
+
+.usage-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: 100%;
+}
+
+.usage-table th {
+  border-bottom: 1px solid #e0e5eb;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 10px 12px;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.usage-table th:first-child {
+  text-align: left;
+}
+
+.usage-table td {
+  border-bottom: 1px solid #f0f2f5;
+  color: #17202a;
+  padding: 10px 12px;
+  text-align: right;
+}
+
+.usage-table td:first-child {
+  color: #17202a;
+  font-weight: 700;
+  text-align: left;
+}
+
+.usage-error-cell {
+  color: #9a3412;
+  font-weight: 800;
+}
+
+.usage-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto 80px 100px 64px 64px 80px 72px;
+  padding: 8px 0;
+}
+
+.usage-row strong {
+  color: #17202a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.usage-row span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.usage-row code {
+  background: #fef2f0;
+  border-radius: 4px;
+  color: #9a3412;
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.run-status-badge.running {
+  background: #eef4fc;
+  color: #2563eb;
+}
+
 .operation-panel {
   overflow: hidden;
 }
