@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import initSqlJs, { type Database as SqlJsDatabase, type SqlJsStatic, type SqlValue } from "sql.js";
 import { applySchema } from "./schema.js";
 
-type AppNamedParams = Record<string, SqlValue>;
+export type AppNamedParams = Record<string, SqlValue>;
 type AppStatementParams = SqlValue[] | [AppNamedParams];
 
 export interface AppStatement {

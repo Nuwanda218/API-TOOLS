@@ -22,6 +22,8 @@ import type {
   TestMcpServerResponse,
   TestModelInput,
   TestModelResponse,
+  UsageDashboard,
+  UsageRange,
   UsageSummary
 } from "./types";
 
@@ -217,6 +219,14 @@ export const apiClient = {
 
   getUsageSummary() {
     return requestJson<UsageSummary>("/api/usage/summary");
+  },
+
+  getUsageDashboard(range: UsageRange = "all", providerId?: string, modelId?: string) {
+    const params = new URLSearchParams();
+    params.set("range", range);
+    if (providerId) params.set("providerId", providerId);
+    if (modelId) params.set("modelId", modelId);
+    return requestJson<UsageDashboard>(`/api/usage/dashboard?${params}`);
   },
 
   listRuns() {
